@@ -1,6 +1,6 @@
 {
   "name": "manual-maker",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Team skill that turns a web system into a user handbook — structured intake, doc-coauthoring drafting, optional Playwright screenshots, and Confluence/PDF/docx/web export.",
   "author": {
     "name": "Thitic9203"

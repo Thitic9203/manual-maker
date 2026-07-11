@@ -34,6 +34,18 @@ Standard structure, quality rules, and final-review checklist for every user man
 - Use the **locked term** for each concept **everywhere** — e.g. if "ผู้เรียน" is chosen, never use "นักเรียน" / "นร." / "ผู้ใช้" interchangeably.
 - Keep the term list in the Glossary. If a new term appears mid-draft and isn't on the list → **ask the user** which word to use before writing it.
 
+## Language & tone (the manual's writing)
+
+The manual is written in **formal, professional, polished written Thai** (or the chosen language) — clear and natural to read, **not** a stiff machine translation.
+
+- **ไม่ใช้สรรพนามบุรุษที่ 1/2** — never "ผม / ฉัน / ดิฉัน / เรา / คุณ / ท่าน". Refer to the reader by the locked role term ("ผู้ใช้งาน" / "ผู้เรียน") only when necessary, or write in the **imperative** ("เลือกเมนู…", "กดปุ่มบันทึก").
+- **ไม่ใช้คำลงท้าย** — never "ครับ / ค่ะ / นะ / จ้ะ".
+- **Professional yet human** — vary sentence structure, use natural connectors; avoid robotic repetition and literal translationese.
+- **One locked term per concept**, consistent throughout.
+- Consistent, correct spelling; formal vocabulary suited to the audience.
+
+Example — ✅ "เลือกเมนู **หลักสูตรของฉัน** จากแถบด้านซ้าย เพื่อเปิดรายการหลักสูตรทั้งหมด"  ❌ "คุณสามารถเลือกเมนูหลักสูตรของฉันได้เลยนะครับ"
+
 ## Conventions
 
 - **Numbered steps**, one action per step, imperative voice.
@@ -61,6 +73,7 @@ Go through **every** line; fix all before handing over. Do not deliver a manual 
 - [ ] **ครบตาม scope** — all requested modules/features covered; nothing extra added.
 - [ ] **เลขข้อถูกต้อง** — numbering continuous, no gaps/duplicates; TOC matches body.
 - [ ] **คำศัพท์สอดคล้อง** — one locked term per concept throughout; no synonyms slipped in.
+- [ ] **โทน/ภาษาถูกต้อง** — formal written language; no 1st/2nd-person pronouns (ผม/คุณ/ท่าน), no particles (ครับ/ค่ะ); reads naturally, not machine-translated; spelling correct.
 - [ ] **Font & size สม่ำเสมอ** — matches the agreed values on every page.
 - [ ] **ภาพครบ + ชัด + annotate ถูก** — every step has a sharp screenshot; boxes/numbers correct and consistent.
 - [ ] **ไม่มี placeholder ค้าง** — no "TODO", no "[…]", no missing caption.

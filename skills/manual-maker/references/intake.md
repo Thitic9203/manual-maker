@@ -2,6 +2,8 @@
 
 Ask these **one at a time**, in order. Where an answer has a **bold default**, offer it. Where it says *(ต้องถาม — no default)*, **never assume** — keep asking until the user gives an explicit, clear answer.
 
+**How to ask:** พูดกับผู้ใช้เป็น **ภาษาไทยที่เป็นทางการ สุภาพ มืออาชีพ** (ตามค่าเริ่มต้น) — สะกดถูกต้อง เลือกใช้คำให้เหมาะสม ถามทีละข้อ ไม่รวบหลายคำถามในครั้งเดียว หลีกเลี่ยงคำลงท้าย (ครับ/ค่ะ) และสรรพนามที่ไม่จำเป็น ให้ข้อความกระชับ ชัดเจน เป็นธรรมชาติ
+
 ## Golden rules for this skill
 
 - **ห้ามมโน / ห้ามคิดเอง.** If any answer is missing, vague, or you are unsure — STOP and ask again until you get explicit confirmation. Never guess system steps, scope, wording, fonts, or numbering.
@@ -37,11 +39,12 @@ Ask these **one at a time**, in order. Where an answer has a **bold default**, o
 12. **Font & size** — follow the reference document, or specify (heading vs body sizes)? *(ต้องถาม — take from the reference doc or ask; never assume a font)*
 13. **Numbering** — scheme for sections and steps (e.g. `1`, `1.1`, `1.1.1`). **Default: follow the reference doc; otherwise a decimal outline, continuous with no gaps.**
 14. **Terminology to lock** — the key terms and the **exact word** to use everywhere (e.g. always "ผู้เรียน", never "นักเรียน"/"นร."). Build the term list and read it back for confirmation. If unsure about any word → ask before writing. *(ต้องถาม — confirm the locked term list)*
-15. **Language + tone** — **Default: Thai, polite, concise.**
+15. **Language** — which language for the manual? **Default: Thai.**
+    > **โทนของเอกสารถูกกำหนดไว้แล้ว (ไม่ต้องถาม แต่แจ้งให้ผู้ใช้ทราบ):** ภาษาเขียนที่เป็นทางการ สุภาพ มืออาชีพ อ่านลื่น เป็นธรรมชาติ (ไม่ใช่สำนวนแปลด้วยเครื่อง) — **ไม่ใช้สรรพนามบุรุษที่ 1/2** (ผม ฉัน ดิฉัน เรา คุณ ท่าน) และ **ไม่ใช้คำลงท้าย** (ครับ ค่ะ นะ). ดูรายละเอียดใน `template.md`.
 
 ## F. Output
 
-16. **Output format** — Confluence / PDF / docx / web page? If Confluence: space + parent page. **Default: Confluence.**
+16. **Output format — ต้องถามเสมอ ถ้าผู้ใช้ยังไม่ระบุ:** ต้องการไฟล์รูปแบบใด — **ไฟล์ Word (.docx) / PDF / Confluence / หน้าเว็บ**? ถ้าเลือก Confluence ให้ระบุ space + หน้าแม่ที่จะเผยแพร่. **Default: Confluence** (แต่หากผู้ใช้ไม่ได้บอก ให้ถามให้ชัดว่าต้องการ Word, PDF หรือรูปแบบอื่น ก่อนดำเนินการ)
 17. **Version label** — **Default: today's date + v1.0.**
 
 ## Confirmation Gate — before any screenshot or drafting
@@ -58,8 +61,8 @@ Print a summary table of **every** answer:
 | Screenshots + annotation | … |
 | Font & size / Numbering | … |
 | Locked terms | … |
-| Output / Version | … |
+| Output format / Version | … |
 
-Then ask, verbatim: **"ยืนยันข้อมูลทั้งหมดถูกต้อง เริ่มทำได้เลยไหมครับ?"**
+Then ask, verbatim: **"ยืนยันข้อมูลทั้งหมดถูกต้อง และเริ่มดำเนินการได้หรือไม่"**
 
 Do **not** proceed until the user replies with an explicit confirmation. If anything is "ไม่แน่ใจ", resolve it first.

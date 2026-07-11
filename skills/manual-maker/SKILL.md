@@ -56,7 +56,7 @@ Use Playwright / Chrome MCP. Navigate **only** user-provided URLs; use credentia
 
 Invoke the **`doc-coauthoring`** skill via the Skill tool. Pass: the confirmed intake, the reference-doc format, the ingested sources, `references/template.md`, the locked terms, and the screenshot list.
 
-Draft **section by section**, grounded only in verified sources, in the chosen language (default Thai). Use the **locked term everywhere** — one word per concept. If a needed fact is missing → stop and ask; do not fill the gap with assumption.
+Draft **section by section**, grounded only in verified sources, in the chosen language (default Thai). Follow the **Language & tone** rules in `references/template.md`: formal, professional written language, **no first/second-person pronouns** (ผม/ฉัน/คุณ/ท่าน), **no sentence-final particles** (ครับ/ค่ะ/นะ), natural and human — not machine-translated. Use the **locked term everywhere** — one word per concept. If a needed fact is missing → stop and ask; do not fill the gap with assumption.
 
 ### Step 6 — Apply template + quality rules
 
