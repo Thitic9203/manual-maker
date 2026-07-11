@@ -1,0 +1,13 @@
+{
+  "name": "manual-maker",
+  "owner": {
+    "name": "Thitic9203"
+  },
+  "plugins": [
+    {
+      "name": "manual-maker",
+      "source": "./",
+      "description": "User handbook / manual generator skill — intake, doc-coauthoring drafting, screenshots, multi-format export."
+    }
+  ]
+}
