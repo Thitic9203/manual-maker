@@ -4,6 +4,8 @@ A Claude Code plugin (skill) that turns a working web system into a finished **u
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
+**Version 0.1.0 · MIT · Claude Code plugin**
+
 ---
 
 ## Background — why this repo exists
@@ -44,7 +46,7 @@ Two ways — pick by need.
 
 ### Option A — personal skill (one machine, no `/plugin` needed)
 
-Skills don't require the plugin system. Copy the skill into your personal skills directory:
+Skills don't require the plugin system. In the mac Terminal, copy the skill into your personal skills directory:
 
 ```bash
 cp -r skills/manual-maker ~/.claude/skills/manual-maker
@@ -54,20 +56,52 @@ Restart Claude Code. Note: a personal copy does **not** auto-sync with this repo
 
 ### Option B — plugin marketplace (team distribution)
 
-`/plugin` only works in the **real `claude` terminal** (not the desktop/web app). In a terminal:
+> ⚠️ **อย่าวางทั้ง 3 บรรทัดทีเดียว!**
+> `claude` เป็นคำสั่ง **shell** (เปิดโปรแกรม) — ส่วน `/plugin` ต้องพิมพ์ **ข้างใน Claude Code** หลังมันเปิดแล้ว
+> ทำ **ทีละขั้น** ตามนี้:
 
-```
+**Step 1 — ที่ mac Terminal (zsh):**
+
+```bash
 claude
 ```
 
-then inside Claude Code:
+กด Enter → รอ Claude Code เปิด
+👉 หน้าจอเปลี่ยนเป็น UI มีช่องพิมพ์ = เข้ามา "ข้างใน" แล้ว
+
+**Step 2 — พิมพ์ข้างใน Claude Code:**
 
 ```
 /plugin marketplace add Thitic9203/manual-maker
+```
+
+กด Enter → รอเสร็จ
+
+**Step 3 — พิมพ์ข้างใน Claude Code:**
+
+```
 /plugin install manual-maker@manual-maker-dev
 ```
 
-Restart Claude Code.
+กด Enter → รอเสร็จ
+
+**Step 4 — ออกแล้วเปิด `claude` ใหม่ (restart) → เสร็จ**
+
+💡 `/plugin` เปิดจากโฟลเดอร์ไหนก็ได้ — มันโหลดจาก GitHub เอง
+
+### Verify it's installed
+
+Start a new session and confirm `manual-maker` appears in your available skills — or just ask *"ทำคู่มือระบบ …"* and the intake should begin.
+
+### Update
+
+- **Plugin:** พิมพ์ข้างใน Claude Code → `/plugin marketplace update manual-maker-dev` → restart.
+- **Personal skill:** re-copy → `cp -r skills/manual-maker ~/.claude/skills/manual-maker`.
+
+### Uninstall
+
+- **Plugin:** พิมพ์ข้างใน Claude Code → `/plugin uninstall manual-maker@manual-maker-dev`.
+- **Personal skill:** `rm -rf ~/.claude/skills/manual-maker`.
 
 ## Use
 
@@ -85,6 +119,19 @@ Intake  →  (Screenshots)  →  Draft            →  Template        →  Expo
 one-at-a-   Playwright /       delegate to         apply team         Confluence /
 time Qs      Chrome MCP        doc-coauthoring     structure+tone     PDF / docx / web
 ```
+
+## Customize for your team
+
+The whole point of the wrapper is that you tune it — **no code, just two Markdown files**:
+
+- `skills/manual-maker/references/intake.md` — the questions the skill asks. Add fields specific to your systems (environment, tenant, role matrix), change defaults, drop what you don't need.
+- `skills/manual-maker/references/template.md` — the handbook structure, section order, tone, and step/screenshot conventions.
+
+After editing:
+
+1. Bump `version` in **both** `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`.
+2. Commit and push.
+3. Team members run `/plugin marketplace update manual-maker-dev` (or re-copy the personal skill).
 
 ## Requirements
 
@@ -107,6 +154,17 @@ manual-maker/
             ├── intake.md    # the system-specific question set
             └── template.md  # team handbook structure + conventions
 ```
+
+## Troubleshooting
+
+| อาการ | สาเหตุ | วิธีแก้ |
+|-------|--------|---------|
+| `/plugin isn't available in this environment` | อยู่ในแอป desktop/web ไม่ใช่ CLI — `/plugin` มีเฉพาะใน terminal | รัน `claude` ใน Terminal จริง **หรือ** ใช้ Option A (personal skill) |
+| วางคำสั่งทีเดียวแล้ว error | `claude` เป็น shell, `/plugin` อยู่ข้างใน — วางรวมกันไม่ได้ | ทำทีละ step ตาม Option B |
+| Skill ไม่ trigger | เปิด session ก่อนติดตั้ง | Restart Claude Code / เปิด session ใหม่ |
+| แก้ skill แล้วไม่เปลี่ยน | personal skill เป็น snapshot ไม่ใช่ลิงก์สด | re-copy โฟลเดอร์ หรือใช้ plugin route |
+| Confluence publish fail | Atlassian MCP ไม่ต่อ / space key ผิด | ต่อ Atlassian MCP + เช็ค space key จาก intake |
+| Screenshot ไม่ติด | Playwright/Chrome MCP ไม่ต่อ / URL ต้อง login | ต่อ MCP + เช็ค login steps ใน intake |
 
 ## Safety
 
