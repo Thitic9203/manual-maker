@@ -1,13 +1,31 @@
 {
-  "name": "manual-maker",
+  "name": "manual-maker-dev",
+  "id": "manual-maker-dev",
+  "description": "Development marketplace for manual-maker skill",
   "owner": {
     "name": "Thitic9203"
+  },
+  "metadata": {
+    "description": "Build user handbooks from a web system — structured intake, doc-coauthoring drafting, optional Playwright screenshots, Confluence/PDF/docx/web export",
+    "version": "0.1.0"
   },
   "plugins": [
     {
       "name": "manual-maker",
+      "description": "Turn a web system into a user handbook — structured intake, doc-coauthoring drafting, optional Playwright screenshots, multi-format export",
+      "version": "0.1.0",
       "source": "./",
-      "description": "User handbook / manual generator skill — intake, doc-coauthoring drafting, screenshots, multi-format export."
+      "author": {
+        "name": "Thitic9203"
+      },
+      "keywords": [
+        "manual",
+        "handbook",
+        "documentation",
+        "user-guide",
+        "doc-coauthoring"
+      ],
+      "category": "documentation"
     }
   ]
 }

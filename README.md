@@ -14,7 +14,7 @@ It's a thin **team wrapper** around Anthropic's first-party skills. It does not 
 
 ```
 /plugin marketplace add Thitic9203/manual-maker
-/plugin install manual-maker@manual-maker
+/plugin install manual-maker@manual-maker-dev
 ```
 
 Then restart Claude Code.
