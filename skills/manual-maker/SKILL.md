@@ -9,85 +9,79 @@ description: Use when creating a user handbook or manual for a web system/app th
 
 Manual Maker turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
-It does **not** re-implement document writing. It is a thin team wrapper that:
+It is a thin team wrapper that **composes** Anthropic's first-party skills (it does not re-implement or copy them):
 
-1. **Asks the right system-specific questions first** (intake) so every manual starts from complete, consistent inputs.
-2. **Optionally captures screenshots** of the real UI with the Playwright / Chrome MCP.
-3. **Delegates the drafting to the official `doc-coauthoring` skill** — you get Anthropic's document-writing engine, plus this team's conventions on top.
-4. **Applies the team handbook template** so every manual has the same structure and tone.
-5. **Exports / publishes** to the team's channel: Confluence, PDF, docx, or a web page.
+- **Drafting** → `doc-coauthoring`
+- **Export** → `docx` / `pdf` / `web-artifacts-builder`
+- **Screenshots** → Playwright / Chrome MCP
+- **Publishing** → Atlassian MCP (Confluence)
+
+## Non-negotiable working rules — read first
+
+1. **ห้ามมโน / ห้ามคิดเอง / ห้ามตัดสินใจแทนผู้ใช้.** If any input is missing, vague, or you are unsure, **STOP and ask**. Proceed only after an explicit, clear confirmation. Never invent a system step, a term, a font, or a number.
+2. **ห้ามทำเกินขอบเขต.** Do only what was asked. No extra sections, no assumptions dressed up as facts.
+3. **ยืนยันก่อนเริ่มเสมอ.** Summarize the request and all collected data, and get an explicit "go" **before** any screenshot or drafting.
+4. **Every step must be sourced** — from the live system and the user's reference/Confluence/spec — not from guesswork. If you cannot source a step, ask.
+5. **Review in detail before delivery** — complete, correct, consistent, nothing missed.
 
 ## When to Use
 
-Use when the user wants to produce a manual/handbook/user guide for a web system or app, e.g.:
-- "ทำคู่มือการใช้งานระบบ X ให้ผู้ใช้"
-- "create a user manual for the admin dashboard"
-- "write a step-by-step guide for how staff use the booking system"
-
-Do **not** use for API reference docs, code documentation, or internal design docs — those are different deliverables.
+When the user wants a manual/handbook/user guide for a web system or app (e.g. "ทำคู่มือการใช้งานระบบ X ให้ผู้ใช้"). Not for API reference or code docs.
 
 ## Workflow
 
-Track the run with TodoWrite: `Intake → (Screenshots) → Draft → Template → Export`.
+Track with TodoWrite: `Intake → Confirm → Ingest sources → Screenshots → Draft → Template+Quality → Final review → Export`.
 
-### Step 1 — Intake (always first)
+### Step 1 — Intake (always first, one question at a time)
 
-Read `references/intake.md`. Ask the intake questions **one at a time**, each with a recommended default, and let the user answer or accept the default. Do not skip.
+Read `references/intake.md`. Ask every question **one at a time**. Do not skip. Do not assume defaults for access, credentials, sources, fonts, or terminology.
 
-At the end, echo back a compact **intake summary table** and get a "go" before writing anything.
+### Step 2 — Confirmation Gate (mandatory — do not skip)
 
-**Security:** never store real credentials, tokens, or secrets in the manual or the repo. When login steps are needed, describe the *procedure* ("log in with your SSO account"), not actual usernames/passwords.
+Print the summary table from the end of `intake.md` and ask **"ยืนยันข้อมูลทั้งหมดถูกต้อง เริ่มทำได้เลยไหมครับ?"**. **Do nothing else** — no screenshots, no drafting — until the user explicitly confirms. If anything is "ไม่แน่ใจ", resolve it first.
 
-### Step 2 — Screenshots (optional)
+### Step 3 — Ingest sources (grounds the content)
 
-If the user opted into auto-screenshots:
-- Use the Playwright MCP (`mcp__playwright__*`) or Chrome MCP to drive the system.
-- Capture one screenshot per meaningful UI state / step.
-- Save to a `assets/` folder next to the draft, name them by section+step (e.g. `02-login-01.png`).
-- Only navigate URLs the user gave in intake. Do not follow arbitrary links.
+- If the user gave a **reference/example document** → read it (docx/pdf) to copy the layout, font, section structure, and terminology.
+- If the user gave **Confluence pages / spec / flow** → read them (Atlassian MCP `getConfluencePage`, or fetch) to learn the **real** steps.
+- Lock the **terminology list** (from intake Q14) and read it back for confirmation.
 
-If screenshots are provided manually, collect the file paths instead.
+Never write a step you cannot source. If a detail is unclear → ask.
 
-### Step 3 — Draft (delegate to doc-coauthoring)
+### Step 4 — Screenshots (optional)
 
-Invoke the **`doc-coauthoring` skill** via the Skill tool. Pass it as context:
-- the intake summary,
-- the team template from `references/template.md`,
-- the screenshot list (if any).
+Use Playwright / Chrome MCP. Navigate **only** user-provided URLs; use credentials **only** in-session (never stored/printed). If annotation was requested → draw **boxes + numbered markers** on the click target, matching the step numbers. Save to `assets/`, named by section+step (e.g. `03-login-01.png`). Keep every image **sharp and legible**.
 
-Instruct doc-coauthoring to draft the handbook **section by section**, following the template's structure, in the language chosen at intake (default Thai), using short, task-focused steps a non-technical user can follow.
+### Step 5 — Draft (delegate to doc-coauthoring)
 
-Let doc-coauthoring own the actual prose, iteration, and refinement — that is its job. This skill's job is inputs, structure, and output.
+Invoke the **`doc-coauthoring`** skill via the Skill tool. Pass: the confirmed intake, the reference-doc format, the ingested sources, `references/template.md`, the locked terms, and the screenshot list.
 
-### Step 4 — Apply team template & conventions
+Draft **section by section**, grounded only in verified sources, in the chosen language (default Thai). Use the **locked term everywhere** — one word per concept. If a needed fact is missing → stop and ask; do not fill the gap with assumption.
 
-Ensure the draft matches `references/template.md`:
-- required sections present and in order,
-- numbered step-by-step instructions,
-- a screenshot after each action step (where available),
-- consistent terminology (one term per concept),
-- plain, polite language for the target audience.
+### Step 6 — Apply template + quality rules
 
-### Step 5 — Export / publish
+Match `references/template.md` and enforce its four quality axes: **font & size**, **numbering consistency**, **image clarity + annotation**, **terminology consistency**.
 
-Per the format chosen at intake:
+### Step 7 — Final review before delivery (mandatory, detailed)
+
+Run the **Final Review Checklist** in `references/template.md` line by line. Fix everything. Deliver only when nothing is missing, wrong, or inconsistent.
+
+### Step 8 — Export / publish
 
 | Format | How |
 |--------|-----|
-| **Confluence** | Use the Atlassian MCP (`createConfluencePage` / `updateConfluencePage`) to publish under the space + parent page from intake. Confirm space key before posting. |
-| **PDF** | Use the `pdf` skill to export the final Markdown to PDF. |
-| **docx** | Use the `docx` skill to export to Word. |
-| **Web page** | Use the `web-artifacts-builder` skill to build an interactive page. |
-
-Publishing to Confluence is an outward action — show the target space/page and get confirmation before the first publish.
+| Confluence | Atlassian MCP `createConfluencePage` / `updateConfluencePage` under the space+parent from intake. **Confirm target before posting.** |
+| PDF | `pdf` skill |
+| docx | `docx` skill |
+| Web page | `web-artifacts-builder` skill |
 
 ## Composition Note
 
-This skill **composes** the official first-party skills (`doc-coauthoring`, `docx`, `pdf`, `web-artifacts-builder`) via the Skill tool — it does not copy their content. That keeps this repo free of third-party content and lets it benefit from upstream updates.
+Composes first-party skills via the Skill tool — no third-party content is copied into this repo, so it stays public-safe and benefits from upstream updates.
 
 ## Safety
 
-- No secrets in output or repo — describe login procedures, never real credentials.
-- Screenshots: navigate only user-provided URLs; never arbitrary or emailed links.
-- Confluence/web publish is outward-facing — confirm target before posting.
-- All tooling used here is first-party / already installed — no paid services.
+- **Credentials** are used only in-session to reach the screens — never written into the manual, repo, logs, or any file, and never printed back.
+- Screenshots navigate only user-provided URLs; never arbitrary or emailed links.
+- Confluence/web publishing is outward-facing — confirm the target before posting.
+- All tooling is first-party / already installed — no paid services.

@@ -1,12 +1,12 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.3.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.4.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.3.0 · MIT · Claude Code plugin**
+**Version 0.4.0 · MIT · Claude Code plugin**
 
 ---
 
@@ -136,7 +136,9 @@ Ask for a manual, e.g.:
 - "ทำคู่มือการใช้งานระบบ Admin Dashboard ให้ผู้ใช้"
 - "create a user manual for the booking system"
 
-The skill interviews you (system, login, users, scope, output…), optionally screenshots the UI, drafts with `doc-coauthoring`, applies the template, and publishes to your chosen format.
+The skill interviews you one question at a time — system URL, login, VPN, **the source that describes the real steps** (Confluence page / spec / example doc), audience, scope, screenshot **annotation** (boxes + step numbers), **font & size**, numbering, and the **locked terminology** to use throughout. It then **summarizes everything and waits for your explicit confirmation** before doing anything, optionally screenshots the UI, drafts with `doc-coauthoring`, runs a **detailed final review**, and publishes to your chosen format.
+
+> The skill never assumes: if anything is unclear it asks first, it stays within the scope you set, and credentials are used only in-session — never written into the manual or repo.
 
 ## How it works (runtime flow)
 
