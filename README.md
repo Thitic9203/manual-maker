@@ -1,10 +1,12 @@
 # manual-maker
 
+![version](https://img.shields.io/badge/version-0.2.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.1.0 · MIT · Claude Code plugin**
+**Version 0.2.0 · MIT · Claude Code plugin**
 
 ---
 
@@ -95,8 +97,12 @@ Start a new session and confirm `manual-maker` appears in your available skills 
 
 ### Update
 
+Every new session, the plugin checks GitHub for a newer version and — if there is one — tells you the exact command to run. You never have to remember to check. To apply an update:
+
 - **Plugin:** พิมพ์ข้างใน Claude Code → `/plugin marketplace update manual-maker-dev` → restart.
 - **Personal skill:** re-copy → `cp -r skills/manual-maker ~/.claude/skills/manual-maker`.
+
+> The check is **notify-only** — it never changes your install by itself, needs no setup, and stays silent when you are up to date or offline.
 
 ### Uninstall
 
@@ -127,11 +133,17 @@ The whole point of the wrapper is that you tune it — **no code, just two Markd
 - `skills/manual-maker/references/intake.md` — the questions the skill asks. Add fields specific to your systems (environment, tenant, role matrix), change defaults, drop what you don't need.
 - `skills/manual-maker/references/template.md` — the handbook structure, section order, tone, and step/screenshot conventions.
 
-After editing:
+After editing, **release with one command** — never hand-edit version strings:
 
-1. Bump `version` in **both** `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`.
+```bash
+scripts/bump-version.sh minor   # or: patch | major | an explicit 0.3.0
+```
+
+It bumps every version location at once (`plugin.json`, `marketplace.json` ×2, the README badge + version line) and stamps a `CHANGELOG.md` entry. Then:
+
+1. Edit the new `CHANGELOG.md` stub to describe the change.
 2. Commit and push.
-3. Team members run `/plugin marketplace update manual-maker-dev` (or re-copy the personal skill).
+3. Team members get a new-version notice on their next session; they run `/plugin marketplace update manual-maker-dev` (or re-copy the personal skill).
 
 ## Requirements
 
@@ -139,14 +151,21 @@ All first-party / already available in Claude Code — nothing paid:
 
 - Skills: `doc-coauthoring`, `docx`, `pdf`, `web-artifacts-builder`
 - MCP: Playwright or Chrome (screenshots), Atlassian (Confluence publish)
+- The new-version check uses `curl` (ships with macOS) to read the public GitHub repo — free, no auth, no account.
 
 ## Structure
 
 ```
 manual-maker/
 ├── .claude-plugin/
-│   ├── plugin.json          # plugin manifest
+│   ├── plugin.json          # plugin manifest (version, hooks pointer)
 │   └── marketplace.json     # marketplace manifest (name: manual-maker-dev)
+├── hooks/
+│   ├── hooks.json           # registers the SessionStart hook
+│   └── check-version.sh     # notify-only new-version check (fail-silent)
+├── scripts/
+│   └── bump-version.sh      # bump the version everywhere in one command
+├── CHANGELOG.md             # per-version history
 └── skills/
     └── manual-maker/
         ├── SKILL.md         # workflow: intake → screenshots → draft → template → export
