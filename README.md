@@ -95,14 +95,34 @@ claude
 
 Start a new session and confirm `manual-maker` appears in your available skills — or just ask *"ทำคู่มือระบบ …"* and the intake should begin.
 
-### Update
+### Update — การแจ้งเตือนเวอร์ชันใหม่อัตโนมัติ (auto update notice)
 
-Every new session, the plugin checks GitHub for a newer version and — if there is one — tells you the exact command to run. You never have to remember to check. To apply an update:
+ปลั๊กอินเช็คให้เองว่ามีเวอร์ชันใหม่มั้ย คุณไม่ต้องคอยจำไปเช็คเอง:
 
-- **Plugin:** พิมพ์ข้างใน Claude Code → `/plugin marketplace update manual-maker-dev` → restart.
+| | รายละเอียด |
+|---|---|
+| **เมื่อไหร่ / When** | ทุกครั้งที่เปิด **session ใหม่** ใน Claude Code (ผ่าน SessionStart hook) |
+| **ที่ไหน / Where** | ข้อความโผล่ใน **แชทของ session ใหม่นั้นเอง** — Claude แจ้งคุณตอนเริ่มคุย |
+| **ยังไง / How** | hook เทียบเวอร์ชันที่คุณติดตั้ง กับเวอร์ชันล่าสุดบน GitHub (`main`). ใหม่กว่า → แจ้ง; เท่ากัน/ออฟไลน์ → เงียบ |
+
+ตัวอย่างข้อความที่จะเห็น:
+
+> **manual-maker: มีเวอร์ชันใหม่ v0.3.0 (ติดตั้งอยู่ v0.2.0).** …ให้พิมพ์ `/plugin marketplace update manual-maker-dev` แล้ว restart
+
+> ⚠️ **แจ้งเตือนอย่างเดียว (notify-only)** — hook **ไม่อัปเดต install ให้เองอัตโนมัติ** และไม่แก้ไฟล์ใดๆ. คุณเป็นคนกดอัปเดตเอง (กันของพัง ไม่ยิง network มั่ว เปิด session เร็วเหมือนเดิม). เงียบสนิทเมื่อเวอร์ชันตรงกันหรือออฟไลน์.
+
+**พอเห็นแจ้งแล้วอัปเดตยังไง — เลือกตามที่คุณใช้:**
+
+- **ใน Claude Code (TUI):** `/plugin marketplace update manual-maker-dev` → restart.
+- **นอก TUI (desktop/web app / shell):** `/plugin` ใช้ไม่ได้ — รันใน Terminal แทน:
+  ```bash
+  claude plugin marketplace update manual-maker-dev
+  claude plugin update manual-maker@manual-maker-dev
+  ```
+  แล้ว restart.
 - **Personal skill:** re-copy → `cp -r skills/manual-maker ~/.claude/skills/manual-maker`.
 
-> The check is **notify-only** — it never changes your install by itself, needs no setup, and stays silent when you are up to date or offline.
+> 💡 GitHub raw CDN cache ~5 นาที — เพิ่ง release เสร็จอาจยังไม่เด้งทันที รอ ~5 นาทีแล้วเปิด session ใหม่ค่อยเห็น.
 
 ### Uninstall
 
