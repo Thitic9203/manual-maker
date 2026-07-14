@@ -2,6 +2,14 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.7.0] - 2026-07-14
+### Added
+- **`/manual-maker` slash command** — a one-shot entry point that drives the whole handbook pipeline to completion. The user runs `/manual-maker ทำคู่มือ <ระบบ>` and the command loads the `manual-maker` skill, lays out the full `Intake → Confirm → Ingest → Screenshots → Draft → Template+Quality → Final review → Export` TodoWrite, and **auto-advances between steps** instead of pausing after each one.
+- The command preserves the skill's three mandatory human gates — one-at-a-time **intake**, the **confirmation gate** before screenshots/drafting, and **publish confirmation** before any outward-facing Confluence/web post — because a manual must stay sourced, not invented (ห้ามมโน). Momentum is automated; the correctness gates are not.
+
+### Notes
+- Additive only: the skill's auto-trigger on "ทำคู่มือ / write a manual" is unchanged. The command just adds an explicit `/`-invocable path and stronger drive-to-completion framing. No existing behavior removed.
+
 ## [0.6.0] - 2026-07-14
 ### Changed
 - **Zero-touch self-update.** `hooks/check-version.sh` no longer only notifies — on SessionStart, when `main` is ahead of the installed version, it now runs `claude plugin update` **in the background** and the new version applies on the next session / `/reload-plugins`. Existing installs (v0.6.0+) upgrade themselves with no user action. Safety rails: non-blocking (detached), single-flight `mkdir` lock, uses the supported CLI (not a raw cache mutation), fail-silent when offline / up-to-date / no `claude` on PATH, and an **opt-out** via `MANUAL_MAKER_NO_AUTOUPDATE=1` (degrades to notify-only). Takes effect for updates from v0.6.0 onward; pre-0.6.0 installs update once to reach it.

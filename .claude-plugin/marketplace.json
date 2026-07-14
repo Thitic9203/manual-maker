@@ -5,13 +5,13 @@
   },
   "metadata": {
     "description": "Build user handbooks from a web system — structured intake, doc-coauthoring drafting, optional Playwright screenshots, Confluence/PDF/docx/web export",
-    "version": "0.6.0"
+    "version": "0.7.0"
   },
   "plugins": [
     {
       "name": "manual-maker",
       "description": "Turn a web system into a user handbook — structured intake, doc-coauthoring drafting, optional Playwright screenshots, multi-format export",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "source": "./",
       "author": {
         "name": "Thitic9203"
