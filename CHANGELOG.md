@@ -2,6 +2,41 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.9.0] - 2026-07-14
+### Added
+- **`references/screenshots.md`** — binding capture & annotation contract, written from a real
+  government deliverable run. Real live-system screens only (no placeholder boxes, no mock-ups, no
+  redrawn tables); **full screen — never crop the content**, remove only the Claude screen-control
+  glow border (and protect the orange agency logo an "orange" detector would otherwise eat); **no
+  mouse cursor** (remove its peach shadow by colour test, not a rectangle — a rectangle clips
+  adjacent text); **red numbered circles that map 1:1 to the step numbers**, ≤ 5 per image; steps
+  written with the system's real menu/button wording; people's names masked (students are minors).
+  Also documents the working pipeline: the browser MCP's `save_to_disk` returns **no file path**, so
+  bridge through the clipboard (`osascript` → PNG) → **Pillow on `/usr/bin/python3`** (the Homebrew
+  `python3` has no PIL; the Desktop can be TCC-blocked → work in `/tmp`) → embed.
+- **`references/docx-build.md`** — how to build the Word file. When the user supplies a base template
+  (ต้นแบบ), **the template is the deliverable**: reuse its cover, header, footer (`PAGE` field), TOC,
+  styles, and role-based chapters **exactly** — docx-js cannot open an existing file, so edit the
+  OOXML (`unzip → word/document.xml → zip`) and copy an existing image block when embedding a picture
+  (swap `r:embed` + **both** extents, recomputing `cy` from the aspect ratio). Font **TH SarabunPSK**,
+  body 16 pt / headings 18 pt bold, with **all four `w:rFonts` slots** set — Thai is a complex script
+  and a missing **`w:cs`** silently falls back to another font. Plus the `~$….docx` Word-lock
+  handling ("close without saving → reopen → Update fields? → Yes").
+
+### Changed
+- **SKILL.md** — three new non-negotiable rules: the base template is reproduced exactly, every figure
+  is a real full-screen system screenshot with step-matched red circles, and **Claude never types a
+  password** (the user logs in; Claude captures read-only). Steps 3/4/8 now point at the two new
+  references.
+- **`references/template.md`** — the base template overrides the generic outline (role-based chapters:
+  บทนำ / ครูผู้สอน / ผู้เรียน / ผู้ดูแลระบบ); Thai font default recorded (TH SarabunPSK 16/18 + `w:cs`);
+  the image axis rewritten to the screenshot contract; six new final-review checks (template fidelity,
+  real screenshot, clean image, circles-match-steps, names masked, image really embedded) plus the
+  Word "Update fields" handover step.
+- **`references/intake.md`** — the base-template question is now binding (build **on** it, never hand-
+  build a look-alike); annotation defaults to red numbered circles matching the step numbers on
+  full-screen shots; the font question carries the Thai default and the `w:cs` warning.
+
 ## [0.8.0] - 2026-07-14
 ### Added
 - **Remembered intake — stop re-asking what a user already answered.** After the Confirmation Gate, manual-maker now saves that user's confirmed intake for the system to a **per-user local** profile at `~/.manual-maker/profiles/<slug>.json`. On the next run for the same system it loads the profile, shows it back, and asks **only what is missing or changed** — the stable answers (sources, audience/scope, screenshot annotation, font & size, numbering, locked terminology, output format/destination) are not re-asked. New reference: `skills/manual-maker/references/profile.md`.

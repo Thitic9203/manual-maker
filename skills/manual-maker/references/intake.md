@@ -32,7 +32,7 @@ saved, run the full intake below. (Credentials are **never** saved — always as
 ## B. Source material — so the content is accurate, not guessed  (*ห้ามมโน*)
 
 5. **Authoritative source of how the system works** — is there a **Confluence page, spec, flow diagram, existing manual, or example document** that clearly describes the steps? Ask for the links/files. Every step in the manual must come from these sources **plus** the live system — **never** from assumption. If none exists and a step is unclear → ask the user. *(ต้องถาม — get links/files or an explicit "none")*
-6. **Reference / example document to match** (layout, font, section structure)? If yes, ask the user to share the file now; the skill reads it to copy the format and terminology. **Default: none.**
+6. **Base template / ต้นแบบ to match** (cover, header/footer, TOC, layout, font, chapter structure)? Ask the user to share the file now. **If one exists it is binding: the manual is built ON that template — its cover, header, footer (page numbers), TOC, styles, and role-based chapters are reused exactly, never rebuilt by hand** (see `docx-build.md`). **Default: none.**
 
 ## C. Audience & scope
 
@@ -43,11 +43,11 @@ saved, run the full intake below. (Credentials are **never** saved — always as
 ## D. Screenshots
 
 10. **Capture** — auto-capture from the live system (Playwright/Chrome), user-provided images, or none? **Default: auto-capture.**
-11. **Annotation** — draw **กรอบ (boxes) / เลขลำดับขั้นตอน (numbered markers)** on the click target in each screenshot? If yes, confirm the style (box colour, marker position). *(ต้องถาม — recommended: red box + numbered marker per action, but confirm)*
+11. **Annotation** — **Default: red numbered circles (วงกลมแดงมีเลข) on the click targets, numbered to match the step numbers 1:1, ≤ 5 per image.** Confirm the style if the user wants something else. Screenshots are **full-screen, uncropped**, with the Claude screen-control glow border and the mouse cursor removed — see `screenshots.md`.
 
 ## E. Formatting & terminology  — *be exact; this is where quality is won or lost*
 
-12. **Font & size** — follow the reference document, or specify (heading vs body sizes)? *(ต้องถาม — take from the reference doc or ask; never assume a font)*
+12. **Font & size** — follow the base template, or specify (heading vs body sizes)? *(ต้องถาม — take from the template or ask; never assume a font)* **Thai default when there is no template: `TH SarabunPSK`, body 16 pt, headings 18 pt bold.** In `.docx`, Thai needs the **`w:cs`** font slot set — see `docx-build.md`.
 13. **Numbering** — scheme for sections and steps (e.g. `1`, `1.1`, `1.1.1`). **Default: follow the reference doc; otherwise a decimal outline, continuous with no gaps.**
 14. **Terminology to lock** — the key terms and the **exact word** to use everywhere (e.g. always "ผู้เรียน", never "นักเรียน"/"นร."). Build the term list and read it back for confirmation. If unsure about any word → ask before writing. *(ต้องถาม — confirm the locked term list)*
 15. **Language** — which language for the manual? **Default: Thai.**
