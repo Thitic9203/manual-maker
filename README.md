@@ -8,6 +8,8 @@ It is a thin **team wrapper** around Anthropic's first-party skills. It does not
 
 **Version 0.6.0 · MIT · Claude Code plugin**
 
+> 🔄 **อัปเดตอัตโนมัติ (v0.6.0+):** ติดตั้งครั้งเดียว จากนั้นแค่ **เปิด session ใหม่** ปลั๊กอินก็ดึงเวอร์ชันล่าสุดมาติดตั้งเองเบื้องหลัง — **ผู้ใช้ไม่ต้องกดอัปเดตหรือทำอะไรเพิ่ม.** ปิดได้ด้วย `MANUAL_MAKER_NO_AUTOUPDATE=1`. รายละเอียด → [Update](#update--อัปเดตอัตโนมัติ-auto-update).
+
 ---
 
 ## Background — why this repo exists
@@ -41,6 +43,7 @@ Rather than fork `doc-coauthoring` and drift from upstream, this repo adds a thi
 - **Delegates writing** to the official `doc-coauthoring` skill.
 - Applies the **team handbook template** (structure + tone).
 - **Exports / publishes** to Confluence, PDF, docx, or a web page.
+- **Updates itself** — ตั้งแต่ v0.6.0 พอเปิด **session ใหม่** ปลั๊กอินดึงเวอร์ชันล่าสุดมาติดตั้งเอง **ผู้ใช้ไม่ต้องทำอะไรเพิ่ม** (ดู [Update](#update--อัปเดตอัตโนมัติ-auto-update)).
 
 ## Install
 
