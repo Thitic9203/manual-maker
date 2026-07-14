@@ -1,0 +1,23 @@
+# Risk Register — manual-maker
+
+Decisions that trade something away, recorded so future sessions don't silently re-litigate or "fix" them. Each entry: what was chosen, why, the trade-off accepted, and how to reverse it.
+
+## MM-001 — Self-updating SessionStart hook (overrides notify-only)
+
+- **Date:** 2026-07-14
+- **Decision by:** repo owner (explicit choice, this session)
+- **Status:** Accepted, shipped in v0.6.0
+
+**What changed.** `hooks/check-version.sh` no longer only *notifies* about a new version — when it detects that `main` on GitHub is ahead of the installed version, it launches `claude plugin update manual-maker@manual-maker-dev` in the background and the new version applies on the next session / `/reload-plugins`. This makes updates zero-touch on the plugin path: open a new session and the install updates itself.
+
+**Why.** The owner wanted existing installs to get new versions with no per-user action. Claude Code's native plugin auto-update is **off by default for third-party marketplaces** and can only be enabled client-side (per-user toggle or `autoUpdate:true` in shared/managed settings) — the author cannot enable it from the repo. Given that, a self-updating hook is the only way to get true zero-touch on the plugin path without every user opting in first.
+
+**Trade-offs accepted.**
+1. **Bypasses a security opt-in.** Claude Code makes third-party auto-update opt-in on purpose (a plugin auto-running newly-pushed code from GitHub is a supply-chain surface). This hook opts the user in on their behalf. Mitigated by: the user already installed + trusted the plugin and its hook; an explicit opt-out (`MANUAL_MAKER_NO_AUTOUPDATE=1`); transparent per-session notice of what it did.
+2. **Reimplements a native feature.** Duplicates what native auto-update already does properly (background, post-startup, with reload prompt). Risk of drift if Claude Code's plugin internals change. Mitigated by using the **supported `claude plugin update` CLI**, never a raw mutation of the plugin cache / `installed_plugins.json`.
+3. **Mutates the install without a per-session prompt.** Every release lands automatically. Mitigated by opt-out + notice + single-flight lock.
+4. **Contradicts the earlier documented invariant** ("keep the hook notify-only; don't turn it into an auto-updater"). That invariant is now explicitly superseded by this entry.
+
+**Safety rails in the implementation (keep these).** Fail-silent when offline / up-to-date / no curl; opt-out env var; notify-only degrade when `claude` is not on PATH; non-blocking (detached `nohup &`) so session start is never delayed; atomic `mkdir` lock (stale after 10 min) to prevent overlapping updates.
+
+**How to reverse.** Set `MANUAL_MAKER_NO_AUTOUPDATE=1` (per user), or revert `hooks/check-version.sh` to the notify-only version (git history before v0.6.0) and point users at the native per-marketplace toggle documented in the README "Update" section.

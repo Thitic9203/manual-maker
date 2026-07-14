@@ -1,12 +1,12 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.5.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.6.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.5.0 · MIT · Claude Code plugin**
+**Version 0.6.0 · MIT · Claude Code plugin**
 
 ---
 
@@ -95,34 +95,60 @@ claude
 
 Start a new session and confirm `manual-maker` appears in your available skills — or just ask *"ทำคู่มือระบบ …"* and the intake should begin.
 
-### Update — การแจ้งเตือนเวอร์ชันใหม่อัตโนมัติ (auto update notice)
+### Update — อัปเดตอัตโนมัติ (auto-update)
 
-ปลั๊กอินเช็คให้เองว่ามีเวอร์ชันใหม่มั้ย คุณไม่ต้องคอยจำไปเช็คเอง:
+**ตั้งแต่ v0.6.0 ปลั๊กอินอัปเดตตัวเอง — ไม่ต้องทำอะไรเลย.** ทุกครั้งที่เปิด **session ใหม่** SessionStart hook เทียบเวอร์ชันที่ติดตั้ง กับล่าสุดบน `main`; ถ้ามีใหม่กว่า มันสั่ง `claude plugin update` **เบื้องหลัง** (ไม่หน่วงตอนเปิด session) แล้วบอกในแชทว่ากำลังอัปเดต. เวอร์ชันใหม่ **มีผลตอนเปิด session ถัดไป** (หรือพิมพ์ `/reload-plugins` หลังดาวน์โหลดเสร็จ).
 
-| | รายละเอียด |
-|---|---|
-| **เมื่อไหร่ / When** | ทุกครั้งที่เปิด **session ใหม่** ใน Claude Code (ผ่าน SessionStart hook) |
-| **ที่ไหน / Where** | ข้อความโผล่ใน **แชทของ session ใหม่นั้นเอง** — Claude แจ้งคุณตอนเริ่มคุย |
-| **ยังไง / How** | hook เทียบเวอร์ชันที่คุณติดตั้ง กับเวอร์ชันล่าสุดบน GitHub (`main`). ใหม่กว่า → แจ้ง; เท่ากัน/ออฟไลน์ → เงียบ |
+> พูดง่ายๆ: push ขึ้น `main` (bump version) → คนที่ติดตั้งไว้แค่เปิด session ใหม่ 1–2 รอบก็ได้เวอร์ชันล่าสุดเอง.
 
-ตัวอย่างข้อความที่จะเห็น:
+**เงื่อนไข / รายละเอียด:**
 
-> **manual-maker: มีเวอร์ชันใหม่ v0.3.0 (ติดตั้งอยู่ v0.2.0).** …ให้พิมพ์ `/plugin marketplace update manual-maker-dev` แล้ว restart
+- อัปเดตก็ต่อเมื่อ **เลข `version` เปลี่ยน** — ซึ่ง `scripts/bump-version.sh` bump ให้ทุก release อยู่แล้ว.
+- ใช้คำสั่งทางการ `claude plugin update` (ไม่ได้ไปยุ่ง cache ตรงๆ) + มี lock กันอัปเดตซ้อน + เงียบเมื่อออฟไลน์/เวอร์ชันตรงกัน/ไม่มี `claude` ใน PATH.
+- **มีผลกับ update ตั้งแต่ v0.6.0 เป็นต้นไป** — ของที่ติดตั้งไว้เวอร์ชันก่อนหน้าต้องอัปเดตขึ้น v0.6.0 ก่อน 1 ครั้ง (ตัว hook เก่ายังเป็นแบบแจ้งเตือน) จากนั้นเป็นอัตโนมัติทั้งหมด.
 
-> ⚠️ **แจ้งเตือนอย่างเดียว (notify-only)** — hook **ไม่อัปเดต install ให้เองอัตโนมัติ** และไม่แก้ไฟล์ใดๆ. คุณเป็นคนกดอัปเดตเอง (กันของพัง ไม่ยิง network มั่ว เปิด session เร็วเหมือนเดิม). เงียบสนิทเมื่อเวอร์ชันตรงกันหรือออฟไลน์.
+#### ปิด auto-update (ถ้าไม่อยากให้อัปเดตเอง)
 
-**พอเห็นแจ้งแล้วอัปเดตยังไง — เลือกตามที่คุณใช้:**
+ตั้ง env var — hook จะกลับไปเป็น **แจ้งเตือนอย่างเดียว**:
 
-- **ใน Claude Code (TUI):** `/plugin marketplace update manual-maker-dev` → restart.
-- **นอก TUI (desktop/web app / shell):** `/plugin` ใช้ไม่ได้ — รันใน Terminal แทน:
+```bash
+export MANUAL_MAKER_NO_AUTOUPDATE=1
+```
+
+> ⚠️ auto-update นี้เป็นการ **opt-in แทนผู้ใช้** (โดยปกติ Claude Code ตั้งใจให้ผู้ใช้เปิดเอง เพื่อความปลอดภัย). ปลั๊กอินที่รันโค้ดใหม่จาก GitHub เองอัตโนมัติทุก release คือ trade-off ที่รับรู้ไว้แล้ว — ดู `RISK_REGISTER.md` (MM-001). ถ้าไม่สบายใจ ใช้ opt-out ด้านบน แล้วอัปเดตเองแบบ manual.
+
+#### ทางเลือกที่ "ถูกวิธี" กว่า — native auto-update ของ Claude Code
+
+ถ้าอยากเลี่ยง hook ที่อัปเดตตัวเอง ใช้ auto-update ในตัวของ Claude Code แทนได้ (ปิด hook ด้วย env ด้านบน แล้วเปิดอันนี้):
+
+- **ต่อคน ครั้งเดียว:** `/plugin` → แท็บ **Marketplaces** → `manual-maker-dev` → **Enable auto-update**.
+- **ทั้งทีมทีเดียว:** ใส่ `"autoUpdate": true` ใน `extraKnownMarketplaces` ของ `settings.json` ที่ทีมใช้ร่วม:
+  ```jsonc
+  {
+    "extraKnownMarketplaces": {
+      "manual-maker-dev": {
+        "source": { "source": "github", "repo": "Thitic9203/manual-maker" },
+        "autoUpdate": true
+      }
+    },
+    "enabledPlugins": { "manual-maker@manual-maker-dev": true }
+  }
+  ```
+
+(marketplace บุคคลที่สาม native auto-update **ปิดเป็นค่าเริ่มต้น** — เฉพาะของทางการ Anthropic ที่เปิดให้ default.)
+
+#### อัปเดตเองแบบ manual
+
+- **ใน Claude Code (TUI):** `/plugin marketplace update manual-maker-dev` → `/reload-plugins` หรือเปิด session ใหม่.
+- **นอก TUI (desktop/web app / shell):**
   ```bash
   claude plugin marketplace update manual-maker-dev
   claude plugin update manual-maker@manual-maker-dev
   ```
   แล้ว restart.
-- **Personal skill:** re-copy → `cp -r skills/manual-maker ~/.claude/skills/manual-maker`.
+- **Personal skill (Option A):** re-copy → `cp -r skills/manual-maker ~/.claude/skills/manual-maker` (Option A ไม่มี auto-update — ต้อง re-copy เองทุกครั้ง).
 
-> 💡 GitHub raw CDN cache ~5 นาที — เพิ่ง release เสร็จอาจยังไม่เด้งทันที รอ ~5 นาทีแล้วเปิด session ใหม่ค่อยเห็น.
+> 💡 GitHub raw CDN cache ~5 นาที — เพิ่ง release เสร็จ hook อาจยังไม่เห็นเวอร์ชันใหม่ทันที รอ ~5 นาทีแล้วเปิด session ใหม่.
 
 ### Uninstall
 
@@ -165,7 +191,7 @@ It bumps every version location at once (`plugin.json`, `marketplace.json` ×2, 
 
 1. Edit the new `CHANGELOG.md` stub to describe the change.
 2. Commit and push.
-3. Team members get a new-version notice on their next session; they run `/plugin marketplace update manual-maker-dev` (or re-copy the personal skill).
+3. Team members on **v0.6.0+** get the new version installed automatically on their next session — the SessionStart hook self-updates in the background (see [Update](#update--อัปเดตอัตโนมัติ-auto-update)). Nothing to do. Personal-skill (Option A) users re-copy.
 
 ## Requirements
 
