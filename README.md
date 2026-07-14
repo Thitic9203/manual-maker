@@ -176,6 +176,8 @@ Prefer a single explicit entry point? Run the command with the system in one lin
 
 The command lays out the full run as a checklist and **auto-advances through every step** — intake → confirm → sources → screenshots → draft → template → review → export — so you don't have to nudge it between steps. It still **pauses at the three gates that keep a manual honest**: it asks the intake questions one at a time, waits for your confirmation before screenshots/drafting, and confirms the target before any Confluence/web publish. Momentum is automated; the correctness gates are not. (The natural-language triggers above still work exactly the same — the command is just an explicit `/` path.)
 
+> If another installed plugin or a local command is also named `manual-maker`, disambiguate with the fully-qualified `/manual-maker:manual-maker`.
+
 The skill interviews you one question at a time — system URL, login, VPN, **the source that describes the real steps** (Confluence page / spec / example doc), audience, scope, screenshot **annotation** (boxes + step numbers), **font & size**, numbering, and the **locked terminology** to use throughout. It then **summarizes everything and waits for your explicit confirmation** before doing anything, optionally screenshots the UI, drafts with `doc-coauthoring`, runs a **detailed final review**, and publishes to your chosen format.
 
 > The skill never assumes: if anything is unclear it asks first, it stays within the scope you set, and credentials are used only in-session — never written into the manual or repo.
@@ -220,7 +222,7 @@ All first-party / already available in Claude Code — nothing paid:
 ```
 manual-maker/
 ├── .claude-plugin/
-│   ├── plugin.json          # plugin manifest (version, hooks pointer)
+│   ├── plugin.json          # plugin manifest (name, version, description)
 │   └── marketplace.json     # marketplace manifest (name: manual-maker-dev)
 ├── commands/
 │   └── manual-maker.md      # /manual-maker — one-shot, drives the pipeline to the end

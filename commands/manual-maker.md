@@ -11,9 +11,9 @@ The user invoked this command to produce a finished **user handbook** in one sho
 
 ## Your job
 
-Own this from intake to exported deliverable. **Load and follow the `manual-maker` skill** at
-`${CLAUDE_PLUGIN_ROOT}/skills/manual-maker/SKILL.md` together with its references
-(`${CLAUDE_PLUGIN_ROOT}/skills/manual-maker/references/intake.md` and `template.md`).
+Own this from intake to exported deliverable. **Load the `manual-maker` skill using the Skill
+tool** — invoke it by name, do not depend on a filesystem path. Once loaded, the skill pulls in
+its own references (`references/intake.md`, `references/template.md`); follow its workflow verbatim.
 
 Run **every** step of that skill's workflow, in order, and **auto-continue between steps** — do
 not stop to ask "shall I move to the next step?". The user has already said "เดินงานให้จนจบ" (drive
@@ -34,8 +34,9 @@ rule (ห้ามมโน / ห้ามคิดเอง). Pause only here:
 
 1. **Intake answers** — the system-specific facts (system name, login, target users, modules,
    reference sources, terminology, output format) live only in the user's head. Ask the
-   `intake.md` questions **one at a time**. Never assume a default for access, credentials,
-   sources, fonts, or terminology.
+   `intake.md` questions **one at a time** — the auto-advance rule above governs moving between
+   *steps*, never batching intake questions; ask them one by one even while driving to the end.
+   Never assume a default for access, credentials, sources, fonts, or terminology.
 2. **Confirmation gate** — before any screenshot or drafting, print the intake summary table and
    get an explicit "ยืนยัน / go". Do nothing else until then.
 3. **Publish confirmation** — before posting to Confluence or a public web page (outward-facing),
