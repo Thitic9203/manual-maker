@@ -34,11 +34,17 @@ Track with TodoWrite: `Intake → Confirm → Ingest sources → Screenshots →
 
 ### Step 1 — Intake (always first, one question at a time)
 
-Read `references/intake.md`. Ask every question **one at a time**. Do not skip. Do not assume defaults for access, credentials, sources, fonts, or terminology.
+Read `references/intake.md`. **First load any saved profile** for this user + system per
+`references/profile.md` (stored at `~/.manual-maker/profiles/`): if one exists, show it and ask
+only what is **missing or changed** — never re-ask what the user already confirmed. Then ask the
+remaining questions **one at a time**. Do not skip. Do not assume defaults for access, credentials,
+sources, fonts, or terminology. **Credentials are never stored — always ask them fresh in-session.**
 
 ### Step 2 — Confirmation Gate (mandatory — do not skip)
 
 Print the summary table from the end of `intake.md` and ask **"ยืนยันข้อมูลทั้งหมดถูกต้อง เริ่มทำได้เลยไหมครับ?"**. **Do nothing else** — no screenshots, no drafting — until the user explicitly confirms. If anything is "ไม่แน่ใจ", resolve it first.
+
+**On confirmation, save the profile** per `references/profile.md` — the confirmed answers **minus every credential/secret** — so the next run for this system does not re-ask.
 
 ### Step 3 — Ingest sources (grounds the content)
 

@@ -1,14 +1,40 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.7.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.8.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.7.0 · MIT · Claude Code plugin**
+**Version 0.8.0 · MIT · Claude Code plugin**
 
 > 🔄 **อัปเดตอัตโนมัติ (v0.6.0+):** ติดตั้งครั้งเดียว จากนั้นแค่ **เปิด session ใหม่** ปลั๊กอินก็ดึงเวอร์ชันล่าสุดมาติดตั้งเองเบื้องหลัง — **ผู้ใช้ไม่ต้องกดอัปเดตหรือทำอะไรเพิ่ม.** ปิดได้ด้วย `MANUAL_MAKER_NO_AUTOUPDATE=1`. รายละเอียด → [Update](#update--อัปเดตอัตโนมัติ-auto-update).
+
+---
+
+## Quickstart — เรียกใช้สกิลยังไง
+
+**1. ติดตั้ง (ครั้งเดียว)** — พิมพ์ใน Claude Code:
+
+```
+/plugin marketplace add Thitic9203/manual-maker
+/plugin install manual-maker@manual-maker-dev
+```
+
+แล้ว **restart Claude Code** (หรือ `/reload-plugins`) — ครั้งเดียว จากนั้นอัปเดตเองอัตโนมัติ.
+
+**2. เรียกใช้ — เลือกทางใดก็ได้:**
+
+| วิธี | พิมพ์ |
+|------|-------|
+| **คำสั่ง** (เดินครบ pipeline จนจบ) | `/manual-maker ทำคู่มือระบบ <ชื่อระบบ>` |
+| **ภาษาธรรมชาติ** (สกิล trigger เอง) | `ทำคู่มือการใช้งานระบบ <ชื่อระบบ> ให้ผู้ใช้` |
+
+ทั้งสองทางเข้า workflow เดียวกัน — command แค่เป็นทางเรียกที่ชัดเจนและย้ำให้เดินจนจบ.
+
+**3. ตอบ intake ทีละข้อ** (ระบบ, URL, login, source ที่บอกขั้นตอนจริง, ผู้ใช้, ขอบเขต, ภาพ+การใส่กรอบ/เลข, ฟอนต์, คำศัพท์ที่ล็อก, รูปแบบผลลัพธ์) → **ยืนยันที่ตารางสรุป** → สกิลลงมือ: screenshot → ร่างด้วย `doc-coauthoring` → รีวิวละเอียด → export (Word/PDF/Confluence/เว็บ) ให้จนจบ.
+
+> รอบถัดไปของ **ระบบเดิม** สกิลจำคำตอบเดิมให้ ถามแค่ส่วนที่เปลี่ยน (v0.8.0+). **รหัสผ่าน/บัญชีถามสดทุกครั้ง ไม่เก็บลงไฟล์.**
 
 ---
 
@@ -182,6 +208,8 @@ The skill interviews you one question at a time — system URL, login, VPN, **th
 
 > The skill never assumes: if anything is unclear it asks first, it stays within the scope you set, and credentials are used only in-session — never written into the manual or repo.
 
+**จำคำตอบเดิมให้ ไม่ถามซ้ำ (v0.8.0+):** เคยทำคู่มือระบบไหนไปแล้ว รอบถัดไปสกิลจะโหลดคำตอบเดิมของคุณ (source, ผู้ใช้เป้าหมาย, การใส่กรอบ/เลขในภาพ, ฟอนต์/ขนาด, การนับเลข, คำศัพท์ที่ล็อก, รูปแบบผลลัพธ์) มาโชว์ แล้ว **ถามแค่ส่วนที่ขาดหรือเปลี่ยน** — เก็บแบบ per-user ที่ `~/.manual-maker/profiles/` ในเครื่องคุณเอง. **รหัสผ่าน/บัญชี/VPN ไม่ถูกบันทึกลงไฟล์เด็ดขาด — ถามสดทุกครั้ง.** ระบบยังยืนยัน URL/VPN และผ่าน Confirmation Gate ทุกครั้งเหมือนเดิม.
+
 ## How it works (runtime flow)
 
 ```
@@ -237,6 +265,7 @@ manual-maker/
         ├── SKILL.md         # workflow: intake → screenshots → draft → template → export
         └── references/
             ├── intake.md    # the system-specific question set
+            ├── profile.md   # remembers a user's answers (~/.manual-maker/profiles) so it doesn't re-ask
             └── template.md  # team handbook structure + conventions
 ```
 

@@ -10,10 +10,21 @@ Ask these **one at a time**, in order. Where an answer has a **bold default**, o
 - **ห้ามทำเกินขอบเขต.** Document only what was asked. No extra modules, no opinions, no "while I'm here" additions, no deciding on the user's behalf.
 - **ยืนยันก่อนเริ่มเสมอ.** After intake, summarize everything and get an explicit "go" before any screenshot or drafting (see the Confirmation Gate at the end).
 
-## A. System & access  — *ask fresh every time; do not reuse old answers*
+## 0. Load saved profile first — do not re-ask what this user already answered
+
+Before Section A, follow `profile.md`: look in `~/.manual-maker/profiles/` for this user's saved
+answers for this system. If found, show them and ask what changed — then **skip every intake
+question the user confirms is unchanged.** Only ask for missing or changed fields. If nothing is
+saved, run the full intake below. (Credentials are **never** saved — always ask them fresh.)
+
+## A. System & access  — *live access is verified every run*
+
+> With a saved profile, **URL(s) and VPN state are pre-filled and confirmed** (shown as the
+> default; the user confirms they still hold — not asked from scratch). **Credentials are never
+> stored and are always asked fresh, in-session.**
 
 1. **System name** — which system, and what is it in one line? *(ต้องถาม)*
-2. **URL(s)** to document. *(ต้องถาม — ask every time, even if a URL was used before)*
+2. **URL(s)** to document. *(ต้องถาม — with a saved profile, show the saved URL as the default and confirm it still holds; never silently reuse — live access is verified every run)*
 3. **Login** — email/username + password needed to reach the screens. *(ต้องถาม)*
    > 🔐 Credentials are used **only in this session** to open the system for screenshots. They are **never** written into the manual, the repo, logs, or any file. Ask the user to paste them at that moment.
 4. **VPN** — does access need a VPN, and is it connected yet? *(ต้องถาม — confirm before trying the URL)*
@@ -66,3 +77,7 @@ Print a summary table of **every** answer:
 Then ask, verbatim: **"ยืนยันข้อมูลทั้งหมดถูกต้อง และเริ่มดำเนินการได้หรือไม่"**
 
 Do **not** proceed until the user replies with an explicit confirmation. If anything is "ไม่แน่ใจ", resolve it first.
+
+**After confirmation → save the profile.** Once the user confirms, write the confirmed answers
+(**minus every credential/secret**) to `~/.manual-maker/profiles/<slug>.json` per `profile.md`, so
+the next run for this system does not re-ask. Then tell the user it was saved.

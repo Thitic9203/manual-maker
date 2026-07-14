@@ -37,6 +37,9 @@ rule (ห้ามมโน / ห้ามคิดเอง). Pause only here:
    `intake.md` questions **one at a time** — the auto-advance rule above governs moving between
    *steps*, never batching intake questions; ask them one by one even while driving to the end.
    Never assume a default for access, credentials, sources, fonts, or terminology.
+   **If this user already documented this system, load their saved profile first**
+   (`~/.manual-maker/profiles/`, per the skill's `profile.md`) and ask only what is missing or
+   changed — do not re-ask answered questions. Credentials are never stored; always ask fresh.
 2. **Confirmation gate** — before any screenshot or drafting, print the intake summary table and
    get an explicit "ยืนยัน / go". Do nothing else until then.
 3. **Publish confirmation** — before posting to Confluence or a public web page (outward-facing),

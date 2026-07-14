@@ -2,6 +2,16 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.8.0] - 2026-07-14
+### Added
+- **Remembered intake — stop re-asking what a user already answered.** After the Confirmation Gate, manual-maker now saves that user's confirmed intake for the system to a **per-user local** profile at `~/.manual-maker/profiles/<slug>.json`. On the next run for the same system it loads the profile, shows it back, and asks **only what is missing or changed** — the stable answers (sources, audience/scope, screenshot annotation, font & size, numbering, locked terminology, output format/destination) are not re-asked. New reference: `skills/manual-maker/references/profile.md`.
+
+### Security
+- **Credentials are never persisted.** Passwords, usernames, tokens, cookies, and VPN secrets are excluded from the profile and are always asked **fresh, in-session**, exactly as before. Only `vpn_required` (a boolean) is stored.
+
+### Changed
+- Intake reconciled with the profile: **URL(s) and VPN state are pre-filled from the profile and re-confirmed each run** (shown as the default, user confirms they still hold) rather than asked from scratch — live access is still verified every time. The **Confirmation Gate is unchanged and still mandatory**; a profile only ever stores user-confirmed data (saved *after* the gate, never before). Updated `SKILL.md`, `references/intake.md`, and the `/manual-maker` command to match.
+
 ## [0.7.0] - 2026-07-14
 ### Added
 - **`/manual-maker` slash command** — a one-shot entry point that drives the whole handbook pipeline to completion. The user runs `/manual-maker ทำคู่มือ <ระบบ>` and the command loads the `manual-maker` skill, lays out the full `Intake → Confirm → Ingest → Screenshots → Draft → Template+Quality → Final review → Export` TodoWrite, and **auto-advances between steps** instead of pausing after each one.
