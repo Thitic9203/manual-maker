@@ -2,6 +2,66 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.20.0] - 2026-07-20
+
+A red circle numbered ② can no longer sit quietly on step 3's button.
+
+### The defect this closes
+
+A delivered manual shipped with circle **②** on the control for step 3, **④** on an *alternative*
+path that was not a numbered step at all, and **⑤** drawn on **two different figures**. The circles
+had been placed against an earlier draft of the step list and were never re-derived when the steps
+were rewritten. Nothing caught it: `references/review.md` layer 3 stated "เลขในวงตรงขั้นตอน 1:1" as
+prose for a human to eyeball, and `scripts/verify-doc.py` never looks at figures at all.
+
+### Added
+- **`annotations.json` — the annotation manifest.** Annotation now records every circle as it is
+  drawn: its number, file, centre in the final PNG's pixel space, and a `label` naming the control it
+  covers. Shape and rules documented in `references/screenshots.md`.
+- **`scripts/verify-annotations.py` — a pixel-verifiable gate.** Reads the manifest and fails
+  (exit 1) on: circle numbers not contiguous `1..N` for the section's declared `steps`; a number
+  repeated within a section (this is the ⑤-on-two-figures case); a number outside `1..N` (the ④-on-an-
+  alternative-path case); a referenced file missing from `--assets`; **the manifest disagreeing with
+  the pixels** — either the number of circles actually drawn on an image differs from what the
+  manifest claims, or a claimed `(x,y)` lands nowhere near a real circle; more than 5 circles on one
+  image; and, with `--docx`, a referenced image not actually embedded in the delivered document.
+  Reports as a Thai table in the same style as `verify-doc.py`. Stdlib + Pillow, pinned to
+  `/usr/bin/python3`.
+- The script accepts a **directory** as well as a single file, so the parallel writers of Steps 4–6
+  each emit `<section>.annotations.json` in their own ownership lane instead of contending for one
+  shared file. Two writers declaring the same section is an error, not a last-write-wins.
+- `manual-section-writer` emits its section's manifest and self-checks it before handing over;
+  `manual-section-reviewer` runs the script per section as a pre-check.
+
+### Changed
+- **`references/review.md` layer 3** — the 1:1 claim is now **evidence-backed**: the script's output
+  is required evidence, and its scope is stated explicitly rather than implied.
+- **`SKILL.md` Step 8** runs the new script alongside `verify-doc.py`, through the same path resolver
+  already documented in that file (a manual run's cwd is the user's project, so relative paths do not
+  resolve).
+- **`references/screenshots.md`** now states that circles are derived from the **final** step list and
+  never drawn before the steps are frozen — and that a changed step list means re-deriving *every*
+  circle in that section, not patching one number.
+
+### What this does NOT prove — read before trusting it
+The script proves **numbering and placement consistency**: numbers complete, unique and in range, and
+a manifest that does not lie about what was drawn. It **cannot judge whether a circle sits on the
+_correct_ control** — a circle ② whose coordinates honestly match a real circle, but which covers
+step 3's button, **passes**. That is semantics, not geometry, and remains human judgement: layer 3
+still requires a human table keyed on each circle's `label`, and **ตรวจไม่ได้ = ไม่ผ่าน** applies in
+full to everything the script cannot decide.
+
+### Verified, not assumed
+Measured on 19 real annotated screenshots plus fixtures with circles drawn at known coordinates. Real
+callouts: bbox 37×37, area 931–1001, fill 0.68–0.73, aspect 1.00. Red UI chrome in the same app:
+59×20 (aspect 2.95), 38×20 (**fill 0.726 — so fill alone does not discriminate**), a roundish 26×24
+delete icon at area 325. Detection therefore requires a **near-solid disc of the expected size**
+across four conditions at once; every decoy fails at least two. On the real set the detector found
+exactly the 16 true callouts and **zero** false positives, including on a screenshot carrying seven
+red UI blobs. Geometry held across colour tolerance 20→80 (bbox unchanged, centroid drift < 0.2 px),
+so the 25 px match radius is generous rather than tuned. A correct manifest over 13 real screenshots
+passes clean at exit 0; each defect class was reproduced and shown failing.
+
 ## [0.19.0] - 2026-07-20
 
 Thai text that wraps no longer prints through the paragraph beneath it.

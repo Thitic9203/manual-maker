@@ -28,7 +28,7 @@ It is a thin team wrapper that **composes** Anthropic's first-party skills (it d
    breaks another (adding a figure shifts the step numbers). Review the **exported file**, never the
    draft in conversation.
 6. **ต้นแบบคือของจริง.** If the user supplies a base/reference document, reproduce its **cover, header, footer (page numbers), TOC, styles, and role-based chapters exactly** — never a hand-built look-alike. See `references/docx-build.md`.
-7. **ภาพต้องเป็นหน้าจอระบบจริง.** Every figure is a **real, full-screen** screenshot of the live system, with **red numbered circles whose numbers match the step numbers**. No placeholders, no mock-ups, no redrawn tables standing in for a screen. See `references/screenshots.md`.
+7. **ภาพต้องเป็นหน้าจอระบบจริง.** Every figure is a **real, full-screen** screenshot of the live system, with **red numbered circles whose numbers match the step numbers**. No placeholders, no mock-ups, no redrawn tables standing in for a screen. Circles are **derived from the final step list** and recorded in `annotations.json` as they are drawn; `scripts/verify-annotations.py` proves the 1:1 claim against the pixels at Step 8. See `references/screenshots.md`.
 8. **งานขนานห้ามลดคุณภาพ และ subagent ห้ามตัดสินใจแทนผู้ใช้.** Steps 4–6 fan out across 2–3
    `manual-section-writer` agents plus **one** `manual-section-reviewer` that reviews each หัวข้อย่อย
    as it lands — see `references/parallel.md`. A subagent **cannot talk to the user**, so anything
@@ -51,8 +51,9 @@ posting and delivery are outward-facing and must never happen ahead of a 5/5 ver
 **Steps 4–6 run in parallel, one หัวข้อย่อย per writer.** Everything before and after them stays in
 this thread. Read `references/parallel.md` before dispatching.
 
-**Running this skill's scripts — always resolve the path first.** `scripts/preflight.sh` and
-`scripts/verify-doc.py` live **next to this file**, never in the user's project. The run's cwd *is*
+**Running this skill's scripts — always resolve the path first.** `scripts/preflight.sh`,
+`scripts/verify-doc.py`, and `scripts/verify-annotations.py` live **next to this file**, never in the
+user's project. The run's cwd *is*
 the user's project, so a bare `scripts/preflight.sh` resolves there, is not found, and the script
 looks like it does not exist — do **not** conclude it is missing and hand-improvise the step. Neither
 shortcut works either: `CLAUDE_PLUGIN_ROOT` is **unset** in Bash tool calls (hooks get it, tool calls
@@ -227,20 +228,32 @@ The five layers, each decided against the **Step 2 confirmation table** and each
 |---|---|---|
 | 1 | ตรงตามที่ยืนยัน | scope, การแบ่งเล่ม (Q9), ภาษา, ฟอนต์, format, **โหมดวงแดง — มี/ไม่มี ตามที่สั่ง** |
 | 2 | ทุกอย่างมีที่มา | ทุกขั้นตอนสาวถึงระบบจริง+แหล่งของผู้ใช้; บทที่ไม่มีแหล่ง = ตัดทิ้ง ไม่ใช่แต่งเพิ่ม |
-| 3 | ภาพ | ของจริง, เต็มจอ, เลขในวงตรงขั้นตอน 1:1, ไม่มีเคอร์เซอร์/ขอบเรือง, ปิดชื่อคน |
+| 3 | ภาพ | ของจริง, เต็มจอ, **เลขในวงตรงขั้นตอน 1:1 — พิสูจน์ด้วย `verify-annotations.py`**, ไม่มีเคอร์เซอร์/ขอบเรือง, ปิดชื่อคน |
 | 4 | ตัวหนังสือและตัวเลข | เลขข้อ+TOC ตรง, ไม่มีคำผิด, **ไม่มีคำพราก**, คำศัพท์ล็อกเดียว, โทนถูก |
 | 5 | รูปเล่ม | ปก + header + footer (`PAGE` field) + TOC field + ฟอนต์ ตามฟอร์แมตที่ผู้ใช้กำหนด |
 
-Run the mechanical half first — it settles what a regex can settle, so judgement goes to the rest:
+Run the mechanical half first — it settles what a regex and the pixels can settle, so judgement goes
+to the rest. **Both scripts, same resolver, same Bash call** (shell state does not survive between
+calls, and the run's cwd is the user's project — a bare relative path finds neither script):
 
 ```bash
 MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/null | sort -V | tail -1); [ -n "$MM" ] || MM=~/.claude/skills/manual-maker
 /usr/bin/python3 "$MM/scripts/verify-doc.py" <ไฟล์.docx> --terms "<คำล็อก,คั่นด้วยจุลภาค>" --annotations required|none
+/usr/bin/python3 "$MM/scripts/verify-annotations.py" manual-assets/<slug>/ --assets manual-assets/<slug>/ --docx <ไฟล์.docx>
 ```
 
-**Exit 1 = ห้ามส่ง.** But **passing the script is not passing the review** — it cannot judge whether
-the content matches the real system, whether a red circle points at the right button, or whether the
-layout matches the ต้นแบบ. Those stay human-judged.
+`verify-annotations.py` is the **evidence for layer 3's "เลขในวงตรงขั้นตอน 1:1"**, which used to be
+prose a human was expected to eyeball — and it got through: a delivered manual had ② on step 3's
+control, ④ on an alternative path that was not a numbered step, and ⑤ on two different figures. It
+reads `annotations.json` (written during annotation, see `references/screenshots.md`) and checks it
+against the **actual pixels**, so a manifest that lies about what was drawn fails. **Skip it only when
+the confirmed โหมดภาพ is `none`** — then what must be proved is that there are no circles at all,
+which is layer 1.
+
+**Exit 1 on either = ห้ามส่ง.** But **passing the scripts is not passing the review** — they cannot
+judge whether the content matches the real system, **whether a red circle sits on the _right_ button**
+(`verify-annotations.py` proves numbering and placement consistency, not semantic correctness), or
+whether the layout matches the ต้นแบบ. Those stay human-judged.
 
 Print the 5-layer verdict table (format in `review.md`) to the user **every time**, including the
 failing rounds. Deliver only on **5/5**. If a layer cannot be verified, it is **ไม่ผ่าน** — say so and
