@@ -2,6 +2,10 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.14.1] - 2026-07-19
+### Fixed
+- **Closed the one-session gap — `/manual-maker` now works from the very first session that has the plugin.** 0.14.0 auto-installed the shim, but Claude Code reads command files when a session *starts*, so the file the hook had just written was not in that session's command table: a user who installed the plugin, restarted, and typed `/manual-maker` still got `Unknown command` once. Measured directly — deleting the shim and running a session showed the hook creating the file yet the command still failing in that same run, then resolving in the next. Claude Code delivers the user's typed text to the skill alongside that error, so on a first install the hook now includes a directive telling Claude to treat a failed `/manual-maker` as an invocation and run the `manual-maker:manual-maker` skill with the remaining text as args, rather than telling the user the command is unavailable. The directive is emitted **only** on the session where the shim was freshly created — from the next session the command resolves natively and the hook is silent again. Covered by an 11-assertion scenario test (fresh install emits the directive; second session, stale refresh, foreign file, and opt-out all stay silent).
+
 ## [0.14.0] - 2026-07-19
 
 Bare `/manual-maker` now works for everyone, with nothing to install by hand.

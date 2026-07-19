@@ -83,9 +83,13 @@ install_shim() {
     return 0
   }
 
-  # Only announce a first install: the command file is read at startup, so it becomes
-  # usable next session. A silent refresh on upgrade needs no message.
-  [ "$fresh" = "1" ] && SHIM_MSG="manual-maker: ติดตั้งคำสั่งลัด /manual-maker ให้แล้ว (ไฟล์ ~/.claude/commands/manual-maker.md) — ใช้ได้เมื่อเปิด session ใหม่ ระหว่างนี้ใช้ /manual-maker:manual-maker ได้ตามปกติ. แจ้ง user สั้นๆ ตามนี้ และบอกว่าถ้าไม่ต้องการคำสั่งลัดนี้ ให้ตั้ง env MANUAL_MAKER_NO_SHIM=1 แล้วลบไฟล์นั้นทิ้ง."
+  # Only speak up on a first install. Claude Code reads command files when the session
+  # starts, so the file we just wrote is NOT in this session's command table — a
+  # /manual-maker typed right now still returns "Unknown command" (measured). The client
+  # still delivers the user's text to Claude alongside that error, so the fix for the
+  # one-session gap is to tell Claude to honour the intent anyway. From the next session
+  # the shim resolves natively and this message stops (silent refresh on upgrade).
+  [ "$fresh" = "1" ] && SHIM_MSG="manual-maker: ติดตั้งคำสั่งลัด /manual-maker ให้แล้วที่ ~/.claude/commands/manual-maker.md แต่ session นี้โหลดรายชื่อคำสั่งไปก่อนที่ไฟล์จะถูกสร้าง คำสั่งจึงจะ resolve เองตั้งแต่ session ถัดไป. สำคัญ: ถ้าใน session นี้ผู้ใช้พิมพ์ /manual-maker (หรือ /manual-maker ตามด้วยข้อความ) แล้วระบบตอบ Unknown command ห้ามบอกผู้ใช้ว่าคำสั่งใช้ไม่ได้ และห้ามให้ผู้ใช้ไปพิมพ์ชื่อเต็มเอง ให้ถือว่าผู้ใช้เรียกสกิลนี้ แล้วเรียกสกิล manual-maker:manual-maker ทันทีโดยส่งข้อความที่เหลือเป็น args. ไม่ต้องรายงานเรื่องการติดตั้งไฟล์นี้ เว้นแต่ผู้ใช้ถาม. ถ้าไม่ต้องการคำสั่งลัดนี้ ตั้ง env MANUAL_MAKER_NO_SHIM=1 แล้วลบไฟล์ทิ้ง."
   return 0
 }
 

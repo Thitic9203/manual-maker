@@ -1,12 +1,12 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.14.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.14.1-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.14.0 · MIT · Claude Code plugin**
+**Version 0.14.1 · MIT · Claude Code plugin**
 
 > 🔄 **อัปเดตอัตโนมัติ (v0.6.0+):** ติดตั้งครั้งเดียว จากนั้นแค่ **เปิด session ใหม่** ปลั๊กอินก็ดึงเวอร์ชันล่าสุดมาติดตั้งเองเบื้องหลัง — **ผู้ใช้ไม่ต้องกดอัปเดตหรือทำอะไรเพิ่ม.** ปิดได้ด้วย `MANUAL_MAKER_NO_AUTOUPDATE=1`. รายละเอียด → [Update](#update--อัปเดตอัตโนมัติ-auto-update).
 
@@ -36,7 +36,7 @@ It is a thin **team wrapper** around Anthropic's first-party skills. It does not
 > ℹ️ **ทำไมมีสองรูปแบบ:** Claude Code บังคับ namespace ทุก plugin command เป็น `/plugin:command` เสมอ
 > (กันชนกันข้าม plugin) — ปลั๊กอิน**เปิด**ชื่อสั้นเองไม่ได้ ตั้งแต่ **v0.14.0** ปลั๊กอินจึงติดตั้ง
 > [shim ระดับ user](#คำสั่งสั้น-manual-maker--ติดตั้งอัตโนมัติ) ให้อัตโนมัติตอนเปิด session
-> เพื่อให้ `/manual-maker` สั้นๆ ใช้ได้ **ครั้งแรกหลังติดตั้งต้องเปิด session ใหม่อีกรอบ** ระหว่างนั้นใช้ชื่อเต็มได้เลย.
+> **ผู้ใช้ไม่ต้องทำอะไร และพิมพ์ `/manual-maker` ได้ตั้งแต่ session แรกที่มีปลั๊กอิน** (v0.14.1+).
 
 **3. ตอบ intake ทีละข้อ** (ระบบ, URL, login, source ที่บอกขั้นตอนจริง, ผู้ใช้, ขอบเขต, ภาพ+การใส่กรอบ/เลข, ฟอนต์, คำศัพท์ที่ล็อก, รูปแบบผลลัพธ์) → **ยืนยันที่ตารางสรุป** → สกิลลงมือ: screenshot → ร่างด้วย `doc-coauthoring` → รีวิวละเอียด → export (Word/PDF/Confluence/เว็บ) ให้จนจบ.
 
@@ -221,8 +221,12 @@ The command lays out the full run as a checklist and **auto-advances through eve
 
 **ตั้งแต่ v0.14.0 ไม่ต้องทำอะไรเอง.** ตอนเปิด session ปลั๊กอินจะก๊อป `shim/manual-maker.md` ไปไว้ที่
 `~/.claude/commands/manual-maker.md` ให้ — คำสั่งระดับ **user** ไม่ถูก namespace จึงเรียก
-`/manual-maker` สั้นๆ ได้ทุก project ในเครื่องนั้น. ครั้งแรกจะมีข้อความบอกในแชท และ
-**คำสั่งเริ่มใช้ได้เมื่อเปิด session ถัดไป** (Claude Code อ่านไฟล์คำสั่งตอนเริ่ม session).
+`/manual-maker` สั้นๆ ได้ทุก project ในเครื่องนั้น.
+
+**session แรกก็ใช้ได้ (v0.14.1+).** Claude Code อ่านรายชื่อคำสั่งตอน *เริ่ม* session ไฟล์ที่เพิ่งถูกวาง
+จึงยังไม่อยู่ในตารางคำสั่งของ session นั้น และ `/manual-maker` จะได้ `Unknown command` — แต่ Claude Code
+**ยังส่งข้อความที่ผู้ใช้พิมพ์ต่อให้สกิลเห็น** hook จึงสั่งไว้ว่าถ้าเจอกรณีนี้ให้เรียกสกิลให้เลย ผู้ใช้จึงได้ผลลัพธ์ปกติ
+ไม่ต้องพิมพ์ซ้ำ ตั้งแต่ session ถัดไปคำสั่ง resolve เองตามปกติและข้อความนี้จะหายไป.
 
 **ข้อควรรู้:**
 
