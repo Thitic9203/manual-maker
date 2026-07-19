@@ -1,12 +1,12 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.13.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.13.1-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.13.0 · MIT · Claude Code plugin**
+**Version 0.13.1 · MIT · Claude Code plugin**
 
 > 🔄 **อัปเดตอัตโนมัติ (v0.6.0+):** ติดตั้งครั้งเดียว จากนั้นแค่ **เปิด session ใหม่** ปลั๊กอินก็ดึงเวอร์ชันล่าสุดมาติดตั้งเองเบื้องหลัง — **ผู้ใช้ไม่ต้องกดอัปเดตหรือทำอะไรเพิ่ม.** ปิดได้ด้วย `MANUAL_MAKER_NO_AUTOUPDATE=1`. รายละเอียด → [Update](#update--อัปเดตอัตโนมัติ-auto-update).
 
@@ -218,9 +218,13 @@ The command lays out the full run as a checklist and **auto-advances through eve
 
 ```bash
 mkdir -p ~/.claude/commands
-curl -fsSL https://raw.githubusercontent.com/Thitic9203/manual-maker/main/shim/manual-maker.md \
+/usr/bin/curl -fsSL https://raw.githubusercontent.com/Thitic9203/manual-maker/main/shim/manual-maker.md \
   -o ~/.claude/commands/manual-maker.md
 ```
+
+> ใช้ `/usr/bin/curl` (curl ของ macOS) แบบเต็ม path ตั้งใจ — ถ้าเครื่องมี MacPorts/Homebrew curl อยู่ใน
+> PATH ก่อน มันมักต่อ TLS กับ `raw.githubusercontent.com` ไม่ผ่านแล้วขึ้น `unable to establish a secure
+> connection`. บน Linux ใช้ `curl` เฉยๆ ได้ตามปกติ.
 
 restart Claude Code (หรือ `/reload-plugins`) หนึ่งครั้ง → พิมพ์ `/manual-maker ทำคู่มือระบบ X` ได้เลย.
 

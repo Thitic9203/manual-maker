@@ -2,6 +2,10 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.13.1] - 2026-07-19
+### Fixed
+- **Shim install command now uses `/usr/bin/curl` (full path).** The 0.13.0 snippet used bare `curl`, which resolves to a MacPorts/Homebrew build on many of the team's machines and fails the TLS handshake to `raw.githubusercontent.com` (`unable to establish a secure connection`) — so the shim install died on the exact machines that needed it. macOS's system curl fetches it fine; the README notes plain `curl` is correct on Linux.
+
 ## [0.13.0] - 2026-07-19
 
 Fixes the `/manual-maker` → `Unknown command` dead end. No change to the manual-making workflow itself.
