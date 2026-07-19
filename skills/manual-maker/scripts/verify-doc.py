@@ -186,6 +186,55 @@ def main():
             add("9", "จำนวนภาพสอดคล้องกับที่ยืนยัน", "PASS",
                 f"{n_img} รูป (โหมด: {annotations}) — วงแดงถูก/ผิดต้องดูด้วยสายตา")
 
+    # ---------------------------------------------------- 10. ระยะบรรทัดพอสำหรับภาษาไทย
+    # Thai sets vowel and tone marks above and below the baseline, so a wrapped line can
+    # collide with the paragraph beneath it. Two conditions are unambiguous hazards and are
+    # the only ones flagged, because anything looser fires on the pristine template itself
+    # (measured: a whole-document scan flagged 23 untouched TOC paragraphs that render fine):
+    #   * lineRule="exact" — a fixed line box clips Thai marks outright;
+    #   * a paragraph-level w:line TIGHTER than the document default — i.e. something
+    #     deliberately squeezed this paragraph below the rhythm the template chose.
+    def _spacing_attrs(fragment):
+        m = re.search(r"<w:spacing(\s[^>]*?)?/>", fragment or "")
+        return dict(re.findall(r'w:(\w+)="([^"]*)"', m.group(0))) if m else {}
+
+    styles_xml = ""
+    try:
+        styles_xml = z.read("word/styles.xml").decode("utf8", "ignore")
+    except Exception:
+        pass
+    dd = re.search(r"<w:docDefaults>.*?</w:docDefaults>", styles_xml, re.S)
+    base = _spacing_attrs(dd.group(0) if dd else "")
+    default_line = int(base["line"]) if base.get("line", "").isdigit() else 240
+
+    exact, squeezed = [], []
+    for m in re.finditer(r"<w:p(?:\s[^>]*)?>.*?</w:p>", doc, re.S):
+        para = m.group(0)
+        body = text_of(para)
+        if len(body) < 40 or not re.search(r"[\u0e00-\u0e7f]", body):
+            continue
+        ppr = re.search(r"<w:pPr>.*?</w:pPr>", para, re.S)
+        own = _spacing_attrs(ppr.group(0) if ppr else "")
+        if not own:
+            continue
+        if own.get("lineRule") == "exact":
+            exact.append(body[:40])
+        elif own.get("line", "").isdigit() and int(own["line"]) < default_line:
+            squeezed.append(body[:40])
+
+    if exact or squeezed:
+        bits = []
+        if exact:
+            bits.append(f'lineRule="exact" {len(exact)} ย่อหน้า (เช่น: {exact[0]}…)')
+        if squeezed:
+            bits.append(f"ตั้ง w:line แคบกว่าค่าเริ่มต้น {default_line} จำนวน {len(squeezed)} ย่อหน้า "
+                        f"(เช่น: {squeezed[0]}…)")
+        add("10", "ระยะบรรทัดพอสำหรับภาษาไทย", "FAIL",
+            "; ".join(bits) + " — สระบน-ล่างจะถูกตัดหรือบรรทัดซ้อนกัน")
+    else:
+        add("10", "ระยะบรรทัดพอสำหรับภาษาไทย", "PASS",
+            f"ไม่มีย่อหน้าไทยที่บีบระยะบรรทัดต่ำกว่าค่าเริ่มต้น ({default_line}) และไม่มี lineRule=exact")
+
     # ------------------------------------------------------------------ report
     print()
     print("| # | ตรวจ | ผล | รายละเอียด |")

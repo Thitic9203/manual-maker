@@ -2,6 +2,38 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.19.0] - 2026-07-20
+
+Thai text that wraps no longer prints through the paragraph beneath it.
+
+### Added
+- **`verify-doc.py` check 10 — ระยะบรรทัดพอสำหรับภาษาไทย.** Thai stacks vowel and tone marks above
+  and below the baseline, so a paragraph squeezed below the document's default line height overlaps
+  its neighbour **as soon as it wraps**. Found in a delivered manual: a one-line bullet rendered
+  perfectly while the two-line bullet under it printed straight through the next paragraph. Short
+  test content never reveals it.
+- Two hazards are flagged, and only those two, because anything looser fires on the pristine
+  template: `w:lineRule="exact"` on a paragraph carrying real Thai, and a paragraph-level `w:line`
+  **tighter than `docDefaults`**.
+
+### Fixed
+- **The checker resolves inherited spacing instead of reading the paragraph tag alone.** Most
+  template paragraphs carry no `<w:spacing>` and inherit a safe value from `docDefaults`; a first cut
+  that judged the tag in isolation flagged **23 untouched TOC paragraphs in the base template itself**
+  — a gate that blocks the pristine template blocks every future run.
+- Template **spacer** paragraphs legitimately use `w:line="1" w:lineRule="exact"`, so the check
+  requires ≥ 40 Thai characters before it fires and leaves them alone.
+
+### Changed
+- `references/docx-build.md` gains a **Line spacing** section under Font: `w:cs` fixes the glyphs but
+  not the line box, so an authored paragraph either inherits the template's spacing untouched or sets
+  an explicit `w:line="300" w:lineRule="auto"` — never a value below the document default.
+
+### Verified
+- Pristine base template → **pass**; both delivered volumes → **pass**; `lineRule="exact"` injected
+  into a long Thai paragraph → **fail**; `w:line` squeezed to 200 → **fail**. Both hazard types
+  detected with no false positives.
+
 ## [0.18.1] - 2026-07-20
 
 The skill can now actually find its own scripts.

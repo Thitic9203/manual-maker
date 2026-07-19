@@ -44,6 +44,29 @@ template dictates otherwise; then follow the template.
 > `w:eastAsia`, and above all **`w:cs`**. Miss `w:cs` and Word silently renders the Thai text in a
 > fallback font.
 
+### Line spacing — a wrapped Thai paragraph must not collide with the next one
+
+`w:cs` fixes the glyphs; it does **not** fix the line box. Thai stacks vowel and tone marks above
+and below the baseline, so a paragraph squeezed below the document's own default line height
+overlaps the paragraph beneath it **as soon as it wraps**. Observed on a real delivery: a one-line
+bullet rendered perfectly while the two-line bullet under it printed straight through its neighbour.
+The defect is invisible until the text is long enough to wrap, so short test content never reveals it.
+
+Two hazards, both flagged by `scripts/verify-doc.py` check 10:
+
+- **`w:lineRule="exact"`** on a paragraph carrying real Thai text — a fixed line box clips the marks
+  outright. (Template *spacer* paragraphs legitimately use `w:line="1" w:lineRule="exact"`; the check
+  ignores them by requiring ≥ 40 Thai characters, so do not "fix" those.)
+- **A paragraph-level `w:line` tighter than `docDefaults`** — something deliberately squeezed this
+  paragraph below the rhythm the template chose.
+
+When authoring a paragraph, either inherit the template's spacing untouched or set an explicit
+`<w:spacing w:line="300" w:lineRule="auto"/>` with a little `w:after`. Never invent a value below the
+document default. Judge inheritance, not the tag alone: most template paragraphs carry **no**
+`<w:spacing>` at all and inherit a perfectly safe value from `docDefaults` — a checker that reads the
+paragraph tag in isolation flags the pristine template (measured: 23 false positives on untouched
+TOC entries).
+
 ### คำพราก — prevent it here, at build time
 
 A Thai word split across two lines ("นัก" ends one line, "เรียน" starts the next) is **not** something
