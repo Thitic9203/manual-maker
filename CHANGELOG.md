@@ -2,6 +2,58 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.20.1] - 2026-07-20
+
+Closes the boundary 0.20.0 left open: a circle whose number and coordinates are all internally
+consistent, but which sits on the control a *different* step names.
+
+### The defect this closes
+0.20.0 proved numbering and placement. It could not catch the case the user actually hit — circle **②**
+sitting on the control that step **3** names. Numbering was contiguous, the coordinate was honest, the
+pixels agreed; only the *pairing* was wrong.
+
+### Added
+- **`step_text` on every circle in `annotations.json`** — the step's text copied verbatim from the
+  draft. Required; a circle without it fails, because layer 3 cannot otherwise be proved.
+- **Check 9 — `label` must name the control its own step names.** The manual already has the
+  convention (enforced in `template.md`) that a step quotes its real control:
+  `คลิกปุ่ม “เข้าห้องเรียน”`. The script extracts every quoted control from `step_text` and requires the
+  circle's `label` to name one of them, comparing after stripping leading role words
+  (ปุ่ม/เมนู/แท็บ/ช่อง/ไอคอน/ตัวเลือก/…), so `"ปุ่มเข้าห้องเรียน"` matches `“เข้าห้องเรียน”`.
+
+### Fail on evidence, not on absence — the rule that makes this work
+A step that quotes **no** control (`เปิดเบราว์เซอร์ แล้วเข้าที่ https://…`) is **skipped, not failed**;
+a check that cannot be satisfied is worse than none. But a literal "skip when unquoted" rule would
+have skipped the flagship case itself: circle ② carried step 2's text
+(`คลิกคาบเรียนที่ต้องการในตาราง` — nothing quoted) while labelled `ปุ่มเข้าห้องเรียน`, which step 3
+quotes. So an unquoted step fails on **one** condition — its label matches a control quoted by a
+*different step in the same section*. That is precisely the signature of circles placed against an
+earlier draft and never re-derived. The cross-step match requires similarity ≥ 0.60 of the label's
+length, so a legitimate `คาบเรียนในตารางสอน` does not collide with step 1's `“ตารางสอน”`
+(measured 0.44, correctly below threshold).
+
+### Changed
+- **`review.md` layer 3** now states explicitly what is mechanical and what is human, since the line
+  moved. Mechanical: numbering, manifest-vs-pixels, and circle↔step textual consistency. Human:
+  whether the control the step names is the right one to click at all, whether the circle covers the
+  right pixels, and the steps the script skips.
+- `SKILL.md` Step 8, `screenshots.md`, and both agent files updated for the extended manifest.
+
+### Still not proved — do not claim it
+A step reading `คลิกปุ่ม “ยกเลิก”` where it should read `“บันทึก”`, with the circle honestly drawn on
+ยกเลิก, **passes every check** — everything is internally consistent and the defect is in the *step*,
+which is layer 2's concern. That, plus the skipped steps, is why layer 3 still requires a human table
+and why **ตรวจไม่ได้ = ไม่ผ่าน** still governs.
+
+### Verified against real content
+Run against the real ELMS manual text (22 steps across 4 sections) with the labels a careful annotator
+would write: **18 PASS, 4 SKIP, 0 false positives.** The 4 skips are exactly the 4 steps that quote no
+control. The flagship case reproduces: label `ปุ่มเข้าห้องเรียน` against step 2's text **FAILS**, naming
+step 3 as the step it actually matches; the same label against step 3's text **PASSES**. A label naming
+a different step's control when its own step *does* quote one also fails, naming the mismatched step.
+Adversarial labels that merely contain a shorter control name (`คาบเรียนในตารางสอน`,
+`แถวคาบเรียนในตารางสอนของภาคเรียน`) correctly skip rather than fire.
+
 ## [0.20.0] - 2026-07-20
 
 A red circle numbered ② can no longer sit quietly on step 3's button.

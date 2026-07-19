@@ -246,14 +246,18 @@ MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/n
 prose a human was expected to eyeball — and it got through: a delivered manual had ② on step 3's
 control, ④ on an alternative path that was not a numbered step, and ⑤ on two different figures. It
 reads `annotations.json` (written during annotation, see `references/screenshots.md`) and checks it
-against the **actual pixels**, so a manifest that lies about what was drawn fails. **Skip it only when
-the confirmed โหมดภาพ is `none`** — then what must be proved is that there are no circles at all,
-which is layer 1.
+against the **actual pixels**, so a manifest that lies about what was drawn fails — and it compares
+each circle's `label` against the control its own `step_text` names in quotes, which is what catches
+the ②-on-step-3's-button case. **Skip it only when the confirmed โหมดภาพ is `none`** — then what must
+be proved is that there are no circles at all, which is layer 1.
 
-**Exit 1 on either = ห้ามส่ง.** But **passing the scripts is not passing the review** — they cannot
-judge whether the content matches the real system, **whether a red circle sits on the _right_ button**
-(`verify-annotations.py` proves numbering and placement consistency, not semantic correctness), or
-whether the layout matches the ต้นแบบ. Those stay human-judged.
+**Exit 1 on either = ห้ามส่ง.** But **passing the scripts is not passing the review.** What still
+needs a human on layer 3 is narrower than before but not empty: **whether the control the step names
+is the right one to click at all** (a step that says `คลิกปุ่ม “ยกเลิก”` where it should say
+`“บันทึก”`, with the circle honestly on ยกเลิก, passes every check — everything is consistent, the
+*step* is wrong), whether the circle covers the right pixels on screen, and the ~1-in-5 steps that
+name no quoted control and are therefore skipped. Content matching the real system and layout
+matching the ต้นแบบ stay human-judged too.
 
 Print the 5-layer verdict table (format in `review.md`) to the user **every time**, including the
 failing rounds. Deliver only on **5/5**. If a layer cannot be verified, it is **ไม่ผ่าน** — say so and

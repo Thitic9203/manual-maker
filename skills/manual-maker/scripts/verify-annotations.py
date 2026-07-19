@@ -43,6 +43,82 @@ def add(cid, name, state, detail=""):
     results.append((cid, name, state, detail))
 
 
+# ------------------------------------------------------------------ label vs step text
+# คู่มือมีธรรมเนียมของตัวเองอยู่แล้ว (บังคับใน template.md): ขั้นตอนต้อง **อ้างชื่อคอนโทรลจริงในเครื่องหมายคำพูด**
+# เช่น `คลิกปุ่ม “เข้าห้องเรียน”` จึงเทียบได้เชิงกลว่า label ของวงพูดถึงคอนโทรลเดียวกับขั้นตอนของตัวเองไหม
+QUOTE_PATTERNS = (r'“([^”]+)”', r'"([^"]+)"', r'‘([^’]+)’', r'«([^»]+)»')
+
+# คำบอกชนิดคอนโทรลที่ label มักขึ้นต้น — ตัดทิ้งก่อนเทียบ ไม่งั้น "ปุ่มเข้าห้องเรียน" จะไม่แมตช์ "เข้าห้องเรียน"
+ROLE_WORDS = ('ปุ่ม', 'เมนู', 'แท็บ', 'ช่อง', 'ไอคอน', 'ตัวเลือก', 'ลิงก์', 'กล่อง', 'แถบ',
+              'คอลัมน์', 'หน้าต่าง', 'รายการ', 'button', 'menu', 'tab', 'field', 'icon')
+
+CROSS_MIN = 0.60      # ความคล้ายขั้นต่ำก่อนจะกล้าฟันธงว่า label ไปตรงกับ "ขั้นตอนอื่น"
+
+
+def quoted_controls(text):
+    out = []
+    for pat in QUOTE_PATTERNS:
+        out += [m.group(1).strip() for m in re.finditer(pat, text or '')]
+    return [c for c in out if c]
+
+
+def core(s):
+    """ตัดคำบอกชนิดคอนโทรลที่นำหน้าออก: 'ปุ่มเข้าห้องเรียน' -> 'เข้าห้องเรียน'."""
+    s = (s or '').strip()
+    changed = True
+    while changed:
+        changed = False
+        for wd in ROLE_WORDS:
+            if len(s) > len(wd) and s[:len(wd)].lower() == wd.lower():
+                s = s[len(wd):].strip()
+                changed = True
+    return s
+
+
+def sim(a, b):
+    """0..1 — ฝ่ายหนึ่งเป็นสตริงย่อยของอีกฝ่ายหรือไม่ คิดสัดส่วนความยาวเพื่อกันการแมตช์บังเอิญ."""
+    a, b = core(a), core(b)
+    if not a or not b:
+        return 0.0
+    if a in b or b in a:
+        return min(len(a), len(b)) / float(max(len(a), len(b)))
+    return 0.0
+
+
+def label_verdict(label, own_text, others):
+    """
+    คืน ('PASS'|'FAIL'|'SKIP', เหตุผล).
+
+    `others` = {เลขขั้นตอนอื่น: step_text} ในหัวข้อเดียวกัน
+
+    ตรรกะสำคัญ — **ฟันธงจากหลักฐานที่มี ไม่ใช่จากการไม่มีหลักฐาน**:
+      * ขั้นตอนของตัวเองอ้างคอนโทรลในเครื่องหมายคำพูด → label ต้องพูดถึงตัวใดตัวหนึ่ง ไม่งั้น FAIL
+      * ขั้นตอนของตัวเอง **ไม่ได้อ้างคอนโทรลเลย** (เช่น "เปิดเบราว์เซอร์ แล้วเข้าที่ https://…")
+        → ปกติ SKIP เพราะไม่มีอะไรให้เทียบ **ยกเว้น** label ดันไปตรงกับคอนโทรลที่ *ขั้นตอนอื่น* อ้างไว้
+        ซึ่งเป็นลายเซ็นของบั๊กตัวจริง (วงถูกวางตามดราฟต์เก่า เลยไปนั่งบนคอนโทรลของขั้นตอนข้างเคียง)
+    """
+    own_q = quoted_controls(own_text)
+    best_n, best_s = None, 0.0
+    for m, txt in others.items():
+        for q in quoted_controls(txt):
+            s = sim(q, label)
+            if s > best_s:
+                best_n, best_s = m, s
+
+    if own_q:
+        if any(sim(q, label) > 0 for q in own_q):
+            return 'PASS', ''
+        hint = (' — ไปตรงกับคอนโทรลของขั้นตอนที่ %s แทน' % best_n) if best_s >= CROSS_MIN else ''
+        return 'FAIL', ('label "%s" ไม่ตรงกับคอนโทรลที่ขั้นตอนนี้อ้างไว้ (%s)%s'
+                        % (label, ', '.join('"%s"' % q for q in own_q), hint))
+
+    if best_s >= CROSS_MIN:
+        return 'FAIL', ('ขั้นตอนนี้ไม่ได้อ้างคอนโทรลในเครื่องหมายคำพูด แต่ label "%s" '
+                        'ไปตรงกับคอนโทรลของขั้นตอนที่ %s — วงน่าจะไปอยู่บนคอนโทรลของขั้นตอนนั้น'
+                        % (label, best_n))
+    return 'SKIP', ''
+
+
 # --------------------------------------------------------------------------- detection
 def _mask(im, target, tol):
     """Binary mask (mode 'L', 0/255) of pixels within `tol` of `target` on every channel."""
@@ -379,6 +455,41 @@ def main():
                 else f'ครบ {len(by_file)} รูป (เทียบไบต์ ตกมาที่ลายนิ้วมือภาพถ้าไฟล์ถูกเข้ารหัสใหม่)')
     else:
         add('8', 'ภาพถูกฝังในเอกสารจริง', 'SKIP', 'ไม่ได้ส่ง --docx มา จึงข้าม')
+
+    # -- 9. label ตรงกับคอนโทรลที่ขั้นตอนของตัวเองอ้างไว้ ----------------------
+    # ปิดช่องว่างที่เหลือจาก 0.20.0: เลขถูกต้องครบถ้วน แต่ "วง ② ไปนั่งบนปุ่มที่ขั้นตอนที่ 3 พูดถึง"
+    # ยังผ่านได้ เพราะเลขกับพิกัดสอดคล้องกันเอง ผิดที่ *ความหมาย* ของการจับคู่
+    no_text, verdicts = [], []
+    for sec, body in ok_secs.items():
+        texts = {ci['n']: ci.get('step_text', '') for ci in body['circles']}
+        for ci in body['circles']:
+            st = str(ci.get('step_text', '') or '').strip()
+            if not st:
+                no_text.append('%s วง %s' % (sec, ci['n']))
+                continue
+            others = {m: t for m, t in texts.items() if m != ci['n'] and t}
+            state, why = label_verdict(str(ci.get('label', '') or ''), st, others)
+            verdicts.append((sec, ci['n'], state, why))
+
+    bad_lbl = [(s, n, w) for s, n, st, w in verdicts if st == 'FAIL']
+    skipped = [1 for _s, _n, st, _w in verdicts if st == 'SKIP']
+    checked = [1 for _s, _n, st, _w in verdicts if st == 'PASS']
+
+    if no_text:
+        add('9', 'label ตรงกับคอนโทรลในข้อความขั้นตอน', 'FAIL',
+            'ไม่มี step_text %d วง (%s%s) — เทียบไม่ได้ = ไม่ผ่าน'
+            % (len(no_text), ', '.join(no_text[:4]), ' …' if len(no_text) > 4 else ''))
+    elif bad_lbl:
+        add('9', 'label ตรงกับคอนโทรลในข้อความขั้นตอน', 'FAIL',
+            '; '.join('%s วง %s: %s' % (s, n, w) for s, n, w in bad_lbl[:3]))
+    elif not verdicts:
+        add('9', 'label ตรงกับคอนโทรลในข้อความขั้นตอน', 'SKIP', 'ไม่มีวงให้ตรวจ')
+    else:
+        add('9', 'label ตรงกับคอนโทรลในข้อความขั้นตอน', 'PASS',
+            'ตรงกัน %d วง / ข้าม %d วง (ขั้นตอนไม่ได้อ้างคอนโทรลในเครื่องหมายคำพูด '
+            'เช่น "เปิดเบราว์เซอร์ แล้วเข้าที่ https://…") — '
+            '"คอนโทรลที่อ้างเป็นตัวที่ควรคลิกจริงไหม" ยังต้องใช้คนตัดสิน'
+            % (len(checked), len(skipped)))
 
     return report()
 
