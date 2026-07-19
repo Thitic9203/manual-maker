@@ -2,6 +2,36 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.21.0] - 2026-07-20
+
+A screenshot name-scrub that fails quietly is not a safeguard.
+
+### Fixed
+- **The name scrub now fails closed.** On a real delivery the scrub ran, silently missed one account
+  chip, and a real teacher's name reached a shipped `.docx`. `references/screenshots.md` rule 6 now
+  requires re-reading `document.body.innerText` after scrubbing and **aborting the capture** if any
+  known name survives. Nothing about the old flow would have told anyone it had failed.
+- **Names are collected from the page, not from a hardcoded list.** A fixed list cannot know the
+  account a future run uses. The last surviving leak was an account whose chip carried an extra avatar
+  node, so the two-line chip heuristic did not match and the name shipped — through three separate
+  passes that each reported themselves clean.
+- **Student identifiers are masked too** (`รหัสนักเรียน`, `เลขที่นักเรียน`). An ID identifies a minor
+  as surely as a name does.
+
+### Added
+- **A pre-build visual audit**: crop the account-chip band out of *every* figure into one contact sheet
+  and look at it before assembling the document. That sweep is what caught the final leak.
+- `review.md` layer 3 now demands evidence for the privacy claim rather than a self-assessment, with
+  **ตรวจไม่ได้ = ไม่ผ่าน** applying in full.
+
+### Notes
+- Both pixel-masking alternatives were measured and both are worse, which is why the DOM is the only
+  sanctioned place to scrub: a fixed top-right box misses the chip entirely, because a `fullPage`
+  capture renders the sticky header **wherever the page was scrolled** (observed at y≈1390, not y≈20);
+  and a "find the pale header band" heuristic matches white **table rows**, painting grey blocks over
+  real content in nine places on a single image.
+- `CLAUDE.md` records the trap so it is not re-derived.
+
 ## [0.20.1] - 2026-07-20
 
 Closes the boundary 0.20.0 left open: a circle whose number and coordinates are all internally

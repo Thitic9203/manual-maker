@@ -106,6 +106,9 @@ These live in `template.md` and are enforced in the `SKILL.md` draft + review st
 - **Image clarity + annotation.** Every screenshot sharp and legible; when requested, a **box (กรอบ) + numbered marker (เลขลำดับ)** on the click target, in a consistent style throughout.
 - **Output format.** Word (`.docx`) / PDF / Confluence / web — the skill **always asks which** when the user hasn't said, phrased for non-technical users.
 
+
+**A name scrub that cannot fail is not a safeguard.** Screenshot name-masking happens in the DOM immediately before the shutter, and the capture **aborts** if any known name survives a re-read of `document.body.innerText`. This is not belt-and-braces: on the ELMS run the scrub ran, silently missed one account chip, and the real teacher's name reached a delivered `.docx`. The two pixel-masking alternatives were both measured and both worse — a fixed top-right box misses the chip because a `fullPage` capture renders the sticky header wherever the page was scrolled, and a "find the pale header band" heuristic matches white table rows and paints over content (nine places on one image). Names must also be **collected from the page** (the chip's own text, plus `ครู <name>` matches), because a hardcoded list cannot know the account a future run uses — that is exactly how the last leak survived three passes that each reported themselves clean. Student identifiers (`รหัสนักเรียน`, `เลขที่นักเรียน`) are masked too; an ID identifies a minor as surely as a name.
+
 ## Release workflow & gotchas
 
 There are no build/lint/test commands. The only "commands" are install and version bookkeeping.

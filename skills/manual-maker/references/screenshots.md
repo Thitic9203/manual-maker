@@ -93,9 +93,38 @@ eyeballed. `scripts/verify-annotations.py` reads it at Step 8 and compares it wi
 - Every step names the real **menu / button / tab / field** exactly as the system spells it.
 - No template placeholder text (`[ระบุการดำเนินการขั้นตอนที่ 1 …]`) may survive into the delivery.
 
-### 6. Privacy
-- **Mask or blur real people's names** — especially **students (minors)** and teachers.
+### 6. Privacy — scrub in the DOM, and **fail the capture if the scrub missed**
+- **Mask real people's names** — especially **students (minors)** and teachers — and **student
+  identifiers** (`รหัสนักเรียน`, `เลขที่นักเรียน`); an ID identifies a minor as surely as a name.
 - Never show credentials, tokens, or a filled-in password field.
+- **Do it in the DOM, immediately before the shutter — never by painting boxes on the PNG afterwards.**
+  Pixel masking was tried and failed twice on a real run: a fixed top-right box missed the chip
+  entirely, because a `fullPage` capture renders the sticky header **wherever the page was scrolled**;
+  the follow-up "find the pale header band" heuristic matched white **table rows** and painted grey
+  blocks over content in nine places.
+- **The scrub must fail closed.** This is the rule that matters. On that same run the scrub ran, silently
+  missed one chip, and the capture proceeded — the name reached a delivered `.docx`. A scrub that can
+  fail quietly is not a safeguard. After scrubbing, re-read the page and abort if any name survived:
+
+```js
+async function scrubOrThrow(page, names) {
+  await scrub(page, names);
+  const left = await page.evaluate((ns) => {
+    const t = document.body.innerText;
+    return ns.filter((n) => t.includes(n));
+  }, names);
+  if (left.length) throw new Error(`scrub missed: ${left.join(', ')} — capture aborted`);
+}
+```
+
+- **Collect the names from the page, not from a hardcoded list.** A fixed list cannot know the name of
+  whatever account this run uses. Read the account chip's own text, plus any `ครู <name>` occurrences,
+  add them to the list, *then* scrub and assert. The hardcoded list is a backstop, not the mechanism —
+  on the real run the chip carried an extra avatar node, the two-line chip heuristic did not match, and
+  the account's name shipped.
+- **Audit the finished images before building.** Crop the account-chip band out of **every** figure into
+  one contact sheet and look at it. That sweep is what caught the last surviving leak after three
+  earlier passes had each reported themselves clean.
 
 ## Where the images live (deterministic naming — do this from image #1)
 
