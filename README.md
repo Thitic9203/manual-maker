@@ -1,12 +1,12 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.10.1-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.11.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.10.1 · MIT · Claude Code plugin**
+**Version 0.11.0 · MIT · Claude Code plugin**
 
 > 🔄 **อัปเดตอัตโนมัติ (v0.6.0+):** ติดตั้งครั้งเดียว จากนั้นแค่ **เปิด session ใหม่** ปลั๊กอินก็ดึงเวอร์ชันล่าสุดมาติดตั้งเองเบื้องหลัง — **ผู้ใช้ไม่ต้องกดอัปเดตหรือทำอะไรเพิ่ม.** ปิดได้ด้วย `MANUAL_MAKER_NO_AUTOUPDATE=1`. รายละเอียด → [Update](#update--อัปเดตอัตโนมัติ-auto-update).
 
@@ -56,7 +56,7 @@ Rather than fork `doc-coauthoring` and drift from upstream, this repo adds a thi
 |----------|--------|-----|
 | Architecture | **Wrapper-delegate** (not fork) | Keeps upstream updates, low maintenance, no third-party content in repo |
 | Repo visibility | **Public** | No secrets, no Anthropic content — team installs without auth |
-| Output formats | Confluence / PDF / docx / web (chosen at runtime) | Fits different audiences; default Confluence (team's channel) |
+| Output formats | docx / PDF / Confluence / web (chosen at runtime) | Fits different audiences; **default docx** — screenshots embed reliably. Confluence via MCP publishes the page body only (no image upload), so it suits text-first pages |
 | Screenshots | Optional, via Playwright / Chrome MCP | Auto-capture real UI per step |
 | Publishing | Confluence via Atlassian MCP | Push straight to the team space |
 | Distribution | Repo is its own marketplace | Team installs directly from GitHub |
@@ -278,7 +278,8 @@ manual-maker/
 | Skill ไม่ trigger | เปิด session ก่อนติดตั้ง | Restart Claude Code / เปิด session ใหม่ |
 | แก้ skill แล้วไม่เปลี่ยน | personal skill เป็น snapshot ไม่ใช่ลิงก์สด | re-copy โฟลเดอร์ หรือใช้ plugin route |
 | Confluence publish fail | Atlassian MCP ไม่ต่อ / space key ผิด | ต่อ Atlassian MCP + เช็ค space key จาก intake |
-| Screenshot ไม่ติด | Playwright/Chrome MCP ไม่ต่อ / URL ต้อง login | ต่อ MCP + เช็ค login steps ใน intake |
+| ภาพไม่ขึ้นใน Confluence | Atlassian MCP เผยแพร่ตัวหน้า ไม่อัปโหลดไฟล์ภาพ | ใช้ **.docx/PDF** (default) หรือแนบภาพเอง / อ้าง URL ภาพที่ host ไว้แล้ว |
+| Screenshot ไม่ติด | Playwright/Chrome MCP ไม่ต่อ / URL ต้อง login | ต่อ MCP + เช็ค login steps ใน intake; ใช้ Playwright ยิงลงดิสก์ตรง (fallback = คัดลอกจอ) |
 
 ## Safety
 

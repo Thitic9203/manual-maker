@@ -10,6 +10,14 @@ Ask these **one at a time**, in order. Where an answer has a **bold default**, o
 - **ห้ามทำเกินขอบเขต.** Document only what was asked. No extra modules, no opinions, no "while I'm here" additions, no deciding on the user's behalf.
 - **ยืนยันก่อนเริ่มเสมอ.** After intake, summarize everything and get an explicit "go" before any screenshot or drafting (see the Confirmation Gate at the end).
 
+## Sequencing — ถามทีละข้อเฉพาะข้อที่ต้องถาม; ข้อที่มี default รวบเป็นชุดเดียว
+
+ลดจำนวนรอบถามโดยไม่ลดทอน gate ใด:
+
+- **ถามทีละข้อ** — ข้อ *(ต้องถาม — no default)*: **1, 2, 3, 4, 5, 6, 9, 13, 15, 17**. ห้ามรวบ ห้ามข้าม ห้ามเดา.
+- **รวบเป็นชุดเดียว** — ข้อที่มี bold default ชัดเจน: **7, 8, 10, 11, 12, 14, 16, 18, 19, 20**. แสดง default ทุกข้อในตารางเดียว แล้วถามครั้งเดียว: **"ค่าเริ่มต้นเหล่านี้ใช้ได้ไหม หรือต้องการแก้ข้อใด"** — ผู้ใช้แก้เฉพาะข้อที่ต้องการ ที่เหลือถือว่ารับ default.
+- Confirmation Gate ท้ายสุดยังทำครบเหมือนเดิม — การรวบชุด default ไม่ได้ข้ามการยืนยัน.
+
 ## 0. Load saved profile first — do not re-ask what this user already answered
 
 Before Section A, follow `profile.md`: look in `~/.manual-maker/profiles/` for this user's saved
@@ -60,8 +68,15 @@ saved, run the full intake below. (Credentials are **never** saved — always as
 
 ## F. Output
 
-17. **Output format — ต้องถามเสมอ ถ้าผู้ใช้ยังไม่ระบุ:** ต้องการไฟล์รูปแบบใด — **ไฟล์ Word (.docx) / PDF / Confluence / หน้าเว็บ**? ถ้าเลือก Confluence ให้ระบุ space + หน้าแม่ที่จะเผยแพร่. **Default: Confluence** (แต่หากผู้ใช้ไม่ได้บอก ให้ถามให้ชัดว่าต้องการ Word, PDF หรือรูปแบบอื่น ก่อนดำเนินการ)
+17. **Output format — ต้องถามเสมอ ถ้าผู้ใช้ยังไม่ระบุ:** ต้องการไฟล์รูปแบบใด — **ไฟล์ Word (.docx) / PDF / Confluence / หน้าเว็บ**? ถ้าเลือก Confluence ให้ระบุ space + หน้าแม่ที่จะเผยแพร่. **Default: Word (.docx)** — เป็นเส้นทางที่ฝัง screenshot ได้จริง (พิสูจน์แล้ว). ⚠️ **Confluence เผยแพร่ผ่าน Atlassian MCP ได้เฉพาะตัวหน้า/โครงสร้าง — MCP ไม่อัปโหลดไฟล์ภาพให้**; คู่มือที่มีภาพเยอะ (กรณีปกติ) ใช้ .docx/PDF, ถ้าจะใช้ Confluence จริงต้องแนบภาพเองหรืออ้าง URL ภาพที่ host ไว้แล้ว. หากผู้ใช้ยังไม่ระบุรูปแบบ ให้ถามให้ชัดก่อนดำเนินการ.
 18. **Version label** — **Default: today's date + v1.0.**
+
+## G. Support & Troubleshooting content — *source it, or the section is skipped (ห้ามมโน)*
+
+The template has a **Troubleshooting/FAQ** and a **Support** section. Their content is **not** invented — if no source is given, the section is **omitted**, not filled with guesses.
+
+19. **Support / ติดต่อ** — ช่องทางช่วยเหลือที่จะลงในบท Support (อีเมล เบอร์ ทีม ลิงก์ระบบแจ้งปัญหา). **Default: none — ถ้าไม่ให้ ข้ามบท Support ไม่แต่งเอง.**
+20. **Troubleshooting / FAQ source** — มีแหล่งบอกปัญหาที่พบบ่อย + วิธีแก้เบื้องต้น (เอกสาร / Confluence / รายการ known issues) หรือไม่? เนื้อหาบทนี้มาจากแหล่งนี้เท่านั้น. **Default: none — ถ้าไม่มีแหล่ง ข้ามบท Troubleshooting/FAQ ห้ามมโนปัญหา/วิธีแก้ขึ้นเอง.**
 
 ## Confirmation Gate — before any screenshot or drafting
 
@@ -78,6 +93,7 @@ Print a summary table of **every** answer:
 | Screenshots + annotation | … |
 | Font & size / Numbering | … |
 | Locked terms | … |
+| Support / FAQ source (or "ข้าม") | … |
 | Output format / Version | … |
 
 Then ask, verbatim: **"ยืนยันข้อมูลทั้งหมดถูกต้อง และเริ่มดำเนินการได้หรือไม่"**

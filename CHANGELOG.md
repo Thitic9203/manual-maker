@@ -2,6 +2,40 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.11.0] - 2026-07-19
+
+Five usability fixes for the actual manual-making run — no new scope, all gates preserved.
+
+### Changed
+- **Screenshots: direct-to-disk is now the primary capture path.** `references/screenshots.md`
+  puts **Playwright `page.screenshot({ path, fullPage: true })`** first — a full-page PNG written
+  straight to disk with no per-image manual copy — and demotes the clipboard bridge
+  (`Ctrl+Cmd+Shift+4` → `osascript`) to a fallback for when Playwright can't reach the screen.
+  This removes the single biggest cost of a large manual (dozens of manual copies). `SKILL.md`
+  Step 4 points at the same rule.
+- **Deterministic image naming/folder convention.** All figures for a run live in one folder,
+  **`manual-assets/<slug>/`**, named **`<section>-<step>.png`** (e.g. `05-2-01.png`) — figure ↔
+  step ↔ filename map 1:1, so red circle numbers align with step numbers by construction and a
+  40-image manual never gets scrambled. `/tmp` is scratch only. Documented in `screenshots.md`
+  and `template.md` (quality axis 3 + example).
+- **Default output format changed `Confluence` → `Word (.docx)`.** The Atlassian MCP publishes a
+  Confluence page's **body/structure only — it does not upload screenshot files**, so it was a
+  broken default for image-heavy manuals (the usual case). `.docx` embeds screenshots reliably.
+  Confluence remains an option, with an explicit caveat (attach images manually or reference a
+  pre-hosted URL). Consistent across `intake.md` Q17, `SKILL.md` export table, `profile.md`, and
+  the README (design-decisions table + Troubleshooting).
+- **Intake sequencing: default-bearing questions asked as one batch.** `intake.md` now asks the
+  *(ต้องถาม)* questions one at a time (1, 2, 3, 4, 5, 6, 9, 13, 15, 17) but collapses the
+  default-bearing ones (7, 8, 10, 11, 12, 14, 16, 18, 19, 20) into a **single confirm-batch** —
+  fewer round-trips for a first-time run, no gate weakened. `SKILL.md` Step 1 updated to match.
+
+### Added
+- **Intake Q19/Q20 — Support & Troubleshooting/FAQ sources.** The template's Troubleshooting/FAQ
+  and Support sections are now **sourced or skipped, never invented**: Q20 asks for a known-issues
+  source and Q19 for a support channel; with no source the section is **omitted** (enforces
+  ห้ามมโน). Wired through the Confirmation Gate summary row, `template.md` sections 7/9, a new
+  final-review checklist line, and the saved profile (`support` / `faq_source`, non-secret).
+
 ## [0.10.1] - 2026-07-19
 ### Changed
 - Release-only version bump so auto-update installs pick up the `references/template.md`

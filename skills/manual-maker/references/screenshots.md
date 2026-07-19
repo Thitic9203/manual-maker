@@ -42,22 +42,41 @@ preferences — each one was paid for with rework on a real deliverable. **ห�
 - **Mask or blur real people's names** — especially **students (minors)** and teachers.
 - Never show credentials, tokens, or a filled-in password field.
 
+## Where the images live (deterministic naming — do this from image #1)
+
+All figures for a run go in **one** folder: **`manual-assets/<slug>/`** — `<slug>` is the same
+system slug `profile.md` uses. Name every file **`<section>-<step>.png`** (e.g. `05-2-01.png` =
+section 5.2, step 1). Figure ↔ step ↔ filename map 1:1, so a 40-image manual never gets scrambled
+and the red circle numbers line up with the step numbers by construction.
+
+`/tmp` is **scratch only** (clipboard bridge + PIL work). The **final annotated PNG** is always
+saved into `manual-assets/<slug>/` under its deterministic name — that copy is what gets embedded.
+
 ## Pipeline that actually works (macOS)
 
-1. **Reach the screen** — drive the browser **read-only** (Chrome MCP). Never click create / edit /
-   delete on a live system while capturing.
-2. **Get the pixels.** The browser MCP's screenshot `save_to_disk` returns an image id but **no
-   filesystem path** — you cannot embed from it. Bridge through the clipboard:
-   - the user copies the screen (macOS `Ctrl+Cmd+Shift+4`), then
-   ```bash
-   osascript -e 'set d to (the clipboard as «class PNGf»)' \
-             -e 'set f to (POSIX file "/tmp/shot.png")' \
-             -e 'set fh to open for access f with write permission' \
-             -e 'set eof fh to 0' -e 'write d to fh' -e 'close access fh'
+1. **Reach the screen** — drive the browser **read-only**. Never click create / edit / delete on a
+   live system while capturing. The **user logs in**; Claude captures afterwards (see below).
+2. **Get the pixels — direct-to-disk is the primary path.** Use **Playwright**:
+   ```js
+   await page.screenshot({ path: 'manual-assets/<slug>/<section>-<step>.png', fullPage: true })
    ```
+   This writes the full-page PNG straight to disk — **no per-image manual copy** — so capture every
+   screen in one pass. This is the default and removes the single biggest cost of a large manual.
+   - **Fallback — clipboard bridge (Chrome MCP, or when Playwright can't reach the screen).** The
+     browser MCP's screenshot `save_to_disk` returns an image id but **no filesystem path** — you
+     cannot embed from it. One screen at a time: the user copies the screen
+     (macOS `Ctrl+Cmd+Shift+4`), then
+     ```bash
+     osascript -e 'set d to (the clipboard as «class PNGf»)' \
+               -e 'set f to (POSIX file "/tmp/shot.png")' \
+               -e 'set fh to open for access f with write permission' \
+               -e 'set eof fh to 0' -e 'write d to fh' -e 'close access fh'
+     ```
+     Use this **only** when the primary path can't reach the screen — it is slow at scale.
 3. **Annotate with Pillow.** `PIL` lives on **`/usr/bin/python3`** — the Homebrew `python3` on the
    PATH often has no PIL. The user's Desktop can be **TCC-protected** (reads fail with
-   `Operation not permitted`): copy the PNG into `/tmp` and do all image work there.
+   `Operation not permitted`): do the image work in `/tmp`, then **save the finished PNG into
+   `manual-assets/<slug>/`** under its `<section>-<step>.png` name.
 4. **Embed** into the document — see `docx-build.md`.
 
 ## Login — never type a password

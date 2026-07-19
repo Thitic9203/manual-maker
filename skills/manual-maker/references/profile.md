@@ -37,7 +37,9 @@ intake answers**. Load what they gave last time, show it back, and ask only for 
   "numbering": "decimal outline 1 / 1.1 / 1.1.1",
   "locked_terms": [ { "use": "ผู้เรียน", "never": ["นักเรียน", "นร."] } ],
   "language": "th",
-  "output": { "format": "confluence", "space": "MICA", "parent": "MICA2 Handbooks" },
+  "support": "helpdesk@example.com",
+  "faq_source": "https://confluence.example.com/pages/known-issues",
+  "output": { "format": "docx" },
   "updated": "2026-07-14"
 }
 ```

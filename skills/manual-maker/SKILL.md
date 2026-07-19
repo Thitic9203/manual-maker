@@ -40,8 +40,10 @@ Track with TodoWrite: `Intake → Confirm → Ingest sources → Screenshots →
 Read `references/intake.md`. **First load any saved profile** for this user + system per
 `references/profile.md` (stored at `~/.manual-maker/profiles/`): if one exists, show it and ask
 only what is **missing or changed** — never re-ask what the user already confirmed. Then ask the
-remaining questions **one at a time**. Do not skip. Do not assume defaults for access, credentials,
-sources, fonts, or terminology. **Credentials are never stored — always ask them fresh in-session.**
+remaining questions per `intake.md` **Sequencing**: the *(ต้องถาม)* questions (no default) **one at
+a time**, and the default-bearing questions as **one confirm-batch** (show the defaults, ask once
+what to change). Do not skip. Do not assume defaults for access, credentials, sources, fonts, or
+terminology. **Credentials are never stored — always ask them fresh in-session.**
 
 ### Step 2 — Confirmation Gate (mandatory — do not skip)
 
@@ -64,6 +66,9 @@ Never write a step you cannot source. If a detail is unclear → ask.
 watch out for the orange agency logo), **no mouse cursor**, **red numbered circles that map 1:1 to
 the step numbers** (≤ 5 per image), steps written with the system's real menu/button wording, and
 people's names masked. Drive the browser **read-only**; the **user logs in**, never Claude.
+Prefer **Playwright direct-to-disk capture** (`fullPage`, saved as
+`manual-assets/<slug>/<section>-<step>.png`) — the clipboard bridge is the fallback only when
+Playwright can't reach the screen.
 
 ### Step 5 — Draft (delegate to doc-coauthoring)
 
@@ -85,7 +90,7 @@ Run the **Final Review Checklist** in `references/template.md` line by line. Fix
 
 | Format | How |
 |--------|-----|
-| Confluence | Atlassian MCP `createConfluencePage` / `updateConfluencePage` under the space+parent from intake. **Confirm target before posting.** |
+| Confluence | Atlassian MCP `createConfluencePage` / `updateConfluencePage` under the space+parent from intake. **Confirm target before posting.** ⚠️ The MCP publishes the **page body/structure only — it does not upload screenshot files.** Embed images via a pre-hosted URL, or attach them to the page manually; for **image-heavy** manuals (the usual case) prefer **docx/PDF**. |
 | PDF | `pdf` skill |
 | docx | `docx` skill — **and `references/docx-build.md`**: if there is a base template, edit its OOXML (`unzip → word/document.xml → zip`); docx-js cannot open an existing file. Font **TH SarabunPSK**, body 16 pt / headings 18 pt bold, with the **`w:cs`** slot set. |
 | Web page | `web-artifacts-builder` skill |

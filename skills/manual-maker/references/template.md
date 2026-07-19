@@ -17,9 +17,9 @@ Standard structure, quality rules, and final-review checklist for every user man
 4. **แนะนำหน้าจอ / UI Orientation** — a labelled screenshot of the main screen; name the key areas.
 5. **การใช้งานตามฟีเจอร์ / Feature Walkthroughs** — one subsection per module: what it's for → numbered steps → annotated screenshot per step → expected result.
 6. **งานที่ทำบ่อย / Common Tasks (How-to)** — task-based recipes, each a short numbered flow.
-7. **แก้ปัญหาเบื้องต้น / Troubleshooting & FAQ**.
-8. **อภิธานศัพท์ / Glossary** — the locked terms, defined once.
-9. **ติดต่อ / Support**.
+7. **แก้ปัญหาเบื้องต้น / Troubleshooting & FAQ** — **include only if a source was given at intake Q20** (doc / Confluence / known-issues list). No source → **omit the section**; never invent problems or fixes (ห้ามมโน).
+8. **อภิธานศัพท์ / Glossary** — the locked terms, defined once (sourced from intake Q15).
+9. **ติดต่อ / Support** — **include only if contact info was given at intake Q19**. No contact → **omit the section**; do not fabricate a channel.
 
 ## Document split — one volume, or several (from intake Q9)
 
@@ -62,6 +62,7 @@ silently merge volumes back into one, and never split a confirmed single volume.
 - **Red numbered circles** on the click targets, **numbers matching the step numbers 1:1**, ≤ 5 per image, same style throughout.
 - Steps name the system's **real** menu/button/tab wording — no placeholder text left behind.
 - **Mask people's names** (students are minors). Every screenshot sharp and legible; caption what to look at.
+- **File location:** every source PNG lives in `manual-assets/<slug>/`, named `<section>-<step>.png` (see `screenshots.md`) — figure ↔ step ↔ filename stay 1:1, so the red circle numbers align with the step numbers by construction.
 
 ### 4. Terminology consistency
 - Use the **locked term** for each concept **everywhere** — e.g. if "ผู้เรียน" is chosen, never use "นักเรียน" / "นร." / "ผู้ใช้" interchangeably.
@@ -92,7 +93,7 @@ Example — ✅ "เลือกเมนู **หลักสูตรของ
 ### 5.2 สร้างรายการใหม่
 
 1. คลิกปุ่ม **"+ สร้างใหม่"** มุมขวาบน
-   ![create button](assets/05-create-01.png)   ← กรอบ + เลข 1 ที่ปุ่ม
+   ![create button](manual-assets/<slug>/05-2-01.png)   ← กรอบ + เลข 1 ที่ปุ่ม
 2. กรอกชื่อในช่อง **ชื่อ**
 3. คลิก **บันทึก**
    → ระบบแสดง "บันทึกสำเร็จ" และรายการปรากฏในตาราง
@@ -103,6 +104,7 @@ Example — ✅ "เลือกเมนู **หลักสูตรของ
 Go through **every** line; fix all before handing over. Do not deliver a manual that fails any item.
 
 - [ ] **เนื้อหาตรงแหล่งข้อมูล** — every step matches the live system + the user's source (Confluence/spec/reference). No invented steps.
+- [ ] **ไม่มีบทที่แต่งเอง** — Troubleshooting/FAQ (Q20) และ Support (Q19) มาจากแหล่ง/ข้อมูลที่ผู้ใช้ให้เท่านั้น; ไม่มีแหล่ง = **ข้ามบท** ไม่ใช่มโนขึ้นมา.
 - [ ] **ครบตาม scope** — all requested modules/features covered; nothing extra added.
 - [ ] **แบ่งเล่มถูกตามที่ยืนยัน** — the number of volumes and the split dimension match the confirmed intake Q9 choice; each by-role/-module volume has its own cover, TOC, and numbering restarting at 1, and covers only its role/module.
 - [ ] **เลขข้อถูกต้อง** — numbering continuous, no gaps/duplicates; TOC matches body.
