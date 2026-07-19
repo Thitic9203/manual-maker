@@ -2,6 +2,16 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.14.0] - 2026-07-19
+
+Bare `/manual-maker` now works for everyone, with nothing to install by hand.
+
+### Added
+- **The SessionStart hook installs the bare-name shim automatically.** `hooks/check-version.sh` copies `shim/manual-maker.md` to `~/.claude/commands/manual-maker.md` on session start, so `/manual-maker` resolves without the user running a `curl`. It becomes usable on the next session (Claude Code reads command files at startup); the hook says so once, then stays silent. Rails: never overwrites a file lacking the `managed-by: manual-maker-plugin` marker (a hand-written `/manual-maker` is left alone), no-op when the content already matches, silent refresh when the shipped copy changes, atomic temp-file + `mv`, fail-silent on any error or missing `$HOME`. Opt out with `MANUAL_MAKER_NO_SHIM=1`. Recorded as `RISK_REGISTER.md` MM-003; the manual `curl` is kept in the README as a collapsed fallback.
+
+### Fixed
+- **Corrected the 0.13.0 explanation of *why* bare fails.** 0.13.0 blamed a name collision between `commands/manual-maker.md` and `skills/manual-maker/`, reasoning from a doc line that says the plugin prefix is "optional unless there are name collisions". That doc line does not match Claude Code 2.1.210. Measured with a throwaway probe plugin run headless: a plugin command with **no collision anywhere** still failed bare, a frontmatter `aliases:` key was ignored, and only the `/plugin:command` forms resolved. So the prefix is unconditional and no rename, alias, or manifest field can change it — the conclusion in 0.13.0 was right, the reason was not. `CLAUDE.md` now records the measurement so the three tempting non-fixes are not retried.
+
 ## [0.13.1] - 2026-07-19
 ### Fixed
 - **Shim install command now uses `/usr/bin/curl` (full path).** The 0.13.0 snippet used bare `curl`, which resolves to a MacPorts/Homebrew build on many of the team's machines and fails the TLS handshake to `raw.githubusercontent.com` (`unable to establish a secure connection`) — so the shim install died on the exact machines that needed it. macOS's system curl fetches it fine; the README notes plain `curl` is correct on Linux.

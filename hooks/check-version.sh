@@ -1,18 +1,32 @@
 #!/usr/bin/env bash
-# SessionStart hook — SELF-UPDATING (Path B). On every session start it compares the installed
-# version to main on GitHub and, if main is ahead, kicks off an install of the new version in
-# the BACKGROUND via the supported `claude plugin update` CLI, then tells the user it is doing so.
-# The update applies on the NEXT session (or after /reload-plugins) — Claude Code cannot swap a
-# plugin into the already-running session.
+# SessionStart hook. Two jobs, in order:
 #
-# This DELIBERATELY overrides the old notify-only design and bypasses Claude Code's per-marketplace
-# auto-update opt-in (which is off by default for third-party marketplaces). It was chosen by the
-# repo owner to make updates truly zero-touch on the plugin path. See RISK_REGISTER.md for the
-# trade-offs (mutates the install without a per-session prompt; reimplements a native feature).
+#   1. SHIM INSTALL — make bare `/manual-maker` resolve. Claude Code reaches plugin commands and
+#      plugin skills ONLY as `/plugin-name:command-name`; a bare `/manual-maker` returns
+#      "Unknown command". Verified empirically against Claude Code 2.1.210 with a throwaway probe
+#      plugin: a plugin command with no name collision anywhere still failed bare, while its
+#      `/probe:cmd` form resolved, and a frontmatter `aliases:` key was ignored. The command
+#      matcher (`e.name===t || userFacingName()===t || aliases?.includes(t)`) is only ever fed
+#      qualified names for plugin-sourced commands. User-level commands in ~/.claude/commands are
+#      NOT namespaced, so copying our shim there is the only mechanism that gives the short form.
+#
+#   2. SELF-UPDATE (Path B) — compare the installed version to main on GitHub and, if main is
+#      ahead, kick off an install of the new version in the BACKGROUND via the supported
+#      `claude plugin update` CLI, then tell the user. The update applies on the NEXT session (or
+#      after /reload-plugins) — Claude Code cannot swap a plugin into a running session.
+#
+# Job 2 DELIBERATELY overrides the old notify-only design and bypasses Claude Code's
+# per-marketplace auto-update opt-in (off by default for third-party marketplaces). Job 1
+# deliberately writes one file into the user's ~/.claude. Both were chosen by the repo owner to
+# make the plugin zero-touch. See RISK_REGISTER.md (MM-001, MM-002) for the trade-offs.
 #
 # Safety rails, in order:
 #   - Fast fail: fail-silent when offline / up-to-date / no curl / unreadable manifest (exit 0).
-#   - Opt-out: MANUAL_MAKER_NO_AUTOUPDATE=1 degrades to notify-only.
+#   - Opt-outs: MANUAL_MAKER_NO_SHIM=1 skips job 1; MANUAL_MAKER_NO_AUTOUPDATE=1 makes job 2
+#     notify-only.
+#   - Never clobbers: the shim is written only if absent, or if the existing file carries our
+#     managed-by marker. A hand-written ~/.claude/commands/manual-maker.md is left untouched.
+#   - Atomic: the shim is written to a temp file and mv'd into place.
 #   - No CLI: if `claude` is not on PATH, degrade to notify-only (never errors the session).
 #   - Non-blocking: the update runs detached (nohup &) so session start is never delayed.
 #   - Single-flight: an atomic mkdir lock (stale after 10 min) stops overlapping updates.
@@ -37,6 +51,53 @@ extract_version() {
 LOCAL_VER="$(extract_version < "$LOCAL_MANIFEST" 2>/dev/null)"
 [ -n "$LOCAL_VER" ] || exit 0
 
+emit() { printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$1"; }
+
+# --- Job 1: install the bare-name shim ------------------------------------------
+# Keep every message single-line and quote-free: emit() splices it straight into JSON.
+SHIM_MSG=""
+
+install_shim() {
+  [ "${MANUAL_MAKER_NO_SHIM:-}" = "1" ] && return 0
+  [ -n "${HOME:-}" ] || return 0
+
+  src="${ROOT}/shim/manual-maker.md"
+  dir="${HOME}/.claude/commands"
+  dst="${dir}/manual-maker.md"
+  marker='managed-by: manual-maker-plugin'
+  [ -f "$src" ] || return 0
+
+  fresh=1
+  if [ -e "$dst" ]; then
+    # Someone else's /manual-maker command — leave it strictly alone.
+    grep -q "$marker" "$dst" 2>/dev/null || return 0
+    # Ours and already current — nothing to do.
+    cmp -s "$src" "$dst" 2>/dev/null && return 0
+    fresh=0
+  fi
+
+  mkdir -p "$dir" 2>/dev/null || return 0
+  tmp="${dst}.mm-tmp.$$"
+  cp "$src" "$tmp" 2>/dev/null && mv -f "$tmp" "$dst" 2>/dev/null || {
+    rm -f "$tmp" 2>/dev/null
+    return 0
+  }
+
+  # Only announce a first install: the command file is read at startup, so it becomes
+  # usable next session. A silent refresh on upgrade needs no message.
+  [ "$fresh" = "1" ] && SHIM_MSG="manual-maker: ติดตั้งคำสั่งลัด /manual-maker ให้แล้ว (ไฟล์ ~/.claude/commands/manual-maker.md) — ใช้ได้เมื่อเปิด session ใหม่ ระหว่างนี้ใช้ /manual-maker:manual-maker ได้ตามปกติ. แจ้ง user สั้นๆ ตามนี้ และบอกว่าถ้าไม่ต้องการคำสั่งลัดนี้ ให้ตั้ง env MANUAL_MAKER_NO_SHIM=1 แล้วลบไฟล์นั้นทิ้ง."
+  return 0
+}
+
+install_shim
+
+# Emit whatever the shim step produced, then stop. Used by every silent-exit path below.
+finish() {
+  [ -n "$SHIM_MSG" ] && emit "$SHIM_MSG"
+  exit 0
+}
+
+# --- Job 2: version check + self-update -----------------------------------------
 # Try the system curl first: on macOS /usr/bin/curl uses Secure Transport + the system
 # keychain and is reliable, whereas a MacPorts/Homebrew curl on PATH may have a broken CA
 # bundle (SSL error 60). Fall back to whatever curl is on PATH for non-macOS.
@@ -49,9 +110,9 @@ fetch_remote() {
   return 1
 }
 
-REMOTE_JSON="$(fetch_remote "$REPO_RAW")" || exit 0
+REMOTE_JSON="$(fetch_remote "$REPO_RAW")" || finish
 REMOTE_VER="$(printf '%s' "$REMOTE_JSON" | extract_version 2>/dev/null)"
-[ -n "$REMOTE_VER" ] || exit 0
+[ -n "$REMOTE_VER" ] || finish
 
 # Compare core semver only; strip any pre-release suffix (0.2.0-rc1 -> 0.2.0).
 lv="${LOCAL_VER%%-*}"
@@ -69,24 +130,22 @@ ver_gt() { # true (0) if $1 > $2 as numeric major.minor.patch
   [ "$a3" -gt "$b3" ]
 }
 
-emit() { printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$1"; }
-
-# Up to date (or local ahead) => silent.
-ver_gt "$rv" "$lv" || exit 0
+# Up to date (or local ahead) => nothing to report beyond the shim step.
+ver_gt "$rv" "$lv" || finish
 
 # --- Behind: trigger self-update (Path B) --------------------------------------
 # Opt-out escape hatch: this hook auto-updates the install, which bypasses Claude
 # Code's deliberate per-marketplace opt-in. Set MANUAL_MAKER_NO_AUTOUPDATE=1 to
 # fall back to notify-only.
 if [ "${MANUAL_MAKER_NO_AUTOUPDATE:-}" = "1" ]; then
-  emit "manual-maker: มีเวอร์ชันใหม่ v${REMOTE_VER} (ติดตั้ง v${LOCAL_VER}) แต่ auto-update ถูกปิดไว้ (MANUAL_MAKER_NO_AUTOUPDATE=1). แจ้ง user ให้อัปเดตเอง: /plugin marketplace update manual-maker-dev แล้ว /reload-plugins หรือเปิด session ใหม่."
+  emit "${SHIM_MSG:+${SHIM_MSG} }manual-maker: มีเวอร์ชันใหม่ v${REMOTE_VER} (ติดตั้ง v${LOCAL_VER}) แต่ auto-update ถูกปิดไว้ (MANUAL_MAKER_NO_AUTOUPDATE=1). แจ้ง user ให้อัปเดตเอง: /plugin marketplace update manual-maker-dev แล้ว /reload-plugins หรือเปิด session ใหม่."
   exit 0
 fi
 
 # Self-update needs the claude CLI on PATH; if absent, degrade to notify-only.
 CLAUDE_BIN="$(command -v claude 2>/dev/null || true)"
 if [ -z "$CLAUDE_BIN" ]; then
-  emit "manual-maker: มีเวอร์ชันใหม่ v${REMOTE_VER} (ติดตั้ง v${LOCAL_VER}). อัปเดตอัตโนมัติทำไม่ได้เพราะไม่พบคำสั่ง claude ใน PATH. แจ้ง user ให้อัปเดตเองใน Claude Code: /plugin marketplace update manual-maker-dev แล้ว /reload-plugins."
+  emit "${SHIM_MSG:+${SHIM_MSG} }manual-maker: มีเวอร์ชันใหม่ v${REMOTE_VER} (ติดตั้ง v${LOCAL_VER}). อัปเดตอัตโนมัติทำไม่ได้เพราะไม่พบคำสั่ง claude ใน PATH. แจ้ง user ให้อัปเดตเองใน Claude Code: /plugin marketplace update manual-maker-dev แล้ว /reload-plugins."
   exit 0
 fi
 
@@ -95,7 +154,7 @@ fi
 LOCK="${TMPDIR:-/tmp}/manual-maker-autoupdate.lock"
 find "$LOCK" -maxdepth 0 -mmin +10 -exec rmdir {} \; 2>/dev/null
 if ! mkdir "$LOCK" 2>/dev/null; then
-  emit "manual-maker: กำลังดาวน์โหลดเวอร์ชันใหม่ v${REMOTE_VER} อยู่เบื้องหลัง (อีก session สั่งไปแล้ว). แจ้ง user ว่าเปิด session ใหม่ หรือ /reload-plugins เพื่อใช้เวอร์ชันใหม่."
+  emit "${SHIM_MSG:+${SHIM_MSG} }manual-maker: กำลังดาวน์โหลดเวอร์ชันใหม่ v${REMOTE_VER} อยู่เบื้องหลัง (อีก session สั่งไปแล้ว). แจ้ง user ว่าเปิด session ใหม่ หรือ /reload-plugins เพื่อใช้เวอร์ชันใหม่."
   exit 0
 fi
 
@@ -108,5 +167,5 @@ CLAUDE_BIN="$CLAUDE_BIN" LOCK="$LOCK" nohup sh -c '
   rmdir "$LOCK" 2>/dev/null
 ' >"$LOG" 2>&1 &
 
-emit "manual-maker: กำลังอัปเดตอัตโนมัติ v${LOCAL_VER} → v${REMOTE_VER} เบื้องหลัง — จะใช้งานได้เมื่อเปิด session ใหม่ (หรือพิมพ์ /reload-plugins หลังดาวน์โหลดเสร็จ). แจ้ง user สั้นๆ ตามนี้ และบอกว่าถ้าไม่อยากให้อัปเดตอัตโนมัติ ให้ตั้ง env MANUAL_MAKER_NO_AUTOUPDATE=1."
+emit "${SHIM_MSG:+${SHIM_MSG} }manual-maker: กำลังอัปเดตอัตโนมัติ v${LOCAL_VER} → v${REMOTE_VER} เบื้องหลัง — จะใช้งานได้เมื่อเปิด session ใหม่ (หรือพิมพ์ /reload-plugins หลังดาวน์โหลดเสร็จ). แจ้ง user สั้นๆ ตามนี้ และบอกว่าถ้าไม่อยากให้อัปเดตอัตโนมัติ ให้ตั้ง env MANUAL_MAKER_NO_AUTOUPDATE=1."
 exit 0

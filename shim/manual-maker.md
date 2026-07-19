@@ -3,6 +3,10 @@ description: Build a user handbook end to end (manual-maker). Thin shim — dele
 argument-hint: ทำคู่มือ <ชื่อระบบ>  |  create a manual for <system>
 ---
 
+<!-- managed-by: manual-maker-plugin — installed automatically so bare /manual-maker resolves.
+     Safe to delete; set MANUAL_MAKER_NO_SHIM=1 to stop it being reinstalled. Edits are
+     overwritten on plugin update — delete the marker line above to take ownership and keep them. -->
+
 # /manual-maker — shim
 
 Claude Code namespaces every plugin command as `/plugin:command`, so the `manual-maker`

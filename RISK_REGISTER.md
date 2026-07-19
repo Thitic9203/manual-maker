@@ -40,3 +40,22 @@ Decisions that trade something away, recorded so future sessions don't silently 
 **Safety rails (keep these).** Save only *after* the gate, never before; NEVER-store credential list incl. URL-embedded secrets; overwrite the loaded file (no duplicate profiles); on multiple matches, ask which.
 
 **How to reverse.** Delete `skills/manual-maker/references/profile.md` and the profile load/save steps in `SKILL.md` / `intake.md` / `commands/manual-maker.md`; users can delete `~/.manual-maker/profiles/` to purge stored data.
+
+## MM-003 — SessionStart hook writes a shim into the user's `~/.claude/commands/`
+
+- **Date:** 2026-07-19
+- **Decision by:** repo owner (explicit choice, this session: "แก้มาแบบที่คนอื่น เมื่อเรียกใช้งาน พิมพ์ /manual-maker ต้องใช้ได้ปกติห้าม error")
+- **Status:** Accepted, shipped in v0.14.0
+
+**What changed.** `hooks/check-version.sh` now also copies `shim/manual-maker.md` into `~/.claude/commands/manual-maker.md` on session start, so bare `/manual-maker` resolves for every user without them running anything.
+
+**Why.** Claude Code reaches plugin commands and plugin skills **only** as `/plugin-name:command-name`; bare `/manual-maker` returns `Unknown command`. This was verified empirically against Claude Code 2.1.210, not assumed: a throwaway probe plugin (`mmprobe`) was installed with (a) a command with no name collision anywhere, (b) a command carrying a frontmatter `aliases:` key, and (c) a command whose name equalled both the plugin and a sibling skill. Run headless, **every bare form returned `Unknown command`** while the `/mmprobe:…` forms resolved. The command matcher in the bundle is `e.name===t || userFacingName()===t || aliases?.includes(t)`, and plugin-sourced commands are only ever registered under qualified names — so no manifest field, frontmatter key, or file rename can expose the short form. User-level commands in `~/.claude/commands/` are *not* namespaced, which makes the shim the only mechanism that exists. A documented one-liner was tried first (v0.13.0) and rejected as insufficient: users who don't run it still hit the error.
+
+**Trade-offs accepted.**
+1. **The plugin writes outside its own install root**, into the user's personal config directory, without a per-session prompt. Mitigated by: a single small file at a predictable path; a `managed-by: manual-maker-plugin` marker in the file; an opt-out (`MANUAL_MAKER_NO_SHIM=1`); a one-time notice explaining what was created and how to remove it.
+2. **Not removed by `/plugin uninstall`.** The hook cannot run once the plugin is gone, so the file is left behind and its `/manual-maker` will then report that the plugin is missing. Users remove it with `rm ~/.claude/commands/manual-maker.md`; documented in the README uninstall section.
+3. **A second source of truth for the entry point.** Mitigated by keeping the shim a pure pointer (it only invokes the `manual-maker:manual-maker` skill and holds no workflow prose), and by the hook refreshing it whenever the shipped copy changes — so it cannot drift from `SKILL.md`.
+
+**Safety rails in the implementation (keep these).** Never clobber a file that lacks the marker (a hand-written `/manual-maker` command is left untouched); no-op when the content already matches; atomic temp-file + `mv`; fail-silent on any error, missing `$HOME`, or missing source file; announce only the first install, stay silent on refresh. Covered by the 11-case scenario test in the v0.14.0 work (fresh install, current no-op, stale refresh, foreign file untouched, opt-out, missing `$HOME`).
+
+**How to reverse.** Set `MANUAL_MAKER_NO_SHIM=1` and `rm ~/.claude/commands/manual-maker.md` (per user), or delete the `install_shim` block from `hooks/check-version.sh` and revert the README to the manual-`curl` instructions from v0.13.1.
