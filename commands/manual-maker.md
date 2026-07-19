@@ -20,7 +20,7 @@ not stop to ask "shall I move to the next step?". The user has already said "เ
 it to the end), so momentum between steps is the default.
 
 **First action:** create the full TodoWrite list so the user sees the whole run up front —
-`Intake → Confirm → Ingest sources → Screenshots → Draft → Template+Quality → Final review → Export`
+`Intake → Confirm → Ingest sources → [Screenshots → Draft → Template+Quality ขนานต่อหัวข้อย่อย + รีวิวทีละหัวข้อ] → Build file → รีวิว 5 ชั้น → Export/publish`
 — then start Step 1 immediately.
 
 If `$ARGUMENTS` already names the system (e.g. "ทำคู่มือระบบ CBMS"), seed that as the subject and
@@ -44,11 +44,18 @@ rule (ห้ามมโน / ห้ามคิดเอง). Pause only here:
    get an explicit "ยืนยัน / go". Do nothing else until then.
 3. **Publish confirmation** — before posting to Confluence or a public web page (outward-facing),
    confirm the exact target (space + parent, or destination).
+4. **คำถามจากรีวิวรายหัวข้อ** — Steps 4–6 run 2–3 `manual-section-writer` agents in parallel with one
+   `manual-section-reviewer` behind them (`references/parallel.md`). A subagent **cannot talk to the
+   user**, so every `BLOCKED` from a writer and every `ASK` from the reviewer — i.e. anything needing
+   judgement, and anything the reviewer was unsure about — **comes to the user in chat before a fix is
+   chosen**. Never decide on their behalf to keep momentum. A หัวข้อย่อย with an open question is not
+   done.
 
-Between those gates, proceed **autonomously**: ingest the given sources, capture the requested
-screenshots, draft section-by-section via the `doc-coauthoring` skill, apply `template.md` and its
-four quality axes (font & size, numbering, image clarity + annotation, terminology), run the Final
-Review Checklist, and export to the chosen format — all without waiting for a nudge.
+Between those gates, proceed **autonomously**: ingest the given sources, fan the หัวข้อย่อย out to the
+writers (capture + annotate + draft per section), review each one the moment it lands, apply
+`template.md` and its four quality axes (font & size, numbering, image clarity + annotation,
+terminology), assemble the file, run the 5-layer review on it, and export to the chosen format — all
+without waiting for a nudge.
 
 If a single fact for a step cannot be sourced from the live system or the user's references →
 **stop and ask for just that fact**, then resume. Never paper over a gap with a guess.

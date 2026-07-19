@@ -1,12 +1,12 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.16.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.17.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.16.0 · MIT · Claude Code plugin**
+**Version 0.17.0 · MIT · Claude Code plugin**
 
 > 🔄 **อัปเดตอัตโนมัติ (v0.6.0+):** ติดตั้งครั้งเดียว จากนั้นแค่ **เปิด session ใหม่** ปลั๊กอินก็ดึงเวอร์ชันล่าสุดมาติดตั้งเองเบื้องหลัง — **ผู้ใช้ไม่ต้องกดอัปเดตหรือทำอะไรเพิ่ม.** ปิดได้ด้วย `MANUAL_MAKER_NO_AUTOUPDATE=1`. รายละเอียด → [Update](#update--อัปเดตอัตโนมัติ-auto-update).
 
@@ -65,6 +65,7 @@ Rather than fork `doc-coauthoring` and drift from upstream, this repo adds a thi
 | Output formats | docx / PDF / Confluence / web (chosen at runtime) | Fits different audiences; **default docx** — screenshots embed reliably. Confluence via MCP publishes the page body only (no image upload), so it suits text-first pages |
 | Screenshots | Optional, via Playwright / Chrome MCP | Auto-capture real UI per step |
 | เครื่องมือที่ต้องติดตั้ง | **ไม่ต้องเตรียมอะไรเลย (v0.15.0+)** — สกิลเช็คและติดตั้งให้เอง | ผู้ใช้ไม่รู้ล่วงหน้าว่าต้องมี Playwright/Chromium/Pillow → สกิลเช็คตอน intake แล้วติดตั้งหลังกด "go" ลงกล่องแยก `~/.manual-maker/runtime/` ไม่แตะโปรเจกต์หรือ npm global. ไม่ทำ screenshot = ไม่โหลดอะไรเลย |
+| ความเร็วตอนทำ | **ขนานต่อหัวข้อย่อย (v0.17.0+)** — writer 2–3 ตัว + reviewer 1 ตัว | 1 หัวข้อย่อย = 1 คนทำครบ ถ่ายภาพ+วงแดง+เขียนสเตป (กฎเลขวง=เลขขั้นตอน 1:1 อยู่ในหัวข้อ แยกคนแล้วพัง) แต่ละคนเขียนได้เฉพาะไฟล์ของหัวข้อตัวเอง จึงไม่ชนกัน · reviewer รีวิวทันทีทีละหัวข้อย่อย **เจอเรื่องต้องใช้ดุลพินิจ = ถามผู้ใช้ก่อนเสมอ** |
 | การตรวจก่อนส่ง | **รีวิว 5 ชั้น + gate (v0.16.0+)** — ไม่ผ่านครบ 5 ชั้น = ไม่ส่ง | ตรวจจากไฟล์ที่ export แล้ว: ตรงตามที่ยืนยัน · ทุกอย่างมีที่มา · ภาพ · เลข/คำ (รวม**คำพราก**) · รูปเล่ม. **ตรวจไม่ได้ = ไม่ผ่าน**, FAIL ข้อเดียว = รีวิวใหม่ทั้ง 5 ชั้น |
 | Publishing | Confluence via Atlassian MCP | Push straight to the team space (หลังผ่าน 5/5 เท่านั้น) |
 | Distribution | Repo is its own marketplace | Team installs directly from GitHub |
@@ -266,10 +267,15 @@ The skill interviews you one question at a time — system URL, login, VPN, **th
 ## How it works (runtime flow)
 
 ```
-Intake  →  (Screenshots)  →  Draft            →  Template        →  Export
-one-at-a-   Playwright /       delegate to         apply team         Confluence /
-time Qs      Chrome MCP        doc-coauthoring     structure+tone     PDF / docx / web
+Intake  →  Confirm  →  Sources  →  ┌──────────── ขนานต่อหัวข้อย่อย ────────────┐  →  Build  →  รีวิว 5 ชั้น  →  Export
+one-at-a-   gate       ต้นแบบ /     │ writer ×2–3: ถ่ายภาพ → วงแดง → เขียนสเตป │     .docx     บนไฟล์จริง      Confluence /
+time Qs     ยืนยัน      Confluence   │ reviewer ×1: รีวิวทันทีทีละหัวข้อย่อย      │     ประกอบ    5/5 เท่านั้น      PDF / docx / web
+                                    └──────────────────────────────────────────┘
 ```
+
+หัวข้อย่อยหนึ่ง = ผู้เขียนคนเดียวทำครบ **ถ่ายภาพ + วงแดง + เขียนขั้นตอน** (เลขในวงต้องตรงเลขขั้นตอน 1:1 —
+แยกคนเมื่อไรกฎนี้พัง) แต่ละคนเขียนได้เฉพาะไฟล์ของหัวข้อตัวเอง จึงไม่ชนกัน ผู้รีวิวอ่านอย่างเดียว
+**เจอเรื่องที่ต้องใช้ดุลพินิจ = ถามผู้ใช้ในแชทก่อนเสมอ** และรีวิวรายหัวข้อ **ไม่แทน** รีวิว 5 ชั้นบนไฟล์จริง
 
 ## Customize for your team
 
@@ -309,19 +315,31 @@ manual-maker/
 │   └── manual-maker.md      # /manual-maker:manual-maker — drives the pipeline to the end
 ├── shim/
 │   └── manual-maker.md      # auto-copied to ~/.claude/commands/ so bare /manual-maker works
+├── agents/
+│   ├── manual-section-writer.md    # owns one หัวข้อย่อย: capture → annotate → draft (2–3 run at once)
+│   └── manual-section-reviewer.md  # reviews each หัวข้อย่อย as it lands; read-only; asks, never decides
 ├── hooks/
-│   ├── hooks.json           # registers the SessionStart hook
-│   └── check-version.sh     # notify-only new-version check (fail-silent)
+│   ├── hooks.json           # registers the SessionStart + PostToolUse hooks
+│   ├── check-version.sh     # shim install + background self-update (fail-silent)
+│   └── progress-tick.sh     # ~10-min progress-table reminder during a run (fail-silent, opt-out)
 ├── scripts/
 │   └── bump-version.sh      # bump the version everywhere in one command
 ├── CHANGELOG.md             # per-version history
+├── RISK_REGISTER.md         # decisions with trade-offs, recorded so they aren't re-litigated
 └── skills/
     └── manual-maker/
-        ├── SKILL.md         # workflow: intake → screenshots → draft → template → export
+        ├── SKILL.md         # workflow: intake → confirm → sources → [parallel] → build → review → publish
+        ├── scripts/
+        │   ├── preflight.sh    # checks + installs capture tooling into ~/.manual-maker/runtime
+        │   └── verify-doc.py   # mechanical .docx checks; exit 1 blocks delivery
         └── references/
-            ├── intake.md    # the system-specific question set
-            ├── profile.md   # remembers a user's answers (~/.manual-maker/profiles) so it doesn't re-ask
-            └── template.md  # team handbook structure + conventions
+            ├── intake.md      # the system-specific question set
+            ├── profile.md     # remembers a user's answers (~/.manual-maker/profiles) so it doesn't re-ask
+            ├── parallel.md    # how Steps 4–6 fan out + the per-section review loop
+            ├── screenshots.md # capture & annotation contract
+            ├── docx-build.md  # building on a base template via OOXML
+            ├── review.md      # the 5-layer delivery gate
+            └── template.md    # team handbook structure + conventions
 ```
 
 ## Troubleshooting

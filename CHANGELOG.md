@@ -2,6 +2,55 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.17.0] - 2026-07-19
+
+A manual is now written by a small team instead of one thread, and reviewed หัวข้อย่อย by หัวข้อย่อย
+instead of all at once at the end.
+
+### Added
+- **Parallel Steps 4–6** (`references/parallel.md`). Capture → annotate → draft is partitioned **by
+  หัวข้อย่อย** and dispatched to **2–3 `manual-section-writer` agents** at a time. Partitioning is by
+  section and **not** by phase on purpose: "เลขในวงแดง = เลขขั้นตอน 1:1" is an invariant *inside* a
+  หัวข้อย่อย, so a "one agent screenshots, another writes" split would force two agents to renegotiate
+  step numbers across a boundary.
+- **`manual-section-reviewer`** — **one** reviewer (never more; several would judge terminology and
+  tone inconsistently) reviews each หัวข้อย่อย the moment its writer hands it over, so defects surface
+  while they are still cheap to fix. It is **read-only**: it reports, the owning writer fixes.
+- **`ASK` before deciding.** Reviewer findings are split into `FIX` — the confirmed table or the
+  locked-term list already dictates the one correct answer (a synonym for a locked term, a ครับ/ค่ะ
+  particle, a leftover placeholder, วง present when `annotations: none` was ordered) — and `ASK`,
+  which is **everything else and everything the reviewer is unsure of**. Subagents cannot talk to the
+  user, so every `ASK` and every writer `BLOCKED` **comes to the user in chat** before a fix is
+  chosen. A หัวข้อย่อย with an open question is **not done** and never reaches the file.
+- **Progress table roughly every 10 minutes** (`hooks/progress-tick.sh`, `PostToolUse`). During the
+  long stretch the work is invisible to the user, so the run reports `~N% เสร็จ` plus a
+  `ขั้น | สถานะ` table with measurable numbers.
+
+### Changed
+- `SKILL.md` Steps 4–6 now describe the fan-out and its prerequisites: the Step 2 gate, a **numbered
+  outline assigned before dispatch**, ingested sources, locked terms, and a saved `storageState`.
+  Login happens **once in the main thread** — three concurrent logins risk locking the account and
+  spread the credential further than needed — and writers reuse the session read-only.
+- `doc-coauthoring` is still invoked **once, in the main thread**, for the document-level voice and
+  structure contract that every writer drafts against. Per-writer invocation would yield three
+  different styles — the exact defect the manual is judged on.
+
+### Unchanged (deliberately)
+- **The 5-layer delivery gate.** Per-section review covers layers 1–4 *at section level* only; font
+  fallback, คำพราก, TOC, cross-chapter numbering and all of layer 5 are created by the conversion and
+  provable only on the exported file. Step 8 still runs in full, on the built file, and "every
+  section passed its review" is **not** evidence for any layer.
+
+### Notes
+- Claude Code has **no time-based hook**, and `SubagentStop` supports only `decision`/`reason` — not
+  `hookSpecificOutput.additionalContext` — so it cannot inject a message. The 10-minute update
+  therefore rides `PostToolUse` (matcher `Task|Bash`) with a wall-clock throttle: **no tool call, no
+  tick**. Reporting on every section status change remains the primary mechanism; the hook is a
+  silence net. It is inert unless `~/.manual-maker/state/run.active` exists (created at the Step 2
+  gate, deleted at Step 9), fail-silent, self-clears a marker older than 12h, and opts out with
+  `MANUAL_MAKER_NO_PROGRESS=1` (interval via `MANUAL_MAKER_PROGRESS_INTERVAL`).
+- Trade-offs recorded in `RISK_REGISTER.md` **MM-004**.
+
 ## [0.16.0] - 2026-07-19
 
 A manual can no longer be handed over until it has been proven correct.
