@@ -2,6 +2,32 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.18.1] - 2026-07-20
+
+The skill can now actually find its own scripts.
+
+### Fixed
+- **`preflight.sh` and `verify-doc.py` are invoked through a resolved path, not a bare
+  repo-relative one** (`SKILL.md`, `references/screenshots.md`, `references/review.md`). A manual
+  run's cwd is the **user's project**, not the skill directory, so `scripts/preflight.sh` resolved
+  into the user's project, was not found, and looked like a missing file. During a live run the
+  preflight step was hand-improvised as a result — while a correct, executable `preflight.sh` sat in
+  the install the whole time. Both scripts have always shipped at
+  `skills/manual-maker/scripts/`; only the way `SKILL.md` called them was wrong.
+- Neither obvious shortcut works, and both were measured rather than assumed:
+  **`CLAUDE_PLUGIN_ROOT` is unset inside Bash tool calls** (only `hooks/hooks.json` gets it
+  substituted), and the plugin cache path is **version-stamped**
+  (`~/.claude/plugins/cache/manual-maker-dev/manual-maker/<version>/`), so it cannot be hardcoded.
+  The resolver uses `ls -d … | sort -V | tail -1` with a `~/.claude/skills/manual-maker` fallback for
+  the personal-skill install, and is inlined into the **same** Bash call as the script because shell
+  state does not persist between tool calls.
+- If the resolver comes back empty and the fallback has no `scripts/`, the skill now **says so and
+  stops** instead of substituting a hand-rolled preflight.
+
+### Changed
+- `CLAUDE.md` records the trap, including the audit red herring: `ls scripts/` at the repo root shows
+  only `bump-version.sh`, because the skill's scripts live at `skills/manual-maker/scripts/`.
+
 ## [0.18.0] - 2026-07-19
 
 The finished manual now lands somewhere the user can actually find it.
