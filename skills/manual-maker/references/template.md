@@ -101,6 +101,11 @@ Example — ✅ "เลือกเมนู **หลักสูตรของ
 
 ## Final Review Checklist — run before delivery (ห้ามตกหล่น)
 
+> 🔴 **This checklist is the item-level detail of the 5-layer review in `review.md` — same content,
+> different view.** `review.md` owns the **ลำดับการตัดสินและ delivery gate** (ห้ามบอกว่าเสร็จจนกว่าจะผ่านครบ
+> 5 ชั้น; ตรวจไม่ได้ = ไม่ผ่าน; FAIL ข้อเดียว = รีวิวใหม่ทั้ง 5 ชั้น). Run this list **against the built
+> file**, as part of those layers — not as a separate self-assessment.
+
 Go through **every** line; fix all before handing over. Do not deliver a manual that fails any item.
 
 - [ ] **เนื้อหาตรงแหล่งข้อมูล** — every step matches the live system + the user's source (Confluence/spec/reference). No invented steps.
@@ -123,4 +128,5 @@ Go through **every** line; fix all before handing over. Do not deliver a manual 
 - [ ] **Output ถูกช่อง** — correct format; if Confluence/web, target confirmed before posting.
 - [ ] **ส่งมอบ Word ถูกวิธี** — if a `~$….docx` lock exists (Word has it open), tell the user to **close Word without saving**, reopen, and answer **"Update fields? → Yes"** so the TOC, page numbers, and figure numbers refresh.
 
-Report the checklist result to the user before export.
+Report the result to the user as the **5-layer verdict table** in `review.md` — every round, including
+the failing ones. **ผ่าน 5/5 เท่านั้นจึงส่งมอบ/publish ได้.**

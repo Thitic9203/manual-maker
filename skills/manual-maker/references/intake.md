@@ -60,7 +60,11 @@ saved, run the full intake below. (Credentials are **never** saved — always as
 ## D. Screenshots
 
 11. **Capture** — auto-capture from the live system (**headless Playwright**, non-intrusive — runs in its own headless browser, does not take over the screen), user-provided images, or none? **Default: auto-capture.**
-12. **Annotation** — **Default: red numbered circles (วงกลมแดงมีเลข) on the click targets, numbered to match the step numbers 1:1, ≤ 5 per image.** Confirm the style if the user wants something else. Screenshots are **full-screen, uncropped**; the headless capture has **no glow border and no cursor** to remove (that cleanup applies only to the screen/clipboard fallback) — see `screenshots.md`.
+12. **Annotation — ถามให้ชัดว่าเอาแบบไหน (ทั้งสองแบบถูกได้ ผิดคือทำไม่ตรงกับที่สั่ง):**
+    **(ก) มีวงแดง — Default:** วงกลมแดงมีเลขบนเป้าที่คลิก เลขตรงกับเลขขั้นตอน **1:1**, ≤ 5 วง/รูป, สไตล์เดียวกันทั้งเล่ม ·
+    **(ข) ไม่มีวง:** ภาพหน้าจอเปล่า เต็มจอเหมือนกัน **ห้ามใส่วงมาเผื่อ**.
+    คำตอบนี้ถูกบันทึกลงตารางยืนยัน และกลายเป็นค่า `--annotations required|none` ที่ใช้ตรวจในรีวิวชั้นที่ 1 และ 3
+    (`review.md`) — ถ้าไม่ตรงกับที่ยืนยันไว้ ถือว่า **ไม่ผ่าน**. ถ้าผู้ใช้อยากได้สไตล์อื่น (กรอบ/ลูกศร/ไฮไลต์) ให้ยืนยันสไตล์ก่อนเริ่ม. Screenshots are **full-screen, uncropped**; the headless capture has **no glow border and no cursor** to remove (that cleanup applies only to the screen/clipboard fallback) — see `screenshots.md`.
 
 ## E. Formatting & terminology  — *be exact; this is where quality is won or lost*
 

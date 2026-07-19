@@ -44,6 +44,31 @@ template dictates otherwise; then follow the template.
 > `w:eastAsia`, and above all **`w:cs`**. Miss `w:cs` and Word silently renders the Thai text in a
 > fallback font.
 
+### คำพราก — prevent it here, at build time
+
+A Thai word split across two lines ("นัก" ends one line, "เรียน" starts the next) is **not** something
+to fix in review — it is caused at build time, by exactly two things:
+
+1. **A space or break inserted inside a word.** Thai puts spaces *between phrases*, never inside a
+   word, so any space mid-word survives into the render as a break point. Never insert one for
+   "spacing"; never let a `<w:br/>` land mid-sentence.
+2. **A Thai run with no language tag.** Word breaks Thai lines using a Thai dictionary — but only
+   when the run says it is Thai. Without it Word has no word boundaries and breaks anywhere.
+
+So every Thai run carries **both** the `w:cs` font slot and the language tag:
+
+```xml
+<w:rPr>
+  <w:rFonts w:ascii="TH SarabunPSK" w:hAnsi="TH SarabunPSK"
+            w:eastAsia="TH SarabunPSK" w:cs="TH SarabunPSK"/>
+  <w:sz w:val="32"/><w:szCs w:val="32"/>
+  <w:lang w:bidi="th-TH"/>          <!-- ← ให้ Word ตัดคำไทยตามพจนานุกรม -->
+</w:rPr>
+```
+
+`scripts/verify-doc.py` fails the build when either is missing (checks 3 and 4), so a manual that
+would แตกคำ cannot reach the user — but the fix belongs here, not there.
+
 ## 4. Verify before delivering
 
 - The image really is embedded: `word/media/imageN.png` exists, a relationship points at it, and the

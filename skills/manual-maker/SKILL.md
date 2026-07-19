@@ -22,7 +22,11 @@ It is a thin team wrapper that **composes** Anthropic's first-party skills (it d
 2. **ห้ามทำเกินขอบเขต.** Do only what was asked. No extra sections, no assumptions dressed up as facts.
 3. **ยืนยันก่อนเริ่มเสมอ.** Summarize the request and all collected data, and get an explicit "go" **before** any screenshot or drafting.
 4. **Every step must be sourced** — from the live system and the user's reference/Confluence/spec — not from guesswork. If you cannot source a step, ask.
-5. **Review in detail before delivery** — complete, correct, consistent, nothing missed.
+5. **Delivery gate — ผ่านรีวิว 5 ชั้นก่อนเท่านั้น.** Never say "เสร็จแล้ว" / "ส่งงานได้" / hand the
+   file over until **all five review layers pass** per `references/review.md`. **ตรวจไม่ได้ = ไม่ผ่าน**
+   — there is no "น่าจะผ่าน". One FAIL → fix, then **re-review all five layers**, because fixing one
+   breaks another (adding a figure shifts the step numbers). Review the **exported file**, never the
+   draft in conversation.
 6. **ต้นแบบคือของจริง.** If the user supplies a base/reference document, reproduce its **cover, header, footer (page numbers), TOC, styles, and role-based chapters exactly** — never a hand-built look-alike. See `references/docx-build.md`.
 7. **ภาพต้องเป็นหน้าจอระบบจริง.** Every figure is a **real, full-screen** screenshot of the live system, with **red numbered circles whose numbers match the step numbers**. No placeholders, no mock-ups, no redrawn tables standing in for a screen. See `references/screenshots.md`.
 8. **Login is headless & env-seeded; credentials are session-only.** Screenshots use a **headless Playwright** browser that authenticates by reading the credential **from the environment** (`process.env.EMAIL`/`process.env.PW`) or a pre-saved `storageState` — Claude **never types a password into a live form by hand**. The secret is used only in-session, **never** written to the manual, repo, logs, a committed script, or the profile, and **never echoed** (show `password provided (not shown)`). If login can't be automated (SSO/MFA/captcha), the **user logs in** and Claude captures read-only. See `references/screenshots.md`.
@@ -33,7 +37,11 @@ When the user wants a manual/handbook/user guide for a web system or app (e.g. "
 
 ## Workflow
 
-Track with TodoWrite: `Intake → Confirm → Ingest sources → Screenshots → Draft → Template+Quality → Final review → Export`.
+Track with TodoWrite: `Intake → Confirm → Ingest sources → Screenshots → Draft → Template+Quality → Build file → รีวิว 5 ชั้น → ส่งมอบ/publish`.
+
+**Build before review, publish after it.** The review must run on the **exported file**, so the file
+is built at Step 7, reviewed at Step 8, and only **published/handed over at Step 9** — Confluence
+posting and delivery are outward-facing and must never happen ahead of a 5/5 verdict.
 
 ### Step 1 — Intake (always first, one question at a time)
 
@@ -104,11 +112,46 @@ Draft **section by section**, grounded only in verified sources, in the chosen l
 
 Match `references/template.md` and enforce its four quality axes: **font & size**, **numbering consistency**, **image clarity + annotation**, **terminology consistency**.
 
-### Step 7 — Final review before delivery (mandatory, detailed)
+### Step 7 — Build the deliverable file (do **not** publish yet)
 
-Run the **Final Review Checklist** in `references/template.md` line by line. Fix everything. Deliver only when nothing is missing, wrong, or inconsistent.
+Produce the actual file in the confirmed format — `docx` skill (+ `references/docx-build.md`), `pdf`,
+or the web/Confluence body. **Building is not delivering:** nothing is posted to Confluence, sent, or
+described as finished until Step 8 returns 5/5. See the format table in Step 9.
 
-### Step 8 — Export / publish
+### Step 8 — รีวิว 5 ชั้น + delivery gate (mandatory — the hard stop before delivery)
+
+**Read `references/review.md` and follow it exactly.** Review the **built file from Step 7**, not the
+draft in conversation — most defects (font fallback, dropped images, stale TOC, คำพราก) are born in
+the conversion, so reviewing the draft proves nothing.
+
+The five layers, each decided against the **Step 2 confirmation table** and each needing evidence:
+
+| ชั้น | มุมมอง | ตัดสินว่า |
+|---|---|---|
+| 1 | ตรงตามที่ยืนยัน | scope, การแบ่งเล่ม (Q9), ภาษา, ฟอนต์, format, **โหมดวงแดง — มี/ไม่มี ตามที่สั่ง** |
+| 2 | ทุกอย่างมีที่มา | ทุกขั้นตอนสาวถึงระบบจริง+แหล่งของผู้ใช้; บทที่ไม่มีแหล่ง = ตัดทิ้ง ไม่ใช่แต่งเพิ่ม |
+| 3 | ภาพ | ของจริง, เต็มจอ, เลขในวงตรงขั้นตอน 1:1, ไม่มีเคอร์เซอร์/ขอบเรือง, ปิดชื่อคน |
+| 4 | ตัวหนังสือและตัวเลข | เลขข้อ+TOC ตรง, ไม่มีคำผิด, **ไม่มีคำพราก**, คำศัพท์ล็อกเดียว, โทนถูก |
+| 5 | รูปเล่ม | ปก + header + footer (`PAGE` field) + TOC field + ฟอนต์ ตามฟอร์แมตที่ผู้ใช้กำหนด |
+
+Run the mechanical half first — it settles what a regex can settle, so judgement goes to the rest:
+
+```bash
+/usr/bin/python3 scripts/verify-doc.py <ไฟล์.docx> --terms "<คำล็อก,คั่นด้วยจุลภาค>" --annotations required|none
+```
+
+**Exit 1 = ห้ามส่ง.** But **passing the script is not passing the review** — it cannot judge whether
+the content matches the real system, whether a red circle points at the right button, or whether the
+layout matches the ต้นแบบ. Those stay human-judged.
+
+Print the 5-layer verdict table (format in `review.md`) to the user **every time**, including the
+failing rounds. Deliver only on **5/5**. If a layer cannot be verified, it is **ไม่ผ่าน** — say so and
+ask; never assume it through.
+
+### Step 9 — ส่งมอบ / publish (only after 5/5)
+
+**Entry condition: Step 8 returned 5/5.** Publishing is outward-facing and hard to walk back — a
+Confluence page posted from a manual that fails review has already reached its readers.
 
 | Format | How |
 |--------|-----|

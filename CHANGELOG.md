@@ -2,6 +2,54 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.16.0] - 2026-07-19
+
+A manual can no longer be handed over until it has been proven correct.
+
+### Added
+- **รีวิว 5 ชั้น + delivery gate** (`references/review.md`). Before this, review was a flat 19-item
+  checklist that Claude self-assessed and then reported "before export" — nothing stopped a manual
+  from being delivered with the checklist waved through. Now five layers must each pass **with
+  evidence**, judged against the Step 2 confirmation table:
+  1. **ตรงตามที่ยืนยัน** — scope, การแบ่งเล่ม (Q9), ภาษา, ฟอนต์, format, and the annotation mode.
+  2. **ทุกอย่างมีที่มา** — every step traces to the live system + the user's source; a chapter with no
+     source is cut, never invented.
+  3. **ภาพ** — real, full-screen, red-circle numbers matching step numbers 1:1, names masked.
+  4. **ตัวหนังสือและตัวเลข** — numbering + TOC, spelling, **คำพราก**, locked terms, tone.
+  5. **รูปเล่ม** — cover, header, footer `PAGE` field, TOC field, fonts per the user's format.
+
+  Gate rules: **ตรวจไม่ได้ = ไม่ผ่าน** (no "น่าจะผ่าน"); one FAIL means fix and **re-review all five**,
+  since fixing one layer breaks another; review the **exported file**, never the draft in
+  conversation; no delivery with caveats attached.
+
+- **`scripts/verify-doc.py`** — mechanical verifier for a built `.docx`, so judgement is spent on what
+  a regex cannot settle. Checks placeholders, `w:cs`, `w:lang w:bidi`, locked terms split mid-word,
+  invisible characters, image embedding + relationship resolution, cover/header/footer/`PAGE`/TOC,
+  heading-number continuity, and credential leaks. Exit 1 blocks delivery. Verified in both
+  directions against fixtures: it fails a deliberately broken document (4 defects, including a
+  numbering gap `[1, 2, 4]`) and passes a well-formed one.
+
+### Changed
+- **Workflow reordered: build → review → publish.** The review has to run on the exported file, so
+  Step 7 now *builds* the file, Step 8 is the 5-layer gate, and Step 9 publishes — only on 5/5.
+  Previously review sat before export, which meant the conversion-time defects it most needed to
+  catch (font fallback, dropped images, stale TOC, คำพราก) had not happened yet. Confluence
+  publishing is outward-facing and now cannot precede a passing verdict.
+- **Intake Q12 makes "ไม่มีวง" a first-class choice**, not just a deviation from the red-circle
+  default. Both modes are correct; what fails review is a mismatch with what the user confirmed. The
+  answer feeds `--annotations required|none`.
+- `template.md`'s checklist is now explicitly the item-level detail of the five layers — same content,
+  different view — rather than a second, competing review.
+
+### Fixed
+- **คำพราก is prevented at build time, not just caught at review.** Its two causes are now documented
+  and required in `docx-build.md`: a space or break inserted inside a Thai word, and a Thai run with
+  no `w:lang w:bidi`, which leaves Word without a dictionary so it breaks mid-word. Every Thai run
+  must carry both `w:cs` and the language tag.
+- The คำพราก check is scoped to the **locked terms** rather than any Thai space. Probing a fixture
+  showed a naive "Thai space Thai" rule flags legitimate phrase spacing — Thai separates phrases with
+  spaces — which would have made the check almost all false positives.
+
 ## [0.15.0] - 2026-07-19
 ### Added
 - **Auto-preflight — the skill now sets up its own tooling.** New `skills/manual-maker/scripts/preflight.sh`

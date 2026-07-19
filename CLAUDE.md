@@ -57,6 +57,18 @@ Two traps it closes, both **measured on a real machine, not assumed** — don't 
 
 Pillow is pinned to **`/usr/bin/python3`** (Homebrew's `python3` usually lacks PIL) — same constraint as the annotation step in `screenshots.md`. Report rows are pipe-delimited, not column-padded: `printf` pads by byte count and Thai + emoji make byte width ≠ display width.
 
+## The delivery gate — รีวิว 5 ชั้น (v0.16.0+)
+
+`references/review.md` is the hard stop before a manual reaches the user, and it replaced a flat self-assessed checklist that nothing enforced. Five layers, each needing **evidence**, each judged against the Step 2 confirmation table: **(1)** ตรงตามที่ยืนยัน · **(2)** ทุกอย่างมีที่มา · **(3)** ภาพ · **(4)** ตัวหนังสือและตัวเลข · **(5)** รูปเล่ม. Delivery requires **5/5**.
+
+Rules that are the whole point — do not soften them: **ตรวจไม่ได้ = ไม่ผ่าน** (there is no "น่าจะผ่าน"); one FAIL means fix and **re-review all five layers**, because fixing one breaks another (adding a figure shifts step numbers); review the **exported file**, never the draft in conversation; never deliver with caveats ("ส่งก่อน เดี๋ยวแก้").
+
+**Order matters and changed in 0.16.0: build (Step 7) → review (Step 8) → publish (Step 9).** Review used to run before export, which is backwards — the defects it most needs to catch (font fallback, dropped images, stale TOC, คำพราก) are *created* by the conversion. Confluence publishing is outward-facing, so it must never precede a passing verdict.
+
+`scripts/verify-doc.py` settles the mechanical half (placeholders, `w:cs`, `w:lang w:bidi`, split locked terms, invisible chars, image rels, cover/header/footer/`PAGE`/TOC, heading-number continuity, credential leaks; exit 1 blocks delivery). **Passing it is not passing the review** — it cannot judge whether content matches the real system, whether a circle points at the right button, or whether the layout matches the ต้นแบบ.
+
+Two things here were measured, not assumed: the **คำพราก check is scoped to the locked terms**, because a naive "Thai char + space + Thai char" rule flags legitimate phrase spacing (Thai separates phrases with spaces, not words) and was almost all false positives on a fixture; and **คำพราก is a build-time bug, not a review-time one** — its causes are a space/break inside a word and a Thai run missing `w:lang w:bidi`, so `docx-build.md` requires both `w:cs` and the language tag on every Thai run. There is no local docx renderer to fall back on: Word's AppleScript `save as` is rejected (`-1708`) and LibreOffice is not installed, which is *why* the check is source-level rather than visual.
+
 ## Document quality standards (load-bearing — the manual is judged on these)
 
 These live in `template.md` and are enforced in the `SKILL.md` draft + review steps. They are the point of the repo, not decoration — do not weaken them:
