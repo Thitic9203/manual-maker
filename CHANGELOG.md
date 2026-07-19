@@ -13,8 +13,11 @@ All notable changes to manual-maker are recorded here. Versions follow semver (m
   produces exactly one deliverable per confirmed volume.
 
 ### Changed
-- Intake questions 10–18 renumbered (previously 10–17); `SKILL.md` terminology cross-reference
-  updated (Q14 → Q15).
+- Intake questions Depth through Version renumbered (old Q9–Q17 → new Q10–Q18) to make room
+  for the new Q9; `SKILL.md` terminology cross-reference updated (Q14 → Q15).
+- `references/template.md` — new "Document split" section reflecting multi-volume output, with a
+  resolution rule for base-template styling vs by-role/-module packaging, and a matching
+  final-review checklist line.
 
 ## [0.9.0] - 2026-07-14
 ### Added

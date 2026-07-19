@@ -8,6 +8,8 @@ Standard structure, quality rules, and final-review checklist for every user man
 > cover, header, footer (page numbers), TOC, styles, and its **role-based chapters**
 > (บทนำ / ครูผู้สอน / ผู้เรียน / ผู้ดูแลระบบ) **exactly**. Never hand-build a look-alike.
 > See `docx-build.md`. The generic outline below applies only when there is no template.
+> **If the run also splits by role/module (intake Q9), read "Document split" just below —
+> the split decides packaging (how many volumes); the template still decides the look.**
 
 1. **หน้าปก / Cover** — system name, version, date, target audience, "who this guide is for".
 2. **ภาพรวมระบบ / Overview** — what the system does, main benefits, key terms.
@@ -18,6 +20,27 @@ Standard structure, quality rules, and final-review checklist for every user man
 7. **แก้ปัญหาเบื้องต้น / Troubleshooting & FAQ**.
 8. **อภิธานศัพท์ / Glossary** — the locked terms, defined once.
 9. **ติดต่อ / Support**.
+
+## Document split — one volume, or several (from intake Q9)
+
+The confirmed split choice (intake Q9) decides how many deliverables this run produces:
+
+- **(ค) เล่มเดียวรวม / single combined volume** — the default shape above: one document, roles
+  handled as chapters inside it.
+- **(ก) แบ่งตามบทบาท / by role** — **one separate volume per confirmed role** (e.g. a
+  ผู้ดูแลระบบ volume and a ผู้เรียน volume). Each volume is a complete document with its **own**
+  cover, TOC, and numbering **restarting at 1**; each covers only that role's features.
+- **(ข) แบ่งตามระบบ/โมดูล / by system or module** — one separate volume per confirmed
+  system/module, same per-volume rules as (ก).
+
+**Base template vs by-role/-module split — resolution rule (both can be in play at once):**
+the base template (🔴 above) governs the **look** — cover, header/footer, TOC, styles, fonts.
+The Q9 choice governs the **packaging** — how many volumes and what each contains. They do not
+conflict: apply the template's styling to **each** volume, but a by-role/-module split
+**overrides** the template's single-document *role-based chapter list* — instead of all roles as
+chapters in one file, emit one styled volume per confirmed role/module. If the base template and
+the Q9 split imply different groupings, the **confirmed Q9 choice wins for packaging**; never
+silently merge volumes back into one, and never split a confirmed single volume.
 
 ## Quality rules — the four axes (be exact)
 
@@ -81,6 +104,7 @@ Go through **every** line; fix all before handing over. Do not deliver a manual 
 
 - [ ] **เนื้อหาตรงแหล่งข้อมูล** — every step matches the live system + the user's source (Confluence/spec/reference). No invented steps.
 - [ ] **ครบตาม scope** — all requested modules/features covered; nothing extra added.
+- [ ] **แบ่งเล่มถูกตามที่ยืนยัน** — the number of volumes and the split dimension match the confirmed intake Q9 choice; each by-role/-module volume has its own cover, TOC, and numbering restarting at 1, and covers only its role/module.
 - [ ] **เลขข้อถูกต้อง** — numbering continuous, no gaps/duplicates; TOC matches body.
 - [ ] **คำศัพท์สอดคล้อง** — one locked term per concept throughout; no synonyms slipped in.
 - [ ] **โทน/ภาษาถูกต้อง** — formal written language; no 1st/2nd-person pronouns (ผม/คุณ/ท่าน), no particles (ครับ/ค่ะ); reads naturally, not machine-translated; spelling correct.
