@@ -1,12 +1,12 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.14.1-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.15.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.14.1 · MIT · Claude Code plugin**
+**Version 0.15.0 · MIT · Claude Code plugin**
 
 > 🔄 **อัปเดตอัตโนมัติ (v0.6.0+):** ติดตั้งครั้งเดียว จากนั้นแค่ **เปิด session ใหม่** ปลั๊กอินก็ดึงเวอร์ชันล่าสุดมาติดตั้งเองเบื้องหลัง — **ผู้ใช้ไม่ต้องกดอัปเดตหรือทำอะไรเพิ่ม.** ปิดได้ด้วย `MANUAL_MAKER_NO_AUTOUPDATE=1`. รายละเอียด → [Update](#update--อัปเดตอัตโนมัติ-auto-update).
 
@@ -64,6 +64,7 @@ Rather than fork `doc-coauthoring` and drift from upstream, this repo adds a thi
 | Repo visibility | **Public** | No secrets, no Anthropic content — team installs without auth |
 | Output formats | docx / PDF / Confluence / web (chosen at runtime) | Fits different audiences; **default docx** — screenshots embed reliably. Confluence via MCP publishes the page body only (no image upload), so it suits text-first pages |
 | Screenshots | Optional, via Playwright / Chrome MCP | Auto-capture real UI per step |
+| เครื่องมือที่ต้องติดตั้ง | **ไม่ต้องเตรียมอะไรเลย (v0.15.0+)** — สกิลเช็คและติดตั้งให้เอง | ผู้ใช้ไม่รู้ล่วงหน้าว่าต้องมี Playwright/Chromium/Pillow → สกิลเช็คตอน intake แล้วติดตั้งหลังกด "go" ลงกล่องแยก `~/.manual-maker/runtime/` ไม่แตะโปรเจกต์หรือ npm global. ไม่ทำ screenshot = ไม่โหลดอะไรเลย |
 | Publishing | Confluence via Atlassian MCP | Push straight to the team space |
 | Distribution | Repo is its own marketplace | Team installs directly from GitHub |
 | Marketplace name | `manual-maker-dev` (≠ plugin name) | Mirrors the team's proven-working plugins (`helix-dev`, `retest-bug-dev`, `full-test-dev`) |

@@ -44,6 +44,19 @@ Every manual run follows these **non-negotiable rules** (defined in `SKILL.md` +
 
 Runtime flow: `Intake (one question at a time) → Confirmation gate → Ingest sources → Screenshots (optional, annotated) → Draft (doc-coauthoring) → Apply template + quality → Final review → Export/publish`.
 
+## Preflight — the skill installs its own tooling (v0.15.0+)
+
+`skills/manual-maker/scripts/preflight.sh` exists because **the user does not know a capture run needs anything.** It runs `--check` during intake (read-only; its table becomes the *เครื่องมือที่ต้องใช้* row of the Step 2 summary, with download sizes) and `--install` immediately after the user's existing "go" — deliberately **no second gate**, since the confirmation gate already covers it. Skipped entirely when screenshots = no, so a text-only manual downloads nothing.
+
+Everything lands in the skill-owned sandbox **`~/.manual-maker/runtime/`** (sibling of `profiles/`), never the user's projects and never global npm. The script is idempotent — re-running on a satisfied machine is a no-op — and continues past failures rather than `set -e` aborting, so one broken tool still yields a full report.
+
+Two traps it closes, both **measured on a real machine, not assumed** — don't "simplify" them away:
+
+- **`npm i -g playwright` does not work.** Node won't resolve global packages from an arbitrary cwd, so `require('playwright')` throws even when the package is installed. Hence the sandbox + `NODE_PATH="$HOME/.manual-maker/runtime/node_modules" node capture.js`. Every capture invocation must carry that `NODE_PATH`.
+- **A populated `~/Library/Caches/ms-playwright/` is not proof Chromium works.** Those builds are Playwright-version-specific; the probe machine had five cached builds *and* an unusable `require`. The check asks Playwright for its own `chromium.executablePath()` and tests that path.
+
+Pillow is pinned to **`/usr/bin/python3`** (Homebrew's `python3` usually lacks PIL) — same constraint as the annotation step in `screenshots.md`. Report rows are pipe-delimited, not column-padded: `printf` pads by byte count and Thai + emoji make byte width ≠ display width.
+
 ## Document quality standards (load-bearing — the manual is judged on these)
 
 These live in `template.md` and are enforced in the `SKILL.md` draft + review steps. They are the point of the repo, not decoration — do not weaken them:

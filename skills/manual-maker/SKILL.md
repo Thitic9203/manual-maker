@@ -45,11 +45,23 @@ a time**, and the default-bearing questions as **one confirm-batch** (show the d
 what to change). Do not skip. Do not assume defaults for access, credentials, sources, fonts, or
 terminology. **Credentials are never stored — always ask them fresh in-session.**
 
+**Then run preflight — the user is not expected to know what a capture run needs.** Once the
+screenshot question is answered **yes**, run this skill's **`scripts/preflight.sh --check`**
+(read-only, installs nothing) and put its result table into the Step 2 summary as the
+*เครื่องมือที่ต้องใช้* row, download sizes included. **If screenshots = no, skip preflight
+entirely** — a text-only manual needs no browser. Never ask the user to install anything by hand.
+
 ### Step 2 — Confirmation Gate (mandatory — do not skip)
 
 Print the summary table from the end of `intake.md` and ask **"ยืนยันข้อมูลทั้งหมดถูกต้อง เริ่มทำได้เลยไหมครับ?"**. **Do nothing else** — no screenshots, no drafting — until the user explicitly confirms. If anything is "ไม่แน่ใจ", resolve it first.
 
 **On confirmation, save the profile** per `references/profile.md` — the confirmed answers **minus every credential/secret** — so the next run for this system does not re-ask.
+
+**On confirmation, also install the missing tools** — run `scripts/preflight.sh --install` before
+Step 3. It installs only what the check found missing, into the skill-owned sandbox
+`~/.manual-maker/runtime/` (never the user's projects, never global npm), and is a no-op once
+satisfied. The user's single "go" covers this — do **not** open a second gate for it. If it exits
+`blocked`, show the reason and stop: capture cannot proceed, and inventing screens is forbidden.
 
 ### Step 3 — Ingest sources (grounds the content)
 
@@ -64,6 +76,13 @@ Never write a step you cannot source. If a detail is unclear → ask.
 **Read `references/screenshots.md` and follow it exactly.** In short: real live-system screens only,
 **full screen** (never crop the content), **red numbered circles that map 1:1 to the step numbers**
 (≤ 5 per image), steps written with the system's real menu/button wording, and people's names masked.
+Preflight (Step 1/2) already installed the tooling. Run every capture script with the sandbox on
+`NODE_PATH` — a global `npm i -g playwright` does **not** make `require('playwright')` resolve from
+an arbitrary directory, which is exactly how a run fails without this:
+```bash
+NODE_PATH="$HOME/.manual-maker/runtime/node_modules" node capture.js
+```
+
 **Primary path = headless Playwright — non-intrusive:** a `headless: true` browser logs in once by
 reading the credential **from the environment** (`process.env.EMAIL`/`process.env.PW`, or a saved
 `storageState`), reuses that session, and captures each screen **direct-to-disk** (`fullPage`, saved

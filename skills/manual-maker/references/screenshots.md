@@ -56,6 +56,26 @@ and the red circle numbers line up with the step numbers by construction.
 `/tmp` is **scratch only** (clipboard bridge + PIL work). The **final annotated PNG** is always
 saved into `manual-assets/<slug>/` under its deterministic name — that copy is what gets embedded.
 
+## Prerequisites — installed for the user, never asked of them
+
+`scripts/preflight.sh` handles this: `--check` during intake (report only), `--install` after the
+user's "go". It installs Playwright, the matching Chromium build, and Pillow into
+**`~/.manual-maker/runtime/`** — a skill-owned sandbox, so the user's projects and global npm space
+stay untouched. Idempotent; a satisfied machine is a no-op.
+
+**Run every capture script with that sandbox on `NODE_PATH`:**
+
+```bash
+NODE_PATH="$HOME/.manual-maker/runtime/node_modules" node capture.js
+```
+
+Two traps this closes, both observed on a real machine:
+- `npm i -g playwright` is **not** enough — Node does not resolve global packages from an arbitrary
+  cwd, so `require('playwright')` throws even though the package is installed.
+- A populated `~/Library/Caches/ms-playwright/` is **not** proof Chromium is usable — those builds
+  belong to specific Playwright versions. Preflight asks Playwright for its own
+  `chromium.executablePath()` and tests that path instead.
+
 ## Pipeline that actually works (macOS)
 
 **Primary path = headless Playwright — non-intrusive.** It runs in its own **headless browser**

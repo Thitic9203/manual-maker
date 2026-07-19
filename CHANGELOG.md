@@ -2,6 +2,27 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.15.0] - 2026-07-19
+### Added
+- **Auto-preflight — the skill now sets up its own tooling.** New `skills/manual-maker/scripts/preflight.sh`
+  checks and installs what a screenshot run needs (Playwright, the matching Chromium build, Pillow).
+  Users no longer have to know — or be told — that anything must be installed.
+  - `--check` runs during intake (read-only) and its result table becomes the *เครื่องมือที่ต้องใช้* row
+    of the Step 2 confirmation summary, download sizes included.
+  - `--install` runs right after the user's existing "go" — **no second confirmation gate**.
+  - Skipped entirely when screenshots = no, so a text-only manual downloads nothing.
+  - Installs into the skill-owned sandbox `~/.manual-maker/runtime/`; the user's projects and global
+    npm space are never modified. Idempotent — a satisfied machine is a no-op.
+
+### Fixed
+- **Capture no longer fails on a machine that looks ready.** Two real failure modes found by probing
+  a live install, now both closed by preflight:
+  - A global `npm i -g playwright` does not make `require('playwright')` resolve from an arbitrary
+    cwd, so capture scripts threw despite the package being installed. Capture now runs with
+    `NODE_PATH="$HOME/.manual-maker/runtime/node_modules"`.
+  - A populated `~/Library/Caches/ms-playwright/` is not proof Chromium is usable — cached builds are
+    version-specific. Preflight now tests Playwright's own `chromium.executablePath()`.
+
 ## [0.14.1] - 2026-07-19
 ### Fixed
 - **Closed the one-session gap — `/manual-maker` now works from the very first session that has the plugin.** 0.14.0 auto-installed the shim, but Claude Code reads command files when a session *starts*, so the file the hook had just written was not in that session's command table: a user who installed the plugin, restarted, and typed `/manual-maker` still got `Unknown command` once. Measured directly — deleting the shim and running a session showed the hook creating the file yet the command still failing in that same run, then resolving in the next. Claude Code delivers the user's typed text to the skill alongside that error, so on a first install the hook now includes a directive telling Claude to treat a failed `/manual-maker` as an invocation and run the `manual-maker:manual-maker` skill with the remaining text as args, rather than telling the user the command is unavailable. The directive is emitted **only** on the session where the shim was freshly created — from the next session the command resolves natively and the hook is silent again. Covered by an 11-assertion scenario test (fresh install emits the directive; second session, stale refresh, foreign file, and opt-out all stay silent).

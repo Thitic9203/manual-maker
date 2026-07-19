@@ -95,6 +95,7 @@ Print a summary table of **every** answer:
 | Audience / Scope / Depth | … |
 | การแบ่งเล่ม (role / ระบบ / เล่มเดียว) + รายชื่อเล่ม | … |
 | Screenshots + annotation | … |
+| เครื่องมือที่ต้องใช้ | ผลจาก `scripts/preflight.sh --check` — ตัวไหนพร้อม/ตัวไหนจะติดตั้งให้ + ขนาดที่ต้องโหลด (เว้นว่างถ้าไม่ทำ screenshot) |
 | Font & size / Numbering | … |
 | Locked terms | … |
 | Support / FAQ source (or "ข้าม") | … |
