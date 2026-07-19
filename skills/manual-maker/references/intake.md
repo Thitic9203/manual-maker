@@ -38,25 +38,30 @@ saved, run the full intake below. (Credentials are **never** saved — always as
 
 7. **Target users** — role + tech level. **Default: non-technical end users.**
 8. **Scope** — which modules/features to cover. **Default: all main user-facing features.**
-9. **Depth** — overview, or exhaustive step-by-step? **Default: step-by-step for core tasks.**
+9. **Document split / การแบ่งเล่มเอกสาร** — ต้องการแยกคู่มือเป็นกี่เล่ม และแบ่งตามอะไร? **เสนอเป็นตัวเลือกให้ผู้ใช้เลือกเสมอ:**
+   - **(ก) แบ่งตามบทบาทผู้ใช้งาน** — คู่มือแยกเล่มต่อ role เช่น เล่มผู้ดูแลระบบ / เล่มผู้เรียน / เล่มผู้สอน
+   - **(ข) แบ่งตามระบบหรือโมดูล** — คู่มือแยกเล่มต่อระบบ/โมดูล เช่น เล่มระบบประเมิน / เล่มระบบรายงาน
+   - **(ค) เล่มเดียวรวมทุกอย่าง** — คู่มือเล่มเดียว แบ่งเป็นบทภายในเล่ม
+   *(ต้องถาม — no default; ถ้าเลือก ก หรือ ข ให้ถามต่อว่ามี role/ระบบ อะไรบ้าง และยืนยันรายชื่อเล่มก่อนเริ่ม)*
+10. **Depth** — overview, or exhaustive step-by-step? **Default: step-by-step for core tasks.**
 
 ## D. Screenshots
 
-10. **Capture** — auto-capture from the live system (Playwright/Chrome), user-provided images, or none? **Default: auto-capture.**
-11. **Annotation** — **Default: red numbered circles (วงกลมแดงมีเลข) on the click targets, numbered to match the step numbers 1:1, ≤ 5 per image.** Confirm the style if the user wants something else. Screenshots are **full-screen, uncropped**, with the Claude screen-control glow border and the mouse cursor removed — see `screenshots.md`.
+11. **Capture** — auto-capture from the live system (Playwright/Chrome), user-provided images, or none? **Default: auto-capture.**
+12. **Annotation** — **Default: red numbered circles (วงกลมแดงมีเลข) on the click targets, numbered to match the step numbers 1:1, ≤ 5 per image.** Confirm the style if the user wants something else. Screenshots are **full-screen, uncropped**, with the Claude screen-control glow border and the mouse cursor removed — see `screenshots.md`.
 
 ## E. Formatting & terminology  — *be exact; this is where quality is won or lost*
 
-12. **Font & size** — follow the base template, or specify (heading vs body sizes)? *(ต้องถาม — take from the template or ask; never assume a font)* **Thai default when there is no template: `TH SarabunPSK`, body 16 pt, headings 18 pt bold.** In `.docx`, Thai needs the **`w:cs`** font slot set — see `docx-build.md`.
-13. **Numbering** — scheme for sections and steps (e.g. `1`, `1.1`, `1.1.1`). **Default: follow the reference doc; otherwise a decimal outline, continuous with no gaps.**
-14. **Terminology to lock** — the key terms and the **exact word** to use everywhere (e.g. always "ผู้เรียน", never "นักเรียน"/"นร."). Build the term list and read it back for confirmation. If unsure about any word → ask before writing. *(ต้องถาม — confirm the locked term list)*
-15. **Language** — which language for the manual? **Default: Thai.**
+13. **Font & size** — follow the base template, or specify (heading vs body sizes)? *(ต้องถาม — take from the template or ask; never assume a font)* **Thai default when there is no template: `TH SarabunPSK`, body 16 pt, headings 18 pt bold.** In `.docx`, Thai needs the **`w:cs`** font slot set — see `docx-build.md`.
+14. **Numbering** — scheme for sections and steps (e.g. `1`, `1.1`, `1.1.1`). **Default: follow the reference doc; otherwise a decimal outline, continuous with no gaps.**
+15. **Terminology to lock** — the key terms and the **exact word** to use everywhere (e.g. always "ผู้เรียน", never "นักเรียน"/"นร."). Build the term list and read it back for confirmation. If unsure about any word → ask before writing. *(ต้องถาม — confirm the locked term list)*
+16. **Language** — which language for the manual? **Default: Thai.**
     > **โทนของเอกสารถูกกำหนดไว้แล้ว (ไม่ต้องถาม แต่แจ้งให้ผู้ใช้ทราบ):** ภาษาเขียนที่เป็นทางการ สุภาพ มืออาชีพ อ่านลื่น เป็นธรรมชาติ (ไม่ใช่สำนวนแปลด้วยเครื่อง) — **ไม่ใช้สรรพนามบุรุษที่ 1/2** (ผม ฉัน ดิฉัน เรา คุณ ท่าน) และ **ไม่ใช้คำลงท้าย** (ครับ ค่ะ นะ). ดูรายละเอียดใน `template.md`.
 
 ## F. Output
 
-16. **Output format — ต้องถามเสมอ ถ้าผู้ใช้ยังไม่ระบุ:** ต้องการไฟล์รูปแบบใด — **ไฟล์ Word (.docx) / PDF / Confluence / หน้าเว็บ**? ถ้าเลือก Confluence ให้ระบุ space + หน้าแม่ที่จะเผยแพร่. **Default: Confluence** (แต่หากผู้ใช้ไม่ได้บอก ให้ถามให้ชัดว่าต้องการ Word, PDF หรือรูปแบบอื่น ก่อนดำเนินการ)
-17. **Version label** — **Default: today's date + v1.0.**
+17. **Output format — ต้องถามเสมอ ถ้าผู้ใช้ยังไม่ระบุ:** ต้องการไฟล์รูปแบบใด — **ไฟล์ Word (.docx) / PDF / Confluence / หน้าเว็บ**? ถ้าเลือก Confluence ให้ระบุ space + หน้าแม่ที่จะเผยแพร่. **Default: Confluence** (แต่หากผู้ใช้ไม่ได้บอก ให้ถามให้ชัดว่าต้องการ Word, PDF หรือรูปแบบอื่น ก่อนดำเนินการ)
+18. **Version label** — **Default: today's date + v1.0.**
 
 ## Confirmation Gate — before any screenshot or drafting
 
@@ -69,6 +74,7 @@ Print a summary table of **every** answer:
 | Step sources (Confluence/spec/…) | … |
 | Reference doc | … |
 | Audience / Scope / Depth | … |
+| การแบ่งเล่ม (role / ระบบ / เล่มเดียว) + รายชื่อเล่ม | … |
 | Screenshots + annotation | … |
 | Font & size / Numbering | … |
 | Locked terms | … |

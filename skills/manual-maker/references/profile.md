@@ -30,6 +30,7 @@ intake answers**. Load what they gave last time, show it back, and ask only for 
   "reference_doc": "handbook-template.docx",
   "audience": "non-technical end users",
   "scope": ["Login", "Create evaluation", "Reports"],
+  "split": { "by": "role", "volumes": ["ผู้ดูแลระบบ", "ผู้เรียน"] },
   "depth": "step-by-step for core tasks",
   "screenshots": { "capture": "auto", "annotation": "red box + numbered marker" },
   "font": "follow reference doc (TH Sarabun, 16pt body / 20pt heading)",

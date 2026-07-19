@@ -2,6 +2,20 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.10.0] - 2026-07-19
+### Added
+- **Intake Q9 — document split (การแบ่งเล่มเอกสาร).** The intake now always asks, as explicit
+  options, how the manual should be divided: **(ก) by user role** (one volume per role, e.g.
+  admin / learner / instructor), **(ข) by system or module**, or **(ค) a single combined
+  volume**. No default — if (ก)/(ข) is chosen the skill asks for the role/system list and
+  confirms the volume names before starting. The choice appears in the pre-start Confirmation
+  Gate summary table and is saved in the per-system profile (`split` field), and the draft step
+  produces exactly one deliverable per confirmed volume.
+
+### Changed
+- Intake questions 10–18 renumbered (previously 10–17); `SKILL.md` terminology cross-reference
+  updated (Q14 → Q15).
+
 ## [0.9.0] - 2026-07-14
 ### Added
 - **`references/screenshots.md`** — binding capture & annotation contract, written from a real
