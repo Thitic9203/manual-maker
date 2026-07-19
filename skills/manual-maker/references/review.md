@@ -128,8 +128,12 @@
 
 รันกับ **ไฟล์ .docx ที่ build เสร็จแล้ว**:
 
+สคริปต์อยู่**ข้าง `SKILL.md`** ไม่ใช่ในโปรเจกต์ของผู้ใช้ — ต้อง resolve path ก่อนเสมอ
+(ดู *Running this skill's scripts* ใน `SKILL.md`) ไม่งั้นจะหาไม่เจอ:
+
 ```bash
-/usr/bin/python3 scripts/verify-doc.py <ไฟล์.docx> \
+MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/null | sort -V | tail -1); [ -n "$MM" ] || MM=~/.claude/skills/manual-maker
+/usr/bin/python3 "$MM/scripts/verify-doc.py" <ไฟล์.docx> \
     --terms "ผู้เรียน,ครูผู้สอน,ผู้ดูแลระบบ" \
     --annotations required     # หรือ none ตามที่ผู้ใช้สั่ง
 ```

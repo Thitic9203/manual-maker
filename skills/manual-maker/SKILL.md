@@ -51,6 +51,23 @@ posting and delivery are outward-facing and must never happen ahead of a 5/5 ver
 **Steps 4–6 run in parallel, one หัวข้อย่อย per writer.** Everything before and after them stays in
 this thread. Read `references/parallel.md` before dispatching.
 
+**Running this skill's scripts — always resolve the path first.** `scripts/preflight.sh` and
+`scripts/verify-doc.py` live **next to this file**, never in the user's project. The run's cwd *is*
+the user's project, so a bare `scripts/preflight.sh` resolves there, is not found, and the script
+looks like it does not exist — do **not** conclude it is missing and hand-improvise the step. Neither
+shortcut works either: `CLAUDE_PLUGIN_ROOT` is **unset** in Bash tool calls (hooks get it, tool calls
+do not), and the plugin cache path is version-stamped, so it cannot be hardcoded. Resolve it in the
+**same** Bash call as the script — shell state does not survive between calls:
+
+```bash
+MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/null | sort -V | tail -1); [ -n "$MM" ] || MM=~/.claude/skills/manual-maker
+"$MM/scripts/preflight.sh" --check
+```
+
+`sort -V | tail -1` picks the newest installed version; the fallback covers the personal-skill
+install (`cp -r skills/manual-maker ~/.claude/skills/`). If `$MM` comes back empty **and** the
+fallback path has no `scripts/`, say so and stop — never substitute a hand-rolled preflight.
+
 ### Step 1 — Intake (always first, one question at a time)
 
 Read `references/intake.md`. **First load any saved profile** for this user + system per
@@ -62,10 +79,17 @@ what to change). Do not skip. Do not assume defaults for access, credentials, so
 terminology. **Credentials are never stored — always ask them fresh in-session.**
 
 **Then run preflight — the user is not expected to know what a capture run needs.** Once the
-screenshot question is answered **yes**, run this skill's **`scripts/preflight.sh --check`**
-(read-only, installs nothing) and put its result table into the Step 2 summary as the
-*เครื่องมือที่ต้องใช้* row, download sizes included. **If screenshots = no, skip preflight
-entirely** — a text-only manual needs no browser. Never ask the user to install anything by hand.
+screenshot question is answered **yes**, run this skill's **`preflight.sh --check`** (read-only,
+installs nothing) via the resolver above:
+
+```bash
+MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/null | sort -V | tail -1); [ -n "$MM" ] || MM=~/.claude/skills/manual-maker
+"$MM/scripts/preflight.sh" --check
+```
+
+Put its result table into the Step 2 summary as the *เครื่องมือที่ต้องใช้* row, download sizes
+included. **If screenshots = no, skip preflight entirely** — a text-only manual needs no browser.
+Never ask the user to install anything by hand.
 
 ### Step 2 — Confirmation Gate (mandatory — do not skip)
 
@@ -84,8 +108,15 @@ While that file exists, `hooks/progress-tick.sh` reminds this thread every ~10 m
 progress table (format in `references/parallel.md`). **Delete it at Step 9 when the manual is
 delivered** — `rm -f ~/.manual-maker/state/run.active ~/.manual-maker/state/last-tick`.
 
-**On confirmation, also install the missing tools** — run `scripts/preflight.sh --install` before
-Step 3. It installs only what the check found missing, into the skill-owned sandbox
+**On confirmation, also install the missing tools** — run `preflight.sh --install` before Step 3,
+same resolver:
+
+```bash
+MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/null | sort -V | tail -1); [ -n "$MM" ] || MM=~/.claude/skills/manual-maker
+"$MM/scripts/preflight.sh" --install
+```
+
+It installs only what the check found missing, into the skill-owned sandbox
 `~/.manual-maker/runtime/` (never the user's projects, never global npm), and is a no-op once
 satisfied. The user's single "go" covers this — do **not** open a second gate for it. If it exits
 `blocked`, show the reason and stop: capture cannot proceed, and inventing screens is forbidden.
@@ -203,7 +234,8 @@ The five layers, each decided against the **Step 2 confirmation table** and each
 Run the mechanical half first — it settles what a regex can settle, so judgement goes to the rest:
 
 ```bash
-/usr/bin/python3 scripts/verify-doc.py <ไฟล์.docx> --terms "<คำล็อก,คั่นด้วยจุลภาค>" --annotations required|none
+MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/null | sort -V | tail -1); [ -n "$MM" ] || MM=~/.claude/skills/manual-maker
+/usr/bin/python3 "$MM/scripts/verify-doc.py" <ไฟล์.docx> --terms "<คำล็อก,คั่นด้วยจุลภาค>" --annotations required|none
 ```
 
 **Exit 1 = ห้ามส่ง.** But **passing the script is not passing the review** — it cannot judge whether

@@ -58,8 +58,10 @@ saved into `manual-assets/<slug>/` under its deterministic name — that copy is
 
 ## Prerequisites — installed for the user, never asked of them
 
-`scripts/preflight.sh` handles this: `--check` during intake (report only), `--install` after the
-user's "go". It installs Playwright, the matching Chromium build, and Pillow into
+This skill's own `scripts/preflight.sh` handles this: `--check` during intake (report only),
+`--install` after the user's "go". It ships **next to `SKILL.md`**, not in the user's project —
+resolve its path per *Running this skill's scripts* in `SKILL.md` before invoking, or it will look
+missing. It installs Playwright, the matching Chromium build, and Pillow into
 **`~/.manual-maker/runtime/`** — a skill-owned sandbox, so the user's projects and global npm space
 stay untouched. Idempotent; a satisfied machine is a no-op.
 
