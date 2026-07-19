@@ -2,6 +2,20 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.13.0] - 2026-07-19
+
+Fixes the `/manual-maker` → `Unknown command` dead end. No change to the manual-making workflow itself.
+
+### Fixed
+- **Corrected the documented invocation to `/manual-maker:manual-maker`.** The README previously showed bare `/manual-maker` and described the namespaced form as a collision-only fallback. That is wrong: Claude Code namespaces **every** plugin command and plugin skill as `/plugin-name:command-name` by design, so bare `/manual-maker` always returns `Unknown command`. Users following the README hit a dead end on their first command.
+
+### Added
+- **`shim/manual-maker.md` — opt-in, one-`curl` install for the short form.** User-level commands (`~/.claude/commands/`) are not namespaced, so copying this file there makes bare `/manual-maker` work on that machine, for every project. The shim is a pure pointer that invokes the `manual-maker:manual-maker` skill and holds no workflow logic, so it cannot drift from `SKILL.md`. Documented in the README with its trade-offs: it lives outside the plugin, so it does not auto-update and is not removed by `/plugin uninstall`, and it is per-machine.
+- **`CLAUDE.md` gotcha** recording that the prefix is mandatory and unfixable from the repo — including the three tempting non-fixes (rename the command, add an alias field, delete `skills/manual-maker/`) and why `shim/` must never move under `commands/`.
+
+### Note
+- No frontmatter key, manifest field, or marketplace setting can expose the bare form — verified against the official Claude Code docs. Typing the natural-language trigger (`ทำคู่มือระบบ X`) still needs no slash command at all.
+
 ## [0.12.0] - 2026-07-19
 
 Headless, non-intrusive screenshot capture — aligned with the ols-qa `/testing-ticket-workflow` bot. Same scope, all gates preserved.

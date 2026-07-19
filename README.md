@@ -1,12 +1,12 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.12.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.13.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.12.0 · MIT · Claude Code plugin**
+**Version 0.13.0 · MIT · Claude Code plugin**
 
 > 🔄 **อัปเดตอัตโนมัติ (v0.6.0+):** ติดตั้งครั้งเดียว จากนั้นแค่ **เปิด session ใหม่** ปลั๊กอินก็ดึงเวอร์ชันล่าสุดมาติดตั้งเองเบื้องหลัง — **ผู้ใช้ไม่ต้องกดอัปเดตหรือทำอะไรเพิ่ม.** ปิดได้ด้วย `MANUAL_MAKER_NO_AUTOUPDATE=1`. รายละเอียด → [Update](#update--อัปเดตอัตโนมัติ-auto-update).
 
@@ -27,10 +27,14 @@ It is a thin **team wrapper** around Anthropic's first-party skills. It does not
 
 | วิธี | พิมพ์ |
 |------|-------|
-| **คำสั่ง** (เดินครบ pipeline จนจบ) | `/manual-maker ทำคู่มือระบบ <ชื่อระบบ>` |
-| **ภาษาธรรมชาติ** (สกิล trigger เอง) | `ทำคู่มือการใช้งานระบบ <ชื่อระบบ> ให้ผู้ใช้` |
+| **ภาษาธรรมชาติ** (สกิล trigger เอง — ง่ายสุด ไม่ต้องจำคำสั่ง) | `ทำคู่มือการใช้งานระบบ <ชื่อระบบ> ให้ผู้ใช้` |
+| **คำสั่ง** (เดินครบ pipeline จนจบ) | `/manual-maker:manual-maker ทำคู่มือระบบ <ชื่อระบบ>` |
 
 ทั้งสองทางเข้า workflow เดียวกัน — command แค่เป็นทางเรียกที่ชัดเจนและย้ำให้เดินจนจบ.
+
+> ⚠️ **ต้องพิมพ์ `/manual-maker:manual-maker` เต็มๆ — `/manual-maker` เฉยๆ จะขึ้น `Unknown command`.**
+> Claude Code บังคับ namespace ทุก plugin command เป็น `/plugin:command` เสมอ (กันชนกันข้าม plugin) ผู้เขียนปลั๊กอินปิดพฤติกรรมนี้ไม่ได้.
+> อยากพิมพ์สั้นๆ ว่า `/manual-maker` → ติดตั้ง [shim ในเครื่องตัวเอง](#อยากพิมพ์-manual-maker-สั้นๆ--ติดตั้ง-shim) (1 ไฟล์ ทำครั้งเดียว).
 
 **3. ตอบ intake ทีละข้อ** (ระบบ, URL, login, source ที่บอกขั้นตอนจริง, ผู้ใช้, ขอบเขต, ภาพ+การใส่กรอบ/เลข, ฟอนต์, คำศัพท์ที่ล็อก, รูปแบบผลลัพธ์) → **ยืนยันที่ตารางสรุป** → สกิลลงมือ: screenshot → ร่างด้วย `doc-coauthoring` → รีวิวละเอียด → export (Word/PDF/Confluence/เว็บ) ให้จนจบ.
 
@@ -191,18 +195,44 @@ Ask for a manual, e.g.:
 - "ทำคู่มือการใช้งานระบบ Admin Dashboard ให้ผู้ใช้"
 - "create a user manual for the booking system"
 
-### `/manual-maker` — one-shot, drives to the end
+### `/manual-maker:manual-maker` — one-shot, drives to the end
 
 Prefer a single explicit entry point? Run the command with the system in one line:
 
 ```
-/manual-maker ทำคู่มือระบบ Admin Dashboard
-/manual-maker create a manual for the booking system
+/manual-maker:manual-maker ทำคู่มือระบบ Admin Dashboard
+/manual-maker:manual-maker create a manual for the booking system
 ```
+
+> **The `manual-maker:` prefix is required, not optional.** Claude Code namespaces *every* plugin
+> command as `/plugin-name:command-name` by design, to keep plugins from colliding with each other.
+> Bare `/manual-maker` returns `Unknown command` — there is no frontmatter key, alias, or manifest
+> field a plugin author can set to change that. Type the full form, or install the shim below.
 
 The command lays out the full run as a checklist and **auto-advances through every step** — intake → confirm → sources → screenshots → draft → template → review → export — so you don't have to nudge it between steps. It still **pauses at the three gates that keep a manual honest**: it asks the intake questions one at a time, waits for your confirmation before screenshots/drafting, and confirms the target before any Confluence/web publish. Momentum is automated; the correctness gates are not. (The natural-language triggers above still work exactly the same — the command is just an explicit `/` path.)
 
-> If another installed plugin or a local command is also named `manual-maker`, disambiguate with the fully-qualified `/manual-maker:manual-maker`.
+#### อยากพิมพ์ `/manual-maker` สั้นๆ — ติดตั้ง shim
+
+คำสั่งระดับ **user** (`~/.claude/commands/`) ไม่ถูก namespace จึงเรียกด้วยชื่อเปล่าได้ วางไฟล์ shim
+บางๆ ไว้หนึ่งไฟล์ แล้ว `/manual-maker` จะใช้ได้ทุก project ในเครื่องนั้น ทำครั้งเดียว:
+
+```bash
+mkdir -p ~/.claude/commands
+curl -fsSL https://raw.githubusercontent.com/Thitic9203/manual-maker/main/shim/manual-maker.md \
+  -o ~/.claude/commands/manual-maker.md
+```
+
+restart Claude Code (หรือ `/reload-plugins`) หนึ่งครั้ง → พิมพ์ `/manual-maker ทำคู่มือระบบ X` ได้เลย.
+
+**ข้อควรรู้:**
+
+- shim เป็น **ตัวชี้ไปหาปลั๊กอิน** ไม่ได้ถือ logic เอง — workflow ทั้งหมดยังอยู่ในปลั๊กอิน จึงไม่มีทาง drift.
+- shim อยู่ **นอก** ระบบปลั๊กอิน → **ไม่ auto-update** ตามปลั๊กอิน และ **ไม่ถูกลบ** ตอน `/plugin uninstall`
+  (ลบเองด้วย `rm ~/.claude/commands/manual-maker.md`). ปกติแทบไม่ต้องอัปเดตเพราะไฟล์แทบไม่เปลี่ยน.
+- เป็น per-machine — เครื่องใหม่/เพื่อนร่วมทีมต้องรันคำสั่งนี้เอง ถ้าไม่รัน ก็ยังใช้
+  `/manual-maker:manual-maker` ได้ตามปกติ.
+- ถ้าไม่อยากติดตั้งอะไรเพิ่ม: **พิมพ์ภาษาธรรมชาติ** (`ทำคู่มือระบบ X`) สกิล trigger เองอยู่แล้ว
+  ไม่ต้องใช้ `/` เลย.
 
 The skill interviews you one question at a time — system URL, login, VPN, **the source that describes the real steps** (Confluence page / spec / example doc), audience, scope, screenshot **annotation** (boxes + step numbers), **font & size**, numbering, and the **locked terminology** to use throughout. It then **summarizes everything and waits for your explicit confirmation** before doing anything, optionally screenshots the UI, drafts with `doc-coauthoring`, runs a **detailed final review**, and publishes to your chosen format.
 
@@ -253,7 +283,9 @@ manual-maker/
 │   ├── plugin.json          # plugin manifest (name, version, description)
 │   └── marketplace.json     # marketplace manifest (name: manual-maker-dev)
 ├── commands/
-│   └── manual-maker.md      # /manual-maker — one-shot, drives the pipeline to the end
+│   └── manual-maker.md      # /manual-maker:manual-maker — drives the pipeline to the end
+├── shim/
+│   └── manual-maker.md      # opt-in copy → ~/.claude/commands/ so bare /manual-maker works
 ├── hooks/
 │   ├── hooks.json           # registers the SessionStart hook
 │   └── check-version.sh     # notify-only new-version check (fail-silent)
