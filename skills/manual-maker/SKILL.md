@@ -173,6 +173,17 @@ Produce the actual file in the confirmed format — `docx` skill (+ `references/
 or the web/Confluence body. **Building is not delivering:** nothing is posted to Confluence, sent, or
 described as finished until Step 8 returns 5/5. See the format table in Step 9.
 
+**Where the finished file goes — `~/Downloads/` itself, never a subfolder.** Write every delivered
+document straight to `~/Downloads/<ชื่อไฟล์>`. Do **not** create an `output/` folder, do **not** nest it
+beside the user's source material, and do **not** invent a per-run directory — the user opens
+`~/Downloads` and the manual is simply there. A by-role/-module split puts each volume in that same
+place, distinguished by filename (`คู่มือการใช้งาน <ระบบ> - <บทบาท>.docx`), not by folder.
+
+Working files are a separate matter and must **not** land in `~/Downloads`: screenshots stay in
+`manual-assets/<slug>/` and per-section drafts in `manual-drafts/<slug>/`. Only the finished
+deliverable is copied out. If a file of the same name already exists there, ask before overwriting —
+never silently replace a document the user may still need.
+
 ### Step 8 — รีวิว 5 ชั้น + delivery gate (mandatory — the hard stop before delivery)
 
 **Read `references/review.md` and follow it exactly.** Review the **built file from Step 7**, not the
@@ -218,6 +229,10 @@ reminder stops.
 | PDF | `pdf` skill |
 | docx | `docx` skill — **and `references/docx-build.md`**: if there is a base template, edit its OOXML (`unzip → word/document.xml → zip`); docx-js cannot open an existing file. Font **TH SarabunPSK**, body 16 pt / headings 18 pt bold, with the **`w:cs`** slot set. |
 | Web page | `web-artifacts-builder` skill |
+
+For every file-based format, the finished document sits in **`~/Downloads/`** itself (Step 7) — report
+the deliverable back as that exact path, one line per volume, so the user can open it without hunting
+through folders.
 
 ## Composition Note
 

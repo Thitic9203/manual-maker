@@ -77,6 +77,8 @@ saved, run the full intake below. (Credentials are **never** saved — always as
 ## F. Output
 
 17. **Output format — ต้องถามเสมอ ถ้าผู้ใช้ยังไม่ระบุ:** ต้องการไฟล์รูปแบบใด — **ไฟล์ Word (.docx) / PDF / Confluence / หน้าเว็บ**? ถ้าเลือก Confluence ให้ระบุ space + หน้าแม่ที่จะเผยแพร่. **Default: Word (.docx)** — เป็นเส้นทางที่ฝัง screenshot ได้จริง (พิสูจน์แล้ว). ⚠️ **Confluence เผยแพร่ผ่าน Atlassian MCP ได้เฉพาะตัวหน้า/โครงสร้าง — MCP ไม่อัปโหลดไฟล์ภาพให้**; คู่มือที่มีภาพเยอะ (กรณีปกติ) ใช้ .docx/PDF, ถ้าจะใช้ Confluence จริงต้องแนบภาพเองหรืออ้าง URL ภาพที่ host ไว้แล้ว. หากผู้ใช้ยังไม่ระบุรูปแบบ ให้ถามให้ชัดก่อนดำเนินการ.
+> 📁 **ที่เก็บไฟล์ไม่ต้องถาม — ไฟล์ที่ส่งมอบจะอยู่ใน `~/Downloads/` เสมอ ไม่สร้างโฟลเดอร์ย่อย** แจ้งให้ผู้ใช้ทราบพร้อมรูปแบบไฟล์ได้เลย (ดู Step 7 ใน `SKILL.md`)
+
 18. **Version label** — **Default: today's date + v1.0.**
 
 ## G. Support & Troubleshooting content — *source it, or the section is skipped (ห้ามมโน)*

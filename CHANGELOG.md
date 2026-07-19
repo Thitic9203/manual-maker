@@ -2,6 +2,24 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.18.0] - 2026-07-19
+
+The finished manual now lands somewhere the user can actually find it.
+
+### Changed
+- **The delivered file is written to `~/Downloads/` itself — never a subfolder** (`SKILL.md` Step 7).
+  Previous runs invented a per-run `output/` directory nested beside the user's source material, so
+  the deliverable ended up two folders deep next to the inputs it was built from. The rule is now
+  explicit: no `output/` folder, no per-run directory, no nesting beside the sources. A by-role or
+  by-module split puts **every** volume in that same place, told apart by filename
+  (`คู่มือการใช้งาน <ระบบ> - <บทบาท>.docx`), not by folder.
+- **Working files are kept out of `~/Downloads`.** Screenshots stay in `manual-assets/<slug>/` and
+  per-section drafts in `manual-drafts/<slug>/`; only the finished document is copied out. An
+  existing file of the same name is **never** silently overwritten — ask first.
+- **Step 9 reports the deliverable as that exact path**, one line per volume.
+- **Intake no longer asks where to save** (`references/intake.md`, near Q18) — the location is a
+  constant, not a question. It is stated to the user alongside the output format instead.
+
 ## [0.17.0] - 2026-07-19
 
 A manual is now written by a small team instead of one thread, and reviewed หัวข้อย่อย by หัวข้อย่อย
