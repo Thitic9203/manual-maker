@@ -2,6 +2,12 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.10.1] - 2026-07-19
+### Changed
+- Release-only version bump so auto-update installs pick up the `references/template.md`
+  document-split consistency fix that landed on `main` after the 0.10.0 tag (auto-update fires
+  only when the `version` string changes). No new behavior beyond 0.10.0.
+
 ## [0.10.0] - 2026-07-19
 ### Added
 - **Intake Q9 — document split (การแบ่งเล่มเอกสาร).** The intake now always asks, as explicit
