@@ -25,7 +25,7 @@ It is a thin team wrapper that **composes** Anthropic's first-party skills (it d
 5. **Review in detail before delivery** — complete, correct, consistent, nothing missed.
 6. **ต้นแบบคือของจริง.** If the user supplies a base/reference document, reproduce its **cover, header, footer (page numbers), TOC, styles, and role-based chapters exactly** — never a hand-built look-alike. See `references/docx-build.md`.
 7. **ภาพต้องเป็นหน้าจอระบบจริง.** Every figure is a **real, full-screen** screenshot of the live system, with **red numbered circles whose numbers match the step numbers**. No placeholders, no mock-ups, no redrawn tables standing in for a screen. See `references/screenshots.md`.
-8. **ห้ามกรอกรหัสผ่าน.** Claude never types a password — not by hand, not via an automation script. The **user logs in**; Claude captures read-only.
+8. **Login is headless & env-seeded; credentials are session-only.** Screenshots use a **headless Playwright** browser that authenticates by reading the credential **from the environment** (`process.env.EMAIL`/`process.env.PW`) or a pre-saved `storageState` — Claude **never types a password into a live form by hand**. The secret is used only in-session, **never** written to the manual, repo, logs, a committed script, or the profile, and **never echoed** (show `password provided (not shown)`). If login can't be automated (SSO/MFA/captcha), the **user logs in** and Claude captures read-only. See `references/screenshots.md`.
 
 ## When to Use
 
@@ -62,13 +62,16 @@ Never write a step you cannot source. If a detail is unclear → ask.
 ### Step 4 — Screenshots
 
 **Read `references/screenshots.md` and follow it exactly.** In short: real live-system screens only,
-**full screen** (never crop the content — remove only the Claude screen-control glow border, and
-watch out for the orange agency logo), **no mouse cursor**, **red numbered circles that map 1:1 to
-the step numbers** (≤ 5 per image), steps written with the system's real menu/button wording, and
-people's names masked. Drive the browser **read-only**; the **user logs in**, never Claude.
-Prefer **Playwright direct-to-disk capture** (`fullPage`, saved as
-`manual-assets/<slug>/<section>-<step>.png`) — the clipboard bridge is the fallback only when
-Playwright can't reach the screen.
+**full screen** (never crop the content), **red numbered circles that map 1:1 to the step numbers**
+(≤ 5 per image), steps written with the system's real menu/button wording, and people's names masked.
+**Primary path = headless Playwright — non-intrusive:** a `headless: true` browser logs in once by
+reading the credential **from the environment** (`process.env.EMAIL`/`process.env.PW`, or a saved
+`storageState`), reuses that session, and captures each screen **direct-to-disk** (`fullPage`, saved
+as `manual-assets/<slug>/<section>-<step>.png`). It never takes over the user's real screen, so there
+is **no glow border and no cursor to clean up** — the glow/cursor cleanup and the clipboard bridge are
+the **fallback only**, for screens headless can't reach (SSO/MFA/captcha), where the **user logs in**
+and Claude captures read-only. Drive the browser **read-only** — never click create/edit/delete on a
+live system while capturing.
 
 ### Step 5 — Draft (delegate to doc-coauthoring)
 

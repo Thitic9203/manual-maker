@@ -2,6 +2,17 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.12.0] - 2026-07-19
+
+Headless, non-intrusive screenshot capture — aligned with the ols-qa `/testing-ticket-workflow` bot. Same scope, all gates preserved.
+
+### Changed
+- **Screenshots now capture with headless Playwright by default (`chromium.launch({ headless: true })`).** `references/screenshots.md` — the capture runs in its own headless browser, so it never takes over the user's real screen: no focus-stealing window, no "Claude is controlling the screen" glow, no mouse cursor, and the user keeps working while every screen is captured in one unattended pass.
+- **Headless, env-seeded login.** A `login()` helper authenticates by reading the credential from the **environment** (`process.env.EMAIL` / `process.env.PW`) or a pre-saved `storageState` and reuses that session for every capture — Claude never types a password into a live form by hand. Credentials stay session-only: never pasted into chat, hardcoded, committed, logged, or echoed (`.env` behind `.gitignore`; summaries show `password provided (not shown)`).
+- **Rewrote rule #8** in `SKILL.md` from "Claude never types a password / user logs in" to the headless env-seeded credential discipline; updated Step 4 accordingly.
+- **Glow-border and cursor cleanup are now fallback-only.** The headless path produces a clean full-page PNG with neither, so rules 2–3 in `screenshots.md` and the clarity checklist in `template.md` apply only to the screen/clipboard fallback (SSO/MFA/captcha), where the user logs in on their own screen.
+- **Intake wording** (`references/intake.md` Q3/Q11/Q12) updated to describe headless env-seeded capture.
+
 ## [0.11.0] - 2026-07-19
 
 Five usability fixes for the actual manual-making run — no new scope, all gates preserved.

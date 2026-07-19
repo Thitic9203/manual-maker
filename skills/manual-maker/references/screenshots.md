@@ -15,16 +15,20 @@ preferences — each one was paid for with rework on a real deliverable. **ห�
 
 ### 2. Full screen — never crop the content (เต็มจอ)
 - Capture the **whole application screen**. Do not crop to a region, do not "tidy" the edges.
-- The **only** thing that may be removed is the capture artefact: the orange/red
-  *"Claude is controlling the screen"* glow border. Content stays; the glow goes.
-- ⚠️ Auto-detecting "orange" also matches the **agency logo** (OBEC's is orange/gold) and any
-  highlighted cell. A naive orange-crop eats the logo. Either protect the logo's bounding box, or
-  **neutralise the warm tint in the outer band** instead of cropping — safer, and loses nothing.
+- **The primary path (headless Playwright) produces a clean full-page PNG with no glow border and no
+  cursor — nothing to remove.** The cleanup below applies **only to the fallback path** (screen /
+  clipboard capture), which paints on the *"Claude is controlling the screen"* glow.
+- Fallback only: the **only** thing that may be removed is the capture artefact — the orange/red glow
+  border. Content stays; the glow goes.
+- ⚠️ Fallback only: auto-detecting "orange" also matches the **agency logo** (OBEC's is orange/gold)
+  and any highlighted cell. A naive orange-crop eats the logo. Either protect the logo's bounding box,
+  or **neutralise the warm tint in the outer band** instead of cropping — safer, and loses nothing.
 
 ### 3. No mouse cursor
-- Paint the cursor out, including its soft **peach drop-shadow**.
-- Remove it by **colour test** (warm pixels → background), not with a blunt rectangle — a rectangle
-  clips the text next to it (it ate a `09:00-10:00` label once).
+- **Headless Playwright never paints a cursor** — the primary path has nothing to clean.
+- Fallback only (screen / clipboard capture): paint the cursor out, including its soft **peach
+  drop-shadow**. Remove it by **colour test** (warm pixels → background), not with a blunt rectangle —
+  a rectangle clips the text next to it (it ate a `09:00-10:00` label once).
 
 ### 4. Red numbered circles = the step numbers
 - Draw a **filled red circle with a white number** on each click target.
@@ -54,33 +58,72 @@ saved into `manual-assets/<slug>/` under its deterministic name — that copy is
 
 ## Pipeline that actually works (macOS)
 
-1. **Reach the screen** — drive the browser **read-only**. Never click create / edit / delete on a
-   live system while capturing. The **user logs in**; Claude captures afterwards (see below).
-2. **Get the pixels — direct-to-disk is the primary path.** Use **Playwright**:
+**Primary path = headless Playwright — non-intrusive.** It runs in its own **headless browser**
+(`chromium.launch({ headless: true })`), so it **never takes over the user's real screen**: no window
+steals focus, no *"Claude is controlling the screen"* glow, no mouse cursor, and the user keeps
+working while every screen is captured in one unattended pass. This is the same approach as the
+ols-qa `/testing-ticket-workflow` capture bot (`capture_one.js`).
+
+1. **Log in headlessly, once — env-seeded (never a typed password).** A small `login()` helper drives
+   Playwright to the login page (dismiss any cookie / commemorative modal first), then fills the
+   credential **from environment variables** the user seeded — `process.env.EMAIL` / `process.env.PW`
+   (or system-specific names). Submit, wait for the post-login signal (avatar / redirected URL). Save
+   the session and **reuse it** for every capture:
    ```js
-   await page.screenshot({ path: 'manual-assets/<slug>/<section>-<step>.png', fullPage: true })
+   const { chromium } = require('playwright');
+   const browser = await chromium.launch({ headless: true });
+   const authCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+   // login() fills #email / #password from process.env — Claude never types the password itself
+   await login(authCtx, process.env.EMAIL, process.env.PW);
+   const state = await authCtx.storageState();   // capture the logged-in session once
+   await authCtx.close();
+   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, storageState: state });
+   const page = await ctx.newPage();
    ```
-   This writes the full-page PNG straight to disk — **no per-image manual copy** — so capture every
-   screen in one pass. This is the default and removes the single biggest cost of a large manual.
-   - **Fallback — clipboard bridge (Chrome MCP, or when Playwright can't reach the screen).** The
-     browser MCP's screenshot `save_to_disk` returns an image id but **no filesystem path** — you
-     cannot embed from it. One screen at a time: the user copies the screen
-     (macOS `Ctrl+Cmd+Shift+4`), then
+   Credentials come **only** from the environment (or a pre-saved `storageState.json`) — never pasted
+   into chat, never hardcoded, never committed. Put any `.env` behind `.gitignore`. If the project
+   already has a Playwright config / fixture / saved `storageState`, **reuse it** once the user
+   confirms that env is valid — do not re-implement login.
+2. **Reach each screen read-only, then get the pixels — direct-to-disk.** Navigate to each target URL
+   (never click create / edit / delete on a live system while capturing) and write the full-page PNG
+   straight to disk:
+   ```js
+   await page.goto(url, { waitUntil: 'domcontentloaded' });
+   await page.screenshot({ path: 'manual-assets/<slug>/<section>-<step>.png', fullPage: true });
+   ```
+   No per-image manual copy, no screen takeover — capture every screen in one pass. This removes the
+   single biggest cost of a large manual.
+   - **Fallback — clipboard bridge (Chrome MCP / screen capture), for screens Playwright can't reach**
+     (SSO / MFA / captcha, or auth that can't be automated). Here the **user logs in on their own
+     screen** and Claude captures read-only; the browser MCP's screenshot `save_to_disk` returns an
+     image id but **no filesystem path**, so bridge one screen at a time — the user copies the screen
+     (macOS `Ctrl+Cmd+Shift+4`), then:
      ```bash
      osascript -e 'set d to (the clipboard as «class PNGf»)' \
                -e 'set f to (POSIX file "/tmp/shot.png")' \
                -e 'set fh to open for access f with write permission' \
                -e 'set eof fh to 0' -e 'write d to fh' -e 'close access fh'
      ```
-     Use this **only** when the primary path can't reach the screen — it is slow at scale.
+     Use this **only** when the headless path can't reach the screen — it is slow at scale and is the
+     path that needs the glow-border / cursor cleanup in rules 2–3.
 3. **Annotate with Pillow.** `PIL` lives on **`/usr/bin/python3`** — the Homebrew `python3` on the
    PATH often has no PIL. The user's Desktop can be **TCC-protected** (reads fail with
    `Operation not permitted`): do the image work in `/tmp`, then **save the finished PNG into
    `manual-assets/<slug>/`** under its `<section>-<step>.png` name.
 4. **Embed** into the document — see `docx-build.md`.
 
-## Login — never type a password
+## Login — headless, env-seeded (credential discipline)
 
-Claude must **never** enter a password: not by hand, and not through an automation script that fills
-a login form. The **user logs in**; Claude captures afterwards, read-only. Credentials never reach
-the manual, the repo, a log, or a script committed anywhere.
+Login for capture is **headless and env-seeded**, the ols-qa way:
+
+- **Claude never types a password into a live form by hand** (no computer-use / manual keystrokes on
+  a login screen). Authentication is done by the **Playwright `login()` helper reading the credential
+  from the environment** (`process.env.EMAIL` / `process.env.PW`) or a pre-saved `storageState.json`.
+  The user seeds that env / session once; the raw secret is supplied by the environment, not entered
+  by Claude.
+- **Session-only.** The credential is used only to reach the screens for this run. It **never** reaches
+  the manual, the repo, a log, a committed script, or the profile (`profile.md` never stores secrets).
+  Any `.env` stays behind `.gitignore`.
+- **Never echoed.** Do not print the password back; in summaries show `password provided (not shown)`.
+- **Fallback (SSO / MFA / captcha):** if login can't be automated, the **user logs in on their own
+  screen** and Claude captures read-only via the clipboard bridge above.

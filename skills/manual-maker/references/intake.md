@@ -34,7 +34,11 @@ saved, run the full intake below. (Credentials are **never** saved — always as
 1. **System name** — which system, and what is it in one line? *(ต้องถาม)*
 2. **URL(s)** to document. *(ต้องถาม — with a saved profile, show the saved URL as the default and confirm it still holds; never silently reuse — live access is verified every run)*
 3. **Login** — email/username + password needed to reach the screens. *(ต้องถาม)*
-   > 🔐 Credentials are used **only in this session** to open the system for screenshots. They are **never** written into the manual, the repo, logs, or any file. Ask the user to paste them at that moment.
+   > 🔐 Credentials are used **only in this session** to open the system for screenshots. The **headless
+   > Playwright** capture reads them from the **environment** (`process.env.EMAIL`/`process.env.PW`) or a
+   > pre-saved `storageState` — Claude never types a password into a live form by hand. They are **never**
+   > written into the manual, the repo, logs, a committed script, or any file, **never echoed** (show
+   > `password provided (not shown)`), and any `.env` stays behind `.gitignore`. See `screenshots.md`.
 4. **VPN** — does access need a VPN, and is it connected yet? *(ต้องถาม — confirm before trying the URL)*
 
 ## B. Source material — so the content is accurate, not guessed  (*ห้ามมโน*)
@@ -55,8 +59,8 @@ saved, run the full intake below. (Credentials are **never** saved — always as
 
 ## D. Screenshots
 
-11. **Capture** — auto-capture from the live system (Playwright/Chrome), user-provided images, or none? **Default: auto-capture.**
-12. **Annotation** — **Default: red numbered circles (วงกลมแดงมีเลข) on the click targets, numbered to match the step numbers 1:1, ≤ 5 per image.** Confirm the style if the user wants something else. Screenshots are **full-screen, uncropped**, with the Claude screen-control glow border and the mouse cursor removed — see `screenshots.md`.
+11. **Capture** — auto-capture from the live system (**headless Playwright**, non-intrusive — runs in its own headless browser, does not take over the screen), user-provided images, or none? **Default: auto-capture.**
+12. **Annotation** — **Default: red numbered circles (วงกลมแดงมีเลข) on the click targets, numbered to match the step numbers 1:1, ≤ 5 per image.** Confirm the style if the user wants something else. Screenshots are **full-screen, uncropped**; the headless capture has **no glow border and no cursor** to remove (that cleanup applies only to the screen/clipboard fallback) — see `screenshots.md`.
 
 ## E. Formatting & terminology  — *be exact; this is where quality is won or lost*
 
