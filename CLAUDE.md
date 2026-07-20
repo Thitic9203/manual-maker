@@ -109,6 +109,60 @@ These live in `template.md` and are enforced in the `SKILL.md` draft + review st
 
 **A name scrub that cannot fail is not a safeguard.** Screenshot name-masking happens in the DOM immediately before the shutter, and the capture **aborts** if any known name survives a re-read of `document.body.innerText`. This is not belt-and-braces: on the ELMS run the scrub ran, silently missed one account chip, and the real teacher's name reached a delivered `.docx`. The two pixel-masking alternatives were both measured and both worse — a fixed top-right box misses the chip because a `fullPage` capture renders the sticky header wherever the page was scrolled, and a "find the pale header band" heuristic matches white table rows and paints over content (nine places on one image). Names must also be **collected from the page** (the chip's own text, plus `ครู <name>` matches), because a hardcoded list cannot know the account a future run uses — that is exactly how the last leak survived three passes that each reported themselves clean. Student identifiers (`รหัสนักเรียน`, `เลขที่นักเรียน`) are masked too; an ID identifies a minor as surely as a name.
 
+## Second skill — `confluence-docs` (v0.22.0+, this repo hosts two skills now)
+
+The plugin is no longer single-skill. `skills/confluence-docs/` is a **sibling** of `manual-maker`,
+auto-loaded the same way (Claude Code discovers every `skills/*/SKILL.md`) — **no manifest change was
+needed to register it**, only a version bump so auto-update ships it. Its job is the inverse shape of
+manual-maker: instead of producing one screenshot-heavy end-user handbook, it **fills a whole Confluence
+doc-space's mock/placeholder pages with the real system's data**, one doc-type per run. Target space/page
+are inputs; the default is NDLP's `PLUT` space (cloudId `dfc2cd04-b24b-48cf-81a1-4a3e0ed7569f`, scaffold
+root page `3693641732`, four subsystems OLS/ELMS/CBMS/EvMS).
+
+It reuses the parent's whole ethos — **ห้ามมโน · confirm-before-start · every value sourced · in-scope ·
+5-layer review before publish** — and the same wrapper-delegate rule (prose drafting → `doc-coauthoring`,
+no third-party skill content copied in). Design decisions that were **chosen, not defaulted**, and should
+not be "simplified" away:
+
+- **Sourcing is a per-doc-type map, and it blocks.** `references/source-map.md` pins each doc-type to a
+  mandatory authoritative source (PRD ← Jira filter, API Doc ← OpenAPI/repo, Data Dictionary ← DB schema,
+  Meeting notes ← real minutes…). No source → the run **stops** for that doc-type; a placeholder is never
+  guessed. The map's backbone is copied from the scaffold's own "ข้อมูลหลักที่ต้องกรอก" index column.
+- **Structure-preserving, not regenerating.** Pages are read and written in `contentFormat: html` (the
+  round-trip-safe HTML+ format — panels, macros, tables, local IDs survive). Only placeholder *values*
+  change; every column/panel/macro is kept. `verify-confluence.py --original` proves nothing structural
+  was dropped. The `Subsystem` column + labels (`ols/elms/cbms/evms`) are the one cross-space convention.
+- **Write is capability-gated and this was measured.** The Atlassian connector observed in-session was
+  **read-only** — `getAccessibleAtlassianResources` listed only `read:page:confluence`, and no
+  `updateConfluencePage`/`createConfluencePage` tool existed. So Step 0 preflights both the tool presence
+  **and** the `write:page:confluence` scope, and **stops with instructions** if either is missing rather
+  than faking a write. Do not assume writing works because reading does.
+- **Diagrams: no file upload exists, so they are Confluence-rendered code.** Atlassian MCP cannot upload
+  attachments (same limit manual-maker hit). Diagram doc-types (EA/Sequence/ER/Data Dictionary) embed a
+  **Mermaid macro generated from the real source** (ER from the DB schema, sequence from the flow) and
+  layer 5 **screenshots the published page** to prove it renders as a diagram, not raw code. No renderable
+  macro in the space → ตรวจไม่ได้ = ไม่ผ่าน: stop and ask to install one / attach manually. See
+  `references/diagrams.md`. The diagram content is never invented.
+- **The 5-layer review is adapted, not the manual-maker file.** `references/review.md` keeps the
+  philosophy (ตรวจไม่ได้=ไม่ผ่าน, 5/5, re-review all after a fix) but layers map to Confluence: (1) ตรงตาม
+  ยืนยัน (2) ทุกค่ามีที่มา + **ไม่มี mock เหลือ** (3) โครง/ฟอแมตคงเดิม (4) ศัพท์/ตัวเลข/คำพราก (5) **render บนหน้าที่
+  publish จริง**. Layers 1–4 are proven on the prepared body **before** any write; layer 5 only after
+  publish — the one place publishing precedes a layer's verdict, and only that layer.
+- **`scripts/verify-confluence.py`** is the mechanical half of layers 2–4: no mock/placeholder token
+  survives (FEATnn, Module A, สมมติ, MOCK, `data-type="placeholder"`, the MOCK warning panel), locked
+  terms not split by whitespace/tag (the Confluence คำพราก analogue — no docx renderer here to check
+  visually), `Subsystem` column present, no credential/minor-identifier leak, and structure preserved vs
+  `--original`. **Exit 1 blocks the write. Passing it is not passing the review** — it cannot know whether
+  a filled value is the *correct* real value (layer 2 human) or whether the page renders (layer 5).
+
+**Bare `/confluence-docs` rides the same shim mechanism as `/manual-maker`** — measured, not assumed:
+plugin commands only ever resolve as `/manual-maker:confluence-docs`, so `shim/confluence-docs.md` (a
+pure pointer to the skill) is copied to the un-namespaced `~/.claude/commands/` by `check-version.sh`.
+That hook's `install_shim` was generalized to `install_one_shim` + a loop over **both** shims; keep it a
+loop, keep each shim a pure pointer (workflow prose copied in would drift from `SKILL.md`), and keep the
+install rails (managed-by marker, no-clobber, atomic, fail-silent, `MANUAL_MAKER_NO_SHIM=1` opt-out).
+`shim/` stays inert to the loader — never move it under `commands/`.
+
 ## Release workflow & gotchas
 
 There are no build/lint/test commands. The only "commands" are install and version bookkeeping.

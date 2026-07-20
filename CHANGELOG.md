@@ -2,6 +2,34 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.22.0] - 2026-07-20
+
+A second skill in the plugin: populate a Confluence doc-space with real data in place of mock.
+
+### Added
+- **`confluence-docs` skill** — replaces the mock/placeholder content of a Confluence documentation
+  space with the real system's data, one doc-type per run, and creates/updates child pages. Built for
+  the NDLP space (`PLUT`, four subsystems OLS/ELMS/CBMS/EvMS) but the target space/page are inputs.
+  Shares `manual-maker`'s ethos — ห้ามมโน, confirm-before-start, every value sourced, 5-layer review
+  before publish. Files: `skills/confluence-docs/SKILL.md` + `references/` (intake, source-map,
+  template, review, diagrams) + `scripts/verify-confluence.py`.
+  - **Source-map** — each doc-type maps to a mandatory authoritative source (Jira filter / OpenAPI /
+    DB schema / spec / meeting notes); no source → the run stops, a placeholder is never guessed.
+  - **Structure-preserving** — reads the target page in `contentFormat: html` and swaps only
+    placeholder *values*, keeping every column, panel, and macro; `Subsystem` column + labels are the
+    one cross-space convention.
+  - **Write is capability-gated** — a preflight verifies the Atlassian connector exposes
+    `updateConfluencePage`/`createConfluencePage` and holds `write:page:confluence`; read-only grants
+    stop with instructions instead of faking a write.
+  - **Diagrams** — generated as Confluence-rendered Mermaid from the real source (ER from schema,
+    sequence from flow) and proven to render on the published page at review layer 5; never invented,
+    never shipped as raw code.
+  - **`scripts/verify-confluence.py`** — mechanical gate: no mock/placeholder token survives, structure
+    preserved vs `--original`, locked terms not split, `Subsystem` column present, no credential leak.
+    Exit 1 blocks the write. Passing it is not passing the review.
+- **Bare `/confluence-docs`** — `shim/confluence-docs.md` (pure pointer → the `manual-maker:confluence-docs`
+  skill); the SessionStart hook now installs **both** shims into `~/.claude/commands/`.
+
 ## [0.21.0] - 2026-07-20
 
 A screenshot name-scrub that fails quietly is not a safeguard.

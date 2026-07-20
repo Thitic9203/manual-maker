@@ -1,12 +1,12 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.21.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.22.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 A Claude Code plugin (skill) that turns a working web system into a finished **user handbook** — the kind an end user reads and follows step by step.
 
 It is a thin **team wrapper** around Anthropic's first-party skills. It does not copy their content — it composes them.
 
-**Version 0.21.0 · MIT · Claude Code plugin**
+**Version 0.22.0 · MIT · Claude Code plugin**
 
 > 🔄 **อัปเดตอัตโนมัติ (v0.6.0+):** ติดตั้งครั้งเดียว จากนั้นแค่ **เปิด session ใหม่** ปลั๊กอินก็ดึงเวอร์ชันล่าสุดมาติดตั้งเองเบื้องหลัง — **ผู้ใช้ไม่ต้องกดอัปเดตหรือทำอะไรเพิ่ม.** ปิดได้ด้วย `MANUAL_MAKER_NO_AUTOUPDATE=1`. รายละเอียด → [Update](#update--อัปเดตอัตโนมัติ-auto-update).
 
@@ -43,6 +43,23 @@ It is a thin **team wrapper** around Anthropic's first-party skills. It does not
 > ระหว่างทางจะมี **ตารางความคืบหน้า** ขึ้นเป็นระยะ และถ้าผู้รีวิวเจอเรื่องที่ต้องใช้ดุลพินิจ **จะถามในแชทก่อนเสมอ ไม่ตัดสินใจแทน** → [รายละเอียด](#งานขนาน--รีวิวรายหัวข้อย่อย-v0170).
 
 > รอบถัดไปของ **ระบบเดิม** สกิลจำคำตอบเดิมให้ ถามแค่ส่วนที่เปลี่ยน (v0.8.0+). **รหัสผ่าน/บัญชีถามสดทุกครั้ง ไม่เก็บลงไฟล์.**
+
+## สกิลที่สอง — `confluence-docs` (v0.22.0+)
+
+ปลั๊กอินเดียวกันนี้มีสกิลที่สอง: **`confluence-docs`** — แทน **mock/placeholder ในหน้า Confluence ด้วยข้อมูลจริงของระบบ**
+ทีละ doc-type สร้าง/อัปเดตหน้าลูกได้. ทำมาเพื่อ space `PLUT` ของ NDLP (4 subsystem: OLS/ELMS/CBMS/EvMS) แต่ระบุ
+space/หน้าปลายทางอื่นได้.
+
+| Method | Type this |
+|--------|-----------|
+| **Short command** | `/confluence-docs อัปเดต <doc-type>` (ติดตั้งให้อัตโนมัติ) |
+| **Full command** | `/manual-maker:confluence-docs …` (ใช้ได้เสมอ) |
+| **Natural language** | `เติมข้อมูลจริงลง confluence แทน mock` |
+
+หลักการเดียวกับ manual-maker: **ห้ามมโน · ยืนยันก่อนเริ่ม · ทุกค่ามีที่มา (source-map ต่อ doc-type) · คงโครง/ฟอแมตเดิม ·
+รีวิว 5 ชั้นก่อน publish**. การเขียนต้องมีสิทธิ์ `write:page:confluence` — สกิล preflight เช็คให้ ถ้า connector เป็น
+read-only จะหยุดพร้อมบอกวิธีเปิดสิทธิ์ ไม่แกล้งเขียน. ไดอะแกรมใส่เป็น **Mermaid ที่ Confluence render เอง** จากแหล่งจริง
+(ER จาก schema, sequence จาก flow) และพิสูจน์ว่า render จริงในรีวิวชั้น 5.
 
 ---
 

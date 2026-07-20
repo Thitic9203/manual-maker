@@ -53,23 +53,29 @@ LOCAL_VER="$(extract_version < "$LOCAL_MANIFEST" 2>/dev/null)"
 
 emit() { printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$1"; }
 
-# --- Job 1: install the bare-name shim ------------------------------------------
+# --- Job 1: install the bare-name shims -----------------------------------------
 # Keep every message single-line and quote-free: emit() splices it straight into JSON.
+# One shim per bare command the plugin exposes: /manual-maker and /confluence-docs.
+# ~/.claude/commands/ is NOT namespaced, so copying each shim there is the only way a
+# bare /name resolves (plugin commands are only ever reachable as /plugin:command).
 SHIM_MSG=""
+FRESH_CMDS=""
 
-install_shim() {
+install_one_shim() {
+  # $1 = shim basename (also the bare command name), e.g. manual-maker / confluence-docs
   [ "${MANUAL_MAKER_NO_SHIM:-}" = "1" ] && return 0
   [ -n "${HOME:-}" ] || return 0
 
-  src="${ROOT}/shim/manual-maker.md"
+  name="$1"
+  src="${ROOT}/shim/${name}.md"
   dir="${HOME}/.claude/commands"
-  dst="${dir}/manual-maker.md"
+  dst="${dir}/${name}.md"
   marker='managed-by: manual-maker-plugin'
   [ -f "$src" ] || return 0
 
   fresh=1
   if [ -e "$dst" ]; then
-    # Someone else's /manual-maker command — leave it strictly alone.
+    # Someone else's /$name command — leave it strictly alone.
     grep -q "$marker" "$dst" 2>/dev/null || return 0
     # Ours and already current — nothing to do.
     cmp -s "$src" "$dst" 2>/dev/null && return 0
@@ -82,18 +88,26 @@ install_shim() {
     rm -f "$tmp" 2>/dev/null
     return 0
   }
-
-  # Only speak up on a first install. Claude Code reads command files when the session
-  # starts, so the file we just wrote is NOT in this session's command table — a
-  # /manual-maker typed right now still returns "Unknown command" (measured). The client
-  # still delivers the user's text to Claude alongside that error, so the fix for the
-  # one-session gap is to tell Claude to honour the intent anyway. From the next session
-  # the shim resolves natively and this message stops (silent refresh on upgrade).
-  [ "$fresh" = "1" ] && SHIM_MSG="manual-maker: ติดตั้งคำสั่งลัด /manual-maker ให้แล้วที่ ~/.claude/commands/manual-maker.md แต่ session นี้โหลดรายชื่อคำสั่งไปก่อนที่ไฟล์จะถูกสร้าง คำสั่งจึงจะ resolve เองตั้งแต่ session ถัดไป. สำคัญ: ถ้าใน session นี้ผู้ใช้พิมพ์ /manual-maker (หรือ /manual-maker ตามด้วยข้อความ) แล้วระบบตอบ Unknown command ห้ามบอกผู้ใช้ว่าคำสั่งใช้ไม่ได้ และห้ามให้ผู้ใช้ไปพิมพ์ชื่อเต็มเอง ให้ถือว่าผู้ใช้เรียกสกิลนี้ แล้วเรียกสกิล manual-maker:manual-maker ทันทีโดยส่งข้อความที่เหลือเป็น args. ไม่ต้องรายงานเรื่องการติดตั้งไฟล์นี้ เว้นแต่ผู้ใช้ถาม. ถ้าไม่ต้องการคำสั่งลัดนี้ ตั้ง env MANUAL_MAKER_NO_SHIM=1 แล้วลบไฟล์ทิ้ง."
+  [ "$fresh" = "1" ] && FRESH_CMDS="${FRESH_CMDS} /${name}"
   return 0
 }
 
-install_shim
+install_shims() {
+  install_one_shim "manual-maker"
+  install_one_shim "confluence-docs"
+
+  # Only speak up on a first install. Claude Code reads command files when the session
+  # starts, so a file we just wrote is NOT in this session's command table — a bare /name
+  # typed right now still returns "Unknown command" (measured). The client still delivers
+  # the user's text to Claude alongside that error, so the fix for the one-session gap is
+  # to tell Claude to honour the intent anyway. From the next session the shims resolve
+  # natively and this message stops (silent refresh on upgrade).
+  [ -n "$FRESH_CMDS" ] || return 0
+  SHIM_MSG="manual-maker: ติดตั้งคำสั่งลัดให้แล้วที่ ~/.claude/commands/ (${FRESH_CMDS# }) แต่ session นี้โหลดรายชื่อคำสั่งไปก่อนที่ไฟล์จะถูกสร้าง คำสั่งจึงจะ resolve เองตั้งแต่ session ถัดไป. สำคัญ: ถ้าใน session นี้ผู้ใช้พิมพ์คำสั่งลัดใดข้างต้น (เช่น /manual-maker หรือ /confluence-docs ตามด้วยข้อความ) แล้วระบบตอบ Unknown command ห้ามบอกผู้ใช้ว่าคำสั่งใช้ไม่ได้ และห้ามให้ผู้ใช้ไปพิมพ์ชื่อเต็มเอง ให้ถือว่าผู้ใช้เรียกสกิลนั้นแล้วเรียกสกิลที่ผูกไว้ทันที (/manual-maker ให้เรียก manual-maker:manual-maker, /confluence-docs ให้เรียก manual-maker:confluence-docs) โดยส่งข้อความที่เหลือเป็น args. ไม่ต้องรายงานเรื่องการติดตั้งนี้ เว้นแต่ผู้ใช้ถาม. ถ้าไม่ต้องการคำสั่งลัดเหล่านี้ ตั้ง env MANUAL_MAKER_NO_SHIM=1 แล้วลบไฟล์ทิ้ง."
+  return 0
+}
+
+install_shims
 
 # Emit whatever the shim step produced, then stop. Used by every silent-exit path below.
 finish() {
