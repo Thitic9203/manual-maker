@@ -54,7 +54,7 @@ Space `PLUT` มี PRD ครบแล้วเฉพาะระบบ **OLS**
 
 | # | Epic Key | ชื่อ Epic | Tickets บนบอร์ด |
 |---|---|---|---|
-| 1 | MICA2-625 | AI Integration | 4 |
+| 1 | MICA2-125 | AI Integration | 4 |
 | 2 | MICA2-626 | Google Docs | 55 |
 | 3 | MICA2-627 | Google Meet / VDO Conference | 58 |
 | 4 | MICA2-628 | Google Drive | 28 |
@@ -63,6 +63,9 @@ Space `PLUT` มี PRD ครบแล้วเฉพาะระบบ **OLS**
 
 > Epic ทั้ง 18 อยู่ใน Jira board เดียวกัน = **MICA2 Board** (ELMS, CBMS, EvMS)
 > "Tickets Without Epic (8)" บนบอร์ดเป็นของ OLS ทั้งหมด → นอกขอบเขต
+>
+> **แก้หลังตรวจกับ Jira จริง:** Epic AI Integration คือ **MICA2-125** ไม่ใช่ MICA2-625
+> (MICA2-625 เป็น **Bug ของ EvMS**) — ถอดเลขจากภาพบอร์ดผิด แก้แล้วในตารางด้านบน
 
 ---
 
@@ -285,7 +288,67 @@ PLUT space
 
 ---
 
-## 7. ข้อตัดสินใจที่ยืนยันแล้ว
+## 7. ผลการดำเนินงาน (2026-07-21)
+
+หน้าดัชนี 3 หน้าอยู่ใต้ `PRD — Product Requirement Documents` (`3693379606`)
+CBMS `3711795331` · EvMS `3711959136` · ELMS `3712090204`
+
+| Subsystem | Epic | Page ID | UC | หน้าต่อเนื่อง |
+|---|---|---|---|---|
+| CBMS | MICA2-648 School Credit Bank Activation | 3712024652 | 4 | — |
+| CBMS | MICA2-649 Credit Bank Curriculum Management | 3711959156 | 3 | — |
+| CBMS | MICA2-650 Credit Bank Course Management | 3712024695 | 14 | — |
+| CBMS | MICA2-651 Credit Transfer (Learner) | 3712024673 | 5 | — |
+| CBMS | MICA2-652 Credit Transfer (Staff) | 3711828022 | 6 | — |
+| CBMS | MICA2-653 My Credit | 3712057491 | 6 | — |
+| EvMS | MICA2-630 Exam Bank / Question Bank | 3711795354 | 52 | 7 หน้า |
+| EvMS | MICA2-631 Exam Timetable | 3712090268 | 36 | — |
+| EvMS | MICA2-632 Exam Grading | 3712319514 | 19 | 3 หน้า |
+| EvMS | MICA2-633 Exam Report and Evaluation | 3712024739 | 32 | 3 หน้า |
+| EvMS | MICA2-634 Exam Room Management | 3712090225 | 0 | — |
+| EvMS | MICA2-635 Create Exam (AI) | 3712090246 | 0 | — |
+| EvMS | MICA2-636 Exam Room | 3712024717 | 16 | — |
+| ELMS | MICA2-125 AI Integration | 3711795429 | 0 | — |
+| ELMS | MICA2-626 Google Docs | 3712090315 | 31 | 5 หน้า |
+| ELMS | MICA2-627 Google Meet / VDO Conference | 3711861015 | 45 | 7 หน้า |
+| ELMS | MICA2-628 Google Drive | 3712385026 | 20 | 3 หน้า |
+| ELMS | MICA2-629 Google Connect | 3712024773 | 3 | — |
+
+**รวม 18 Epic · 292 Use Case · 21 หน้าหลัก + 28 หน้าต่อเนื่อง**
+CBMS 38 · EvMS 155 · ELMS 99
+
+### 7.1 ข้อจำกัดที่เจอจริงระหว่างทำ
+
+| เรื่อง | ผลกระทบ |
+|---|---|
+| **เพดาน 64,000 output token ต่อ 1 ข้อความ** | Epic ที่มี UC เยอะทำหน้าเดียวไม่ได้ในการเรียกครั้งเดียว (1 UC ≈ 5,000 อักขระ → ~6–8 UC ต่อครั้ง) |
+| **`updateConfluencePage` แก้ได้** | MICA2-631 (36 UC) ทำสำเร็จเป็นหน้าเดียวด้วยการ create แล้ว update เติมทีละก้อน — แปลว่าหน้าต่อเนื่องของ Epic อื่น **ไม่จำเป็น** และยุบรวมได้ |
+| **Atlassian MCP ตอบสลับ request** | เกิดขึ้นซ้ำตลอดงานเมื่อมีหลาย agent ทำงานพร้อมกัน — ขอ Jira ได้ Confluence, `create` คืน id ของหน้าคนอื่น กันด้วยการตรวจ `parent.key` ทุกใบ และไม่เชื่อ id จาก response (ยืนยันด้วย `getConfluencePageDescendants` ซึ่งเป็น lookup ด้วย id ตรง ไม่โดน crosstalk) |
+| **CQL `title = "..."` ใช้ไม่ได้** | ชื่อที่มีวงเล็บเหลี่ยม/สแลช/อักษรไทย คืน 0 ผล ต้องใช้ `title ~` |
+| **อัปโหลดไฟล์แนบไม่ได้** | ภาพประกอบใน Story ยกมาไม่ได้ ระบุไว้ในช่องที่เกี่ยวข้อง |
+
+### 7.2 ค้างตัดสินใจ
+
+1. **หน้าต่อเนื่อง 28 หน้า** — เบี่ยงจาก "1 Epic = 1 หน้า" ที่ §2.3 ล็อกไว้ ยุบรวมได้ด้วยวิธี create+update แต่ต้อง **ลบหน้าต่อเนื่องทิ้ง** ซึ่งย้อนกลับไม่ได้ จึงยังไม่ทำ
+2. **ชื่อหน้า MICA2-635** — ตั้งเป็น `Create Exam (All)` ตามบอร์ด แต่ Jira ว่า `Create Exam (AI)` ยังไม่แก้
+3. **Theme vs title คนละแหล่ง** — MICA2-652 Jira ว่า `Credit Transfer Review` บอร์ดว่า `Credit Transfer (Staff)`
+4. **รีวิวชั้น 5 (render) ยังไม่ทำ** — ต้องเปิดหน้าที่เผยแพร่จริงดูการแสดงผล ระบุไว้ใน panel บนหน้าดัชนีทั้ง 3 หน้าแล้วว่ายังไม่ผ่านครบทุกชั้น
+
+### 7.3 ประเด็นที่ต้องให้ BA ชี้ขาด (พบในต้นทาง ไม่ได้แก้เอง)
+
+- **MICA2-738 / MICA2-739** ชื่อขึ้นต้น `[Cancel]` และไม่มีคำอธิบาย แต่ยังอยู่ใน Epic MICA2-632 → กลายเป็น UC ที่เป็น "รอข้อมูล" ทั้งใบ
+- **MICA2-418 / MICA2-433 ขัดกับ MICA2-462** เรื่องสิทธิ์ผู้ดูแลระบบระดับโรงเรียน
+- **MICA2-681 vs MICA2-809** จำนวนแท็บในหน้า My Credit ไม่ตรงกัน
+- **MICA2-119 / MICA2-120** ชื่อขึ้นต้น `[BE]` แต่คำอธิบายขึ้นต้น `FE:`
+- **MICA2-9** อ้างสิทธิ์ Central Admin ทั้งที่ Story เป็นเรื่อง School Admin
+- **MICA2-33 / MICA2-34** ระบุครูที่ปรึกษา ทั้งที่ Story เป็นเรื่องครูผู้สอนรายวิชา
+- **MICA2-92** ให้ผู้เรียนดู/ดาวน์โหลดเท่านั้น ขัดกับ UC ที่ให้ผู้เรียนแก้ไขได้
+- **MICA2-69 / MICA2-70 / MICA2-173** เนื้อหาในใบขัดกับหัวข้อของใบตัวเอง
+- **Story ที่คำอธิบายว่างหรือมีแต่ภาพ** — 7 ใบใน MICA2-650, 3 ใบใน MICA2-633, 4 ใบใน MICA2-632, 2 ใบใน MICA2-636, 4 ใบใน MICA2-631
+
+---
+
+## 8. ข้อตัดสินใจที่ยืนยันแล้ว
 
 | ประเด็น | สรุป |
 |---|---|
