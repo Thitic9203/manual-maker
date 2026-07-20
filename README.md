@@ -56,10 +56,19 @@ space/หน้าปลายทางอื่นได้.
 | **Full command** | `/manual-maker:confluence-docs …` (ใช้ได้เสมอ) |
 | **Natural language** | `เติมข้อมูลจริงลง confluence แทน mock` |
 
-หลักการเดียวกับ manual-maker: **ห้ามมโน · ยืนยันก่อนเริ่ม · ทุกค่ามีที่มา (source-map ต่อ doc-type) · คงโครง/ฟอแมตเดิม ·
-รีวิว 5 ชั้นก่อน publish**. การเขียนต้องมีสิทธิ์ `write:page:confluence` — สกิล preflight เช็คให้ ถ้า connector เป็น
-read-only จะหยุดพร้อมบอกวิธีเปิดสิทธิ์ ไม่แกล้งเขียน. ไดอะแกรมใส่เป็น **Mermaid ที่ Confluence render เอง** จากแหล่งจริง
-(ER จาก schema, sequence จาก flow) และพิสูจน์ว่า render จริงในรีวิวชั้น 5.
+หลักการเดียวกับ manual-maker: **ห้ามมโน · ยืนยันก่อนเริ่ม · ทุกค่ามีที่มา · อยู่ในขอบเขต · รีวิวก่อน publish**.
+
+**Workflow (1 doc-type ต่อรอบ):**
+`Preflight สิทธิ์เขียน → Intake → ยืนยัน (gate 1) → อ่านหน้าเดิม+ดึงแหล่ง → เติม mock→จริง → ไดอะแกรม → รีวิวด่าน 1–4 → reconfirm ก่อนเขียน (gate 2) → publish → รีวิวด่าน 5 (render หน้าจริง)`
+
+- **Source-map ต่อ doc-type** — แต่ละ doc-type ผูกกับแหล่งที่บังคับ (PRD ← Jira filter, API Doc ← OpenAPI/repo, Data Dictionary ← DB schema, Meeting notes ← โน้ตจริง…). **ไม่มีแหล่ง = หยุด** ไม่เดาค่า.
+- **คงโครง/ฟอแมตเดิม** — อ่าน/เขียนด้วย `contentFormat: html` เปลี่ยนแค่ *ค่า* คอลัมน์/panel/macro อยู่ครบ. คอลัมน์ `Subsystem` + label (`ols/elms/cbms/evms`) เป็น convention เดียวทั้ง space.
+- **2 gate บังคับ** — ยืนยัน intake ก่อนเริ่ม + **reconfirm ก่อน write จริง** (โชว์ diff + หน้าลูกที่จะสร้าง + ผลรีวิว → รอ "go").
+- **สิทธิ์เขียน capability-gated** — ต้องมี `updateConfluencePage`/`createConfluencePage` + scope `write:page:confluence`; preflight เช็คให้ ถ้า connector read-only **หยุดพร้อมบอกวิธีเปิด** ไม่แกล้งเขียน.
+- **ไดอะแกรม** — Atlassian MCP อัปโหลดรูปไม่ได้ จึงใส่เป็น **Mermaid ที่ Confluence render เอง** จากแหล่งจริง (ER จาก schema, sequence จาก flow) แล้วพิสูจน์ว่า render จริงในรีวิวด่าน 5 — ไม่มโนไดอะแกรม.
+- **รีวิว 5 การ์ด (`references/review.md`)** — (1) ตรงตามยืนยัน (2) ทุกค่ามีที่มา + ไม่มี mock เหลือ (3) โครง/ฟอแมตคงเดิม (4) ตัวหนังสือ/ตัวเลข/ศัพท์ (5) render บนหน้าจริง. **ตรวจไม่ได้ = ไม่ผ่าน · ต้อง 5/5 · แก้แล้วรีวิวใหม่ทั้ง 5**. `scripts/verify-confluence.py` เป็นตัวตรวจเชิงกล (no-mock-leftover, term ไม่ตัดกลาง, คอลัมน์คงเดิม, credential ไม่หลุด) — exit 1 บล็อกการเขียน; **ผ่านสคริปต์ ≠ ผ่านรีวิว**.
+
+> ℹ️ v0.22.0 วางโครงสกิล + ตัวตรวจเชิงกลครบและทดสอบแล้ว. **การรันจริง end-to-end กับ Confluence (เขียน/publish/ดู diagram render) ต้องทำใน session ที่ connector มี `write:page:confluence`** — ยังไม่ได้พิสูจน์ในสภาพ read-only.
 
 ---
 
@@ -389,7 +398,8 @@ manual-maker/
 ├── commands/
 │   └── manual-maker.md      # /manual-maker:manual-maker — drives the pipeline to the end
 ├── shim/
-│   └── manual-maker.md      # auto-copied to ~/.claude/commands/ so bare /manual-maker works
+│   ├── manual-maker.md      # auto-copied to ~/.claude/commands/ so bare /manual-maker works
+│   └── confluence-docs.md   # same, for bare /confluence-docs (hook installs both shims)
 ├── agents/
 │   ├── manual-section-writer.md    # owns one หัวข้อย่อย: capture → annotate → draft (2–3 run at once)
 │   └── manual-section-reviewer.md  # reviews each หัวข้อย่อย as it lands; read-only; asks, never decides
@@ -402,20 +412,30 @@ manual-maker/
 ├── CHANGELOG.md             # per-version history
 ├── RISK_REGISTER.md         # decisions with trade-offs, recorded so they aren't re-litigated
 └── skills/
-    └── manual-maker/
-        ├── SKILL.md         # workflow: intake → confirm → sources → [parallel] → build → review → publish
+    ├── manual-maker/
+    │   ├── SKILL.md         # workflow: intake → confirm → sources → [parallel] → build → review → publish
+    │   ├── scripts/
+    │   │   ├── preflight.sh    # checks + installs capture tooling into ~/.manual-maker/runtime
+    │   │   ├── verify-doc.py   # mechanical .docx checks; exit 1 blocks delivery
+    │   │   └── verify-annotations.py  # red-circle numbers vs the real pixels; exit 1 blocks delivery
+    │   └── references/
+    │       ├── intake.md      # the system-specific question set
+    │       ├── profile.md     # remembers a user's answers (~/.manual-maker/profiles) so it doesn't re-ask
+    │       ├── parallel.md    # how Steps 4–6 fan out + the per-section review loop
+    │       ├── screenshots.md # capture & annotation contract
+    │       ├── docx-build.md  # building on a base template via OOXML
+    │       ├── review.md      # the 5-layer delivery gate
+    │       └── template.md    # team handbook structure + conventions
+    └── confluence-docs/     # v0.22.0 — fill a Confluence doc-space with real data (mock → real)
+        ├── SKILL.md         # workflow: preflight → intake → confirm → sources → draft → diagrams → review 1–4 → reconfirm → publish → review 5
         ├── scripts/
-        │   ├── preflight.sh    # checks + installs capture tooling into ~/.manual-maker/runtime
-        │   ├── verify-doc.py   # mechanical .docx checks; exit 1 blocks delivery
-        │   └── verify-annotations.py  # red-circle numbers vs the real pixels; exit 1 blocks delivery
+        │   └── verify-confluence.py  # no-mock-leftover, structure vs --original, term split, credential; exit 1 blocks the write
         └── references/
-            ├── intake.md      # the system-specific question set
-            ├── profile.md     # remembers a user's answers (~/.manual-maker/profiles) so it doesn't re-ask
-            ├── parallel.md    # how Steps 4–6 fan out + the per-section review loop
-            ├── screenshots.md # capture & annotation contract
-            ├── docx-build.md  # building on a base template via OOXML
-            ├── review.md      # the 5-layer delivery gate
-            └── template.md    # team handbook structure + conventions
+            ├── intake.md      # the doc-type / source / subsystem question set
+            ├── source-map.md  # each doc-type → its mandatory authoritative source (blocks if none)
+            ├── template.md    # storage-format conventions: preserve structure, Subsystem column, tone
+            ├── diagrams.md    # Confluence-rendered Mermaid from the real source (no image upload)
+            └── review.md      # the 5-card review gate (mechanical + human, before/after publish)
 ```
 
 ## Troubleshooting
