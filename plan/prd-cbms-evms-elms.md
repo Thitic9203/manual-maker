@@ -122,7 +122,9 @@ PLUT space
 
 ### Step 1 — ดึง Story จาก Jira (ต่อ Epic)
 
-- JQL: `parent = <EPIC-KEY> AND issuetype = Story` — **เอา Story ทั้งหมดใต้ Epic** รวมที่ยังไม่เข้า Sprint
+- JQL: `parent = <EPIC-KEY> AND issuetype = Story AND (sprint in (openSprints(), futureSprints()) OR status = Done)`
+- **ตัด Story ที่อยู่ใน Backlog ออก** — Backlog = ไม่อยู่ใน Sprint active/future และยังไม่ Done
+  (งานที่ไม่ทำ ไม่ต้องมี Use Case) · เกณฑ์นี้ตรงกับเกณฑ์ที่บอร์ด Epic Breakdown ใช้
 - field ที่ดึง: summary, description, Acceptance Criteria, Exceptional Case, Reference UI, status
 - **ตัด Bug ออก** · Task / Sub-task ไม่นับเป็น UC
 - Story ที่ไม่มี description / AC → UC ยังอยู่ แต่ช่องที่ไม่มีข้อมูลใส่ **"รอข้อมูล"**
@@ -191,6 +193,6 @@ PLUT space
 
 | ประเด็น | สรุป |
 |---|---|
-| ขอบเขต Story | **Story ทั้งหมดใต้ Epic ใน Jira** รวมที่ยังไม่เข้า Sprint — บอร์ดใช้กำหนดว่า *Epic ไหน* อยู่ในขอบเขต ไม่ใช่ใช้กรอง Story |
+| ขอบเขต Story | Story ใต้ Epic ที่ **อยู่ใน Sprint active/future หรือ Done** — **ตัด Backlog ออกทั้งหมด** เพราะเป็นงานที่ไม่ทำ |
 | Epic ที่ไม่มี ticket | **สร้างหน้า** ใส่ "รอข้อมูล" — EvMS ครบ 7 หน้าตามบอร์ด |
-| จำนวน UC vs ตัวเลข §1 | ไม่ต้องตรงกัน — §1 คือ ticket บนบอร์ด (รวม Bug/Task และกรอง Sprint), UC คือ Story ทั้งหมดใต้ Epic |
+| จำนวน UC vs ตัวเลข §1 | ยัง**น้อยกว่า** §1 — เกณฑ์ Sprint ตรงกันแล้ว แต่ §1 รวม Bug/Task ซึ่งไม่นับเป็น UC |
