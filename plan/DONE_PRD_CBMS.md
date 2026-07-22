@@ -1,7 +1,7 @@
 # แผนงาน — สร้าง PRD ราย Epic ของระบบ CBMS จาก Jira (confluence-docs)
 
 > ขอบเขต: **เฉพาะ subsystem CBMS (Credit Bank Management System)** — subsystem อื่นเป็นงานคนละไฟล์
-> (ดู [PRD_EvMS.md](PRD_EvMS.md) · [PRD_ELMS.md](PRD_ELMS.md) · [DONE_PRD_OLS.md](DONE_PRD_OLS.md))
+> (ดู [PRD_EvMS.md](PRD_EvMS.md) · [DONE_PRD_ELMS.md](DONE_PRD_ELMS.md) · [DONE_PRD_OLS.md](DONE_PRD_OLS.md))
 >
 > งานสร้างชุดเอกสาร PRD ราย Epic ในพื้นที่เอกสารของทีม โดยดึงเนื้อหาจาก Jira ทั้งหมด
 > ตามหลัก **1 Story = 1 Use Case** และกฎ **ห้ามมโน · ทุกค่ามีที่มา · ตรวจไม่ได้ = ไม่ผ่าน**
