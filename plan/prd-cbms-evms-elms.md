@@ -1,8 +1,67 @@
 # แผนการอัปเดต PRD บน Confluence — CBMS · EvMS · ELMS
 
-**สถานะ:** อนุมัติแผนแล้ว · ยังไม่เริ่มเขียน Confluence
-**วันที่:** 2026-07-20
+**สถานะ:** สร้างครบ 21 หน้าหลัก + 28 หน้าต่อเนื่องแล้ว (2026-07-21) · **ยังไม่ผ่านรีวิวชั้น 5 (render) และมีประเด็นค้างตัดสินใจ** — ดู §0 · 🛑 **หยุดงาน Confluence ทั้งหมดตั้งแต่ 2026-07-22 — พบข้อมูลเสียหายบนหน้าจริง ดู §0.4**
+**วันที่:** 2026-07-20 (เริ่มแผน) · สำรวจสถานะล่าสุด 2026-07-22
 **Space เป้าหมาย:** `PLUT` (SkillLane Pluton) · cloudId `dfc2cd04-b24b-48cf-81a1-4a3e0ed7569f`
+
+---
+
+## 0. สำรวจสถานะ PRD/UC ปัจจุบัน — ต้องทำอะไรต่อ (สำรวจสด 2026-07-22)
+
+**วิธีสำรวจ:** ดึงหน้าดัชนีทั้ง 3 หน้าสดจาก Confluence (`contentFormat: html`, sequential — parallel ชนบั๊ก crosstalk ของ Atlassian MCP ที่เคยบันทึกไว้ใน [confluence-fullwidth-format-progress.md](confluence-fullwidth-format-progress.md) จึงต้องยิงทีละคำขอ + เช็ค `id` ตอบกลับให้ตรงทุกครั้ง) แล้วเทียบตัวเลขกับ §7 เดิม + สุ่มตรวจ JQL ซ้ำเฉพาะ 3 Epic ที่เคย 0 UC ว่ายังจริงอยู่หรือไม่ **ไม่ได้ไล่ Jira ซ้ำครบทั้ง 18 Epic** (นอกขอบเขตงานสำรวจครั้งนี้ — การไล่ครบเท่ากับรีวิวชั้น 2 ซึ่งเป็นงานคนละสเกล)
+
+### 0.1 ตารางสรุป — PRD/UC ที่ต้องทำต่อ รายอีปิก
+
+| Subsystem | Epic Key | ชื่อ Epic | หน้า PRD | UC ปัจจุบัน | สถานะตรวจ (จาก index) | งานที่ต้องทำต่อ |
+|---|---|---|---|---|---|---|
+| CBMS | MICA2-648 | School Credit Bank Activation | [3712024652](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712024652) | 4 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 (render) |
+| CBMS | MICA2-649 | Credit Bank Curriculum Management | [3711959156](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3711959156) | 3 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 (render) |
+| CBMS | MICA2-650 | Credit Bank Course Management | [3712024695](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712024695) | 14 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 + Story 7 ใบเป็น "รอข้อมูล" เกือบทุกช่อง (คำอธิบายว่าง/มีแต่ภาพ) |
+| CBMS | MICA2-651 | Credit Transfer (Learner) | [3712024673](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712024673) | 5 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 (render) |
+| CBMS | MICA2-652 | Credit Transfer (Staff) | [3711828022](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3711828022) | 6 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 + ชื่อ Epic ใน Jira ("Credit Transfer Review") ไม่ตรงชื่อหน้า/บอร์ด — รอ BA ชี้ขาด |
+| CBMS | MICA2-653 | My Credit | [3712057491](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712057491) | 6 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 + MICA2-681 vs MICA2-809 ระบุจำนวนแท็บไม่ตรงกัน — รอ BA ชี้ขาด |
+| EvMS | MICA2-630 | Exam Bank / Question Bank | [3711795354](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3711795354) | 52 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 + มีหน้าต่อเนื่อง (ยุบรวมได้แต่ยังไม่ทำ — ดู 0.3) |
+| EvMS | MICA2-631 | Exam Timetable | [3712090268](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712090268) | 36 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 (render) |
+| EvMS | MICA2-632 | Exam Grading | [3712319514](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712319514) | 19 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 + มีหน้าต่อเนื่อง + MICA2-738/739 ("[Cancel]" ไม่มีคำอธิบาย) เป็น UC ที่ "รอข้อมูล" ทั้งใบ |
+| EvMS | MICA2-633 | Exam Report and Evaluation | [3712024739](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712024739) | 32 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 + มีหน้าต่อเนื่อง |
+| EvMS | MICA2-634 | Exam Room Management | [3712090225](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712090225) | 0 | ยังไม่มี Story ที่ผ่านเกณฑ์ | **เช็คซ้ำวันนี้ด้วย JQL — ยังไม่มี Story เข้าเกณฑ์จริง** คงสถานะ "รอข้อมูล" ทุกช่องตามเดิม |
+| EvMS | MICA2-635 | Create Exam (AI) | [3712090246](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712090246) | 0 | ยังไม่มี Story ที่ผ่านเกณฑ์ | **เช็คซ้ำวันนี้ — ยังไม่มี Story เข้าเกณฑ์จริง** + ชื่อหน้าใช้ "(All)" ตามบอร์ด ขณะที่ Jira ใช้ "(AI)" — รอ BA ชี้ขาด |
+| EvMS | MICA2-636 | Exam Room | [3712024717](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712024717) | 16 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 (render) |
+| ELMS | MICA2-125 | AI Integration | [3711795429](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3711795429) | 0 | ยังไม่มี Story ที่ผ่านเกณฑ์ | ⚠️ **ล้าสมัย — พบ Story เข้าเกณฑ์ใหม่ 3 ใบวันนี้** (MICA2-694 "[AI Chatbot] Integration" · MICA2-585 "AI Generate Exam (SI and 8mind)" · MICA2-584 "AI Chatbot integration (8mind)") **ยังไม่ถูกทำเป็น UC — ต้องร่างเพิ่ม 3 UC ก่อนหน้านี้จะครบ** |
+| ELMS | MICA2-626 | Google Docs | [3712090315](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712090315) | 31 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 + มีหน้าต่อเนื่อง |
+| ELMS | MICA2-627 | Google Meet / VDO Conference | [3711861015](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3711861015) | 45 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 + มีหน้าต่อเนื่อง |
+| ELMS | MICA2-628 | Google Drive | [3712385026](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712385026) | 20 | ตรวจรายใบขณะจัดทำ | รอรีวิวชั้น 5 + มีหน้าต่อเนื่อง |
+| ELMS | MICA2-629 | Google Connect | [3712024773](https://skilllane.atlassian.net/wiki/spaces/PLUT/pages/3712024773) | 3 (ก่อนหน้า — **ตรวจไม่ได้ตอนนี้ ดู §0.4**) | ⚠️ เนื้อหาเสียหาย | 🛑 **เนื้อหาโดนทับ ห้ามแตะจนกว่าจะกู้คืน — ดู §0.4** |
+
+**รวม 18 Epic · 292 UC ที่บันทึกไว้ล่าสุด (จะเพิ่มเป็นอย่างน้อย 295 หลังเติม MICA2-125) — ตัวเลข MICA2-629 ยืนยันไม่ได้ตอนนี้เพราะเนื้อหาเสียหาย** · ไม่มี Epic ใดขึ้นสถานะ "ตรวจแล้ว ไม่พบจุดแก้" (ผ่านครบ) แม้แต่หน้าเดียว
+
+### 0.2 งานที่ต้องทำต่อ ภาพรวม (ข้ามทุกระบบ)
+
+1. **รีวิวชั้น 5 (render บนหน้าเผยแพร่จริง)** — ยังไม่ทำเลยทั้ง 21 หน้าหลัก (ตาม panel-warning บนทั้ง 3 หน้าดัชนี)
+2. **MICA2-125 (ELMS AI Integration) ต้องเติม 3 UC ใหม่** — พบวันนี้ ยังไม่เคยมีในหน้า · **ยังไม่ได้ทำ เพราะพบข้อ 0.4 ก่อน (หยุดงาน Confluence ทั้งหมดจนกว่าจะเคลียร์)**
+3. **หน้าต่อเนื่อง 28 หน้า** (EvMS: MICA2-630/632/633 · ELMS: MICA2-626/627/628) — ยุบรวมเป็นหน้าเดียวได้ด้วยวิธี create+update ทีละก้อน (พิสูจน์แล้วกับ MICA2-631) แต่ต้องลบหน้าต่อเนื่องทิ้งซึ่งย้อนกลับไม่ได้ → **ค้างตัดสินใจ รอ user**
+4. **ชื่อหน้า MICA2-635**: บอร์ดใช้ "(All)" / Jira ใช้ "(AI)" — ค้างตัดสินใจ
+5. **Theme MICA2-652**: Jira "Credit Transfer Review" / บอร์ด "Credit Transfer (Staff)" — ค้างตัดสินใจ
+6. **ประเด็นที่ต้องให้ BA ชี้ขาด (จาก §7.3 เดิม ยังไม่มีคำตอบ)**: MICA2-738/739, MICA2-418/433 vs 462, MICA2-681 vs 809, MICA2-119/120, MICA2-9, MICA2-33/34, MICA2-92, MICA2-69/70/173, Story ว่าง 20 ใบรวมทุกระบบ
+
+### 0.4 🛑 พบข้อมูลเสียหายจริงระหว่างสำรวจ (2026-07-22) — หยุดงาน Confluence ทั้งหมด
+
+**อาการ:** หน้า `3712024773` (title ถูกต้อง `[ELMS] PRD - [MICA2-629] Google Connect`) เนื้อหา **body ทั้งหน้ากลายเป็นสำเนาหน้าดัชนี OLS** (`3709763630` — ตาราง 16 Epic, "รวม 16 Epic · 61 Use Case") ไม่ใช่เนื้อหา Google Connect เดิมของตัวเอง
+
+**ยืนยันแล้ว ไม่ใช่ read-glitch:** ดึงซ้ำ 2 ครั้งด้วย `getConfluencePage` + อีกครั้งด้วย `searchConfluenceUsingCql` (คนละ code path) ได้ผลตรงกันทั้งหมด · เทียบกับหน้า OLS index ตัวจริง (`3709763630`) ซึ่งยังปกติดี เนื้อหาคล้ายกันมาก (local-id ต่างกัน = ถูกสร้างซ้ำผ่านการประมวลผล ไม่ใช่ byte เดียวกัน)
+
+**สาเหตุที่น่าจะเป็นที่สุด:** งาน full-width-sweep (`confluence-fullwidth-format-progress.md`) มี agent พื้นหลัง 3 ตัวกำลังไล่ `updateConfluencePage` ทีละหน้าพร้อมกันตอนที่สำรวจนี้เกิดขึ้น — ตรงกับบั๊ก crosstalk ที่ไฟล์นั้นบันทึกไว้แล้วสำหรับ `create` (คืน id หน้าอื่น) เพียงแต่รอบนี้เกิดกับ `update` แทน: คำสั่งอัปเดตที่ตั้งใจจะยิงไปหน้า OLS index ไปลงที่ id ของ MICA2-629 แทน
+
+**ผลกระทบ:** เนื้อหา PRD จริงของ MICA2-629 (Google Connect, 3 UC เดิม) หายจากหน้าที่เผยแพร่อยู่ — กู้คืนได้ทางเดียวคือ **Page History ใน Confluence UI** (ไม่มี tool กู้คืนเวอร์ชันในชุดเครื่องมือนี้ และเป็น action ที่ไม่ควรเดาทำเองบนหน้า production)
+
+**สถานะ:** ผู้ใช้สั่ง **"หยุดงาน Confluence ทั้งหมดตอนนี้"** (2026-07-22) — ยังไม่ได้ทำ MICA2-125 (0.2 ข้อ 2) ยังไม่ได้แตะหน้าใดเพิ่มอีก จนกว่าจะ: (1) เช็ค/พัก full-width-sweep agents (2) กู้ MICA2-629 ผ่าน Page History (3) สุ่มตรวจหน้าอื่นที่ sweep แตะว่ามีเคสเดียวกันซ่อนอยู่หรือไม่ — งานทั้งสามข้อนี้เป็นของ user/เธรดที่รัน full-width-sweep ไม่ใช่ของแพลนนี้โดยตรง
+
+### 0.3 ฟอแมต PRD/UC — เทียบกับต้นแบบที่ user ระบุ (OLS-3 Media management, page `3606937609`)
+
+ดึงหน้า `3606937609` มาเทียบโครงหัวข้อกับ 18 หน้าที่สร้างไปแล้ว:
+
+- **โครงหัวข้อหลักตรงกัน**: 1/1.1/1.2/1.3 → 2 → 3/3.1/3.2 → 4/4.2 (มี 4.1 เสริมเฉพาะ Epic ที่มี Metadata Specification, ข้ามได้ถ้าไม่มี) · หัวตาราง UC ใช้ `Use Case No. UC-n  |  <ชื่ออังกฤษ>` ตรงกัน
+- **จุดต่างที่พบ (ถาม user แล้ว 2026-07-22 — ตัดสินใจแล้ว)**: หัวข้อ 2 (Target Personas) ของ OLS-3 เป็นตาราง 3 คอลัมน์เฉพาะเนื้อหา Epic นี้ (`Role | วิธี Login | สิทธิ์การสร้างสื่อ`) ไม่มีคอลัมน์ Subsystem — ต่างจาก 18 หน้าที่สร้างไปแล้วซึ่งใช้ตาราง 4 คอลัมน์ตายตัว (`ผู้ใช้ | ช่องทางเข้าใช้งาน | บทบาทในระบบ | Subsystem`) **user ยืนยันให้คงฟอแมตเดิม (4 คอลัมน์ + Subsystem) ต่อไป** — ไม่เปลี่ยนตาม OLS-3
 
 ---
 

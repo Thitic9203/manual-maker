@@ -1,5 +1,9 @@
 # Plan: ปรับฟอแมตหน้า Confluence ใต้ "Mica Phase 2 (Draft)" — ตารางเป็น full-width ทุกหน้า
 
+## 🛑 2026-07-22 — พบเนื้อหาเสียหายจริง ระหว่างสำรวจจากเธรดอื่น (plan/prd-cbms-evms-elms.md §0.4)
+
+หน้า `3712024773` ("[ELMS] PRD - [MICA2-629] Google Connect") เนื้อหา body ทั้งหน้ากลายเป็นสำเนาหน้าดัชนี OLS (`3709763630`) — ยืนยันแล้วด้วย 2 code path ไม่ใช่ read-glitch รายละเอียดเต็มดู [prd-cbms-evms-elms.md §0.4](prd-cbms-evms-elms.md) สาเหตุน่าจะเป็นบั๊ก crosstalk เดียวกับที่บันทึกไว้ด้านล่าง (บรรทัด "create คืนหน้าอื่น") แต่เกิดกับ `update` แทน — ถ้า background agents ของแผนนี้ยังรันอยู่ตอนนี้ **ให้พักก่อน** แล้วตรวจว่ามีหน้าอื่นโดนแบบเดียวกันหรือไม่ ก่อนไล่ sweep ต่อ. กู้ MICA2-629 ทำได้ทาง Page History ใน Confluence UI เท่านั้น (ไม่มี tool กู้เวอร์ชันในชุดที่ใช้อยู่)
+
 **Session:** 2026-07-22 · space `PLUT` · cloudId `dfc2cd04-b24b-48cf-81a1-4a3e0ed7569f` · root page `3693641732` (+ 85 descendants = **86 หน้า**)
 
 ## โจทย์จาก user
