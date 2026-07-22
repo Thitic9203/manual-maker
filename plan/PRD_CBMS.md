@@ -1,14 +1,14 @@
 # แผนงาน — สร้าง PRD ราย Epic ของระบบ CBMS จาก Jira (confluence-docs)
 
 > ขอบเขต: **เฉพาะ subsystem CBMS (Credit Bank Management System)** — subsystem อื่นเป็นงานคนละไฟล์
-> (ดู [PRD_EvMS.md](PRD_EvMS.md) · [PRD_ELMS.md](PRD_ELMS.md) · [PRD_OLS.md](PRD_OLS.md))
+> (ดู [PRD_EvMS.md](PRD_EvMS.md) · [PRD_ELMS.md](PRD_ELMS.md) · [DONE_PRD_OLS.md](DONE_PRD_OLS.md))
 >
 > งานสร้างชุดเอกสาร PRD ราย Epic ในพื้นที่เอกสารของทีม โดยดึงเนื้อหาจาก Jira ทั้งหมด
 > ตามหลัก **1 Story = 1 Use Case** และกฎ **ห้ามมโน · ทุกค่ามีที่มา · ตรวจไม่ได้ = ไม่ผ่าน**
 >
 > เอกสารฉบับนี้จงใจ **ไม่ระบุ ID ภายใน** (เลขหน้า, คีย์ตั๋ว Jira จริง, ชื่อ project/board, cloudId, ลิงก์ภายใน)
 > เพราะ repo เป็นสาธารณะ — ใช้ alias `CBMS-1` … `CBMS-6` แทนคีย์ Epic จริงตลอดไฟล์นี้
-> (แนวทางเดียวกับ [PRD_OLS.md](PRD_OLS.md)) รายละเอียดเชิงพิกัดอยู่ในบันทึกงานนอก repo
+> (แนวทางเดียวกับ [DONE_PRD_OLS.md](DONE_PRD_OLS.md)) รายละเอียดเชิงพิกัดอยู่ในบันทึกงานนอก repo
 >
 > **ไฟล์นี้รวมมาจาก `prd-cbms-evms-elms.md`** ส่วนที่เป็นของ CBMS ทั้งหมด (ไฟล์เดิมยุบเข้าที่นี่
 > ตามคำสั่งผู้ใช้รอบรีวิว 2026-07-22 — ไม่ว่างานจริงจะแยกไปตรวจ/แก้ผ่านไฟล์ scratch กี่ไฟล์ระหว่างทาง
@@ -38,7 +38,7 @@ _อัปเดตล่าสุด: 2026-07-22 (**รอบรีวิวล
 
 ## Context
 
-พื้นที่เอกสารของทีมมี PRD ครบแล้วเฉพาะระบบ **OLS** (ดู [PRD_OLS.md](PRD_OLS.md))
+พื้นที่เอกสารของทีมมี PRD ครบแล้วเฉพาะระบบ **OLS** (ดู [DONE_PRD_OLS.md](DONE_PRD_OLS.md))
 งานนี้คือขยาย PRD ให้ครบระบบ **CBMS** โดย **ฟอแมตและการจัดวางระดับเดียวกับ OLS**
 และ **ขอบเขต Epic ยึดจากบอร์ด Epic Breakdown ของทีม** (บอร์ดกรองเฉพาะ ticket ที่มีทั้ง Epic และ Sprint)
 — ไม่เพิ่ม Epic นอกบอร์ด
@@ -237,7 +237,7 @@ local เท่านั้น (ห้าม retype จาก memory), อ่า
 
 | ของ | ที่อยู่ |
 |---|---|
-| ต้นแบบหน้าดัชนี/หน้าย่อย | หน้า OLS index/subpage ในพื้นที่เอกสารทีม (ดู [PRD_OLS.md](PRD_OLS.md)) |
+| ต้นแบบหน้าดัชนี/หน้าย่อย | หน้า OLS index/subpage ในพื้นที่เอกสารทีม (ดู [DONE_PRD_OLS.md](DONE_PRD_OLS.md)) |
 | แหล่งขอบเขต Epic | บอร์ด Epic Breakdown ของทีม |
 | Skill ที่ใช้เขียนเอกสาร | `/confluence-docs` (repo `manual-maker` → `skills/confluence-docs/`) |
 
