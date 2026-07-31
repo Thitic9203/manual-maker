@@ -28,7 +28,7 @@ It is a thin team wrapper that **composes** Anthropic's first-party skills (it d
    breaks another (adding a figure shifts the step numbers). Review the **exported file**, never the
    draft in conversation.
 6. **ต้นแบบคือของจริง.** If the user supplies a base/reference document, reproduce its **cover, header, footer (page numbers), TOC, styles, and role-based chapters exactly** — never a hand-built look-alike. See `references/docx-build.md`.
-7. **ภาพต้องเป็นหน้าจอระบบจริง.** Every figure is a **real, full-screen** screenshot of the live system, with **red numbered circles whose numbers match the step numbers**. No placeholders, no mock-ups, no redrawn tables standing in for a screen. Circles are **derived from the final step list** and recorded in `annotations.json` as they are drawn; `scripts/verify-annotations.py` proves the 1:1 claim against the pixels at Step 8. See `references/screenshots.md`.
+7. **ภาพต้องเป็นหน้าจอระบบจริง.** Every figure is a **real, full-screen** screenshot of the live system, with **red numbered circles whose numbers match the step numbers** and that **never cover the button's label (ห้ามทับตัวอักษร)** — each disc sits on a flat, text-free spot. No placeholders, no mock-ups, no redrawn tables standing in for a screen. Circles are **derived from the final step list** and recorded in `annotations.json` as they are drawn; the pristine pre-annotation PNG is kept in `manual-assets/<slug>/clean/`, and `scripts/verify-annotations.py` proves both the 1:1 claim **and** the no-overlap rule against the pixels at Step 8. See `references/screenshots.md`.
 8. **งานขนานห้ามลดคุณภาพ และ subagent ห้ามตัดสินใจแทนผู้ใช้.** Steps 4–6 fan out across 2–3
    `manual-section-writer` agents plus **one** `manual-section-reviewer` that reviews each หัวข้อย่อย
    as it lands — see `references/parallel.md`. A subagent **cannot talk to the user**, so anything
@@ -158,7 +158,9 @@ logins risk locking the account and spread the credential further than needed.
 
 **Read `references/screenshots.md` and follow it exactly.** In short: real live-system screens only,
 **full screen** (never crop the content), **red numbered circles that map 1:1 to the step numbers**
-(≤ 5 per image), steps written with the system's real menu/button wording, and people's names masked.
+(≤ 5 per image) **placed on a flat, text-free spot — ห้ามวางทับตัวอักษร** (nudge to clear space + a
+leader line if the disc lands off the target), the pristine PNG copied to `clean/` **before** drawing,
+steps written with the system's real menu/button wording, and people's names masked.
 Preflight (Step 1/2) already installed the tooling. Run every capture script with the sandbox on
 `NODE_PATH` — a global `npm i -g playwright` does **not** make `require('playwright')` resolve from
 an arbitrary directory, which is exactly how a run fails without this:
@@ -228,7 +230,7 @@ The five layers, each decided against the **Step 2 confirmation table** and each
 |---|---|---|
 | 1 | ตรงตามที่ยืนยัน | scope, การแบ่งเล่ม (Q9), ภาษา, ฟอนต์, format, **โหมดวงแดง — มี/ไม่มี ตามที่สั่ง** |
 | 2 | ทุกอย่างมีที่มา | ทุกขั้นตอนสาวถึงระบบจริง+แหล่งของผู้ใช้; บทที่ไม่มีแหล่ง = ตัดทิ้ง ไม่ใช่แต่งเพิ่ม |
-| 3 | ภาพ | ของจริง, เต็มจอ, **เลขในวงตรงขั้นตอน 1:1 — พิสูจน์ด้วย `verify-annotations.py`**, ไม่มีเคอร์เซอร์/ขอบเรือง, ปิดชื่อคน |
+| 3 | ภาพ | ของจริง, เต็มจอ, **เลขในวงตรงขั้นตอน 1:1 + วงไม่ทับตัวอักษร — พิสูจน์ด้วย `verify-annotations.py`**, ไม่มีเคอร์เซอร์/ขอบเรือง, ปิดชื่อคน |
 | 4 | ตัวหนังสือและตัวเลข | เลขข้อ+TOC ตรง, ไม่มีคำผิด, **ไม่มีคำพราก**, คำศัพท์ล็อกเดียว, โทนถูก |
 | 5 | รูปเล่ม | ปก + header + footer (`PAGE` field) + TOC field + ฟอนต์ ตามฟอร์แมตที่ผู้ใช้กำหนด |
 
@@ -248,8 +250,11 @@ control, ④ on an alternative path that was not a numbered step, and ⑤ on two
 reads `annotations.json` (written during annotation, see `references/screenshots.md`) and checks it
 against the **actual pixels**, so a manifest that lies about what was drawn fails — and it compares
 each circle's `label` against the control its own `step_text` names in quotes, which is what catches
-the ②-on-step-3's-button case. **Skip it only when the confirmed โหมดภาพ is `none`** — then what must
-be proved is that there are no circles at all, which is layer 1.
+the ②-on-step-3's-button case. It also compares each drawn disc against the pristine `clean/` copy and
+**fails if a disc covers text/glyphs/borders (ข้อ 10 — วงห้ามทับตัวอักษร)**; that check needs the
+`manual-assets/<slug>/clean/` folder Step 4 saved, so a missing `clean/` is itself a FAIL. **Skip the
+whole script only when the confirmed โหมดภาพ is `none`** — then what must be proved is that there are no
+circles at all, which is layer 1.
 
 **Exit 1 on either = ห้ามส่ง.** But **passing the scripts is not passing the review.** What still
 needs a human on layer 3 is narrower than before but not empty: **whether the control the step names

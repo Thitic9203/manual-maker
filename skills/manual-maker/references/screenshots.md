@@ -30,8 +30,11 @@ preferences — each one was paid for with rework on a real deliverable. **ห�
   drop-shadow**. Remove it by **colour test** (warm pixels → background), not with a blunt rectangle —
   a rectangle clips the text next to it (it ate a `09:00-10:00` label once).
 
-### 4. Red numbered circles = the step numbers
-- Draw a **filled red circle with a white number** on each click target.
+### 4. Red numbered circles = the step numbers (ห้ามทับตัวอักษร)
+- Draw a **filled red circle with a white number** that **marks** each click target — but the disc sits
+  on a **flat, text-free spot** (a clear margin, or a blank part of the control), **never on top of the
+  button's own label**. A circle drawn over the words hides the very thing the reader must read. Full
+  placement rule + the 5-layer guard: **"วงห้ามทับตัวอักษร — ด่านป้องกัน 5 ชั้น"** just below.
 - The numbers **must map 1:1 to the numbered steps** of that section's step table. Circle ① is step 1.
 - **Derive the circles from the _final_ step list — never draw before the steps are frozen.** This is
   the rule the others depend on, and the one that has actually been broken: circles placed against an
@@ -45,6 +48,68 @@ preferences — each one was paid for with rework on a real deliverable. **ห�
 - **≤ 5 callouts per image.** Same colour, radius, and number font throughout the whole manual.
 - **Record every circle in `annotations.json` as it is drawn** (next section) — the delivery gate
   checks that file against the pixels, so a circle that is not recorded, or recorded wrongly, fails.
+
+## วงห้ามทับตัวอักษร — ด่านป้องกัน 5 ชั้น (a disc must never cover text)
+
+ผู้ใช้สั่งให้มีวงแดงได้ **แต่วงต้องไม่นั่งทับตัวอักษรในภาพ** — label ของปุ่ม/ข้อความบนหน้าจอต้องอ่านออกครบ.
+กติกาที่ตัดสินได้จริง: **รอยทึบของ marker (วงแดง + ขอบขาว) บวกระยะกันชน ต้องตกลงบน "พื้นเรียบสีเดียว"
+ของภาพสะอาด** — พื้นขาว หรือพื้นปุ่มสีล้วนที่ไม่มี label ใต้วง ก็ได้; แต่ห้ามคร่อม glyph, ไอคอน, หรือเส้นขอบ.
+วัดจาก median ของ footprint = สีพื้น, พิกเซลที่ห่างเกิน `delta` = หมึก; หมึกเกิน `ink-max` = ทับ = ตก.
+
+ป้องกันเป็น 5 ชั้น — ชั้น 1–3 คือสิ่งที่ **ผู้เขียนทำตอน annotate**, ชั้น 4–5 คือ **ด่านตรวจก่อนส่ง**:
+
+1. **วางหลบ (draw-time placement).** อย่าจับกลางเป้าแบบหลับตา — นัดจ์ดิสก์ไปยัง **จุดพื้นเรียบที่ใกล้เป้าที่สุด**
+   (ขอบปุ่ม/ที่ว่างข้างเป้า). ถ้าเป้าเป็นข้อความล้วนไม่มีที่ว่างในตัว → วางในมาร์จิน/ช่องว่างข้าง ๆ แล้ว **ลากเส้นชี้
+   (leader) สั้น ๆ สีเดียวกันไปยังเป้า** เพื่อยังบอกได้ว่าวงชี้คอนโทรลไหน.
+2. **เช็คซ้ำทันที + ขยับ (fail-closed).** หลังเลือกจุด ให้ **อ่าน footprint บนภาพสะอาดซ้ำ** ถ้ายังไม่เรียบ → ขยับ;
+   ถ้าไล่รอบ ๆ เป้าจนสุดระยะแล้วยังไม่มีจุดเรียบ → **abort แล้วถ่ายจอกว้างขึ้น/แก้ขั้นตอน** ห้ามฝืนวางทับ —
+   ต้นแบบเดียวกับ `scrubOrThrow` ของชั้นความเป็นส่วนตัว: safeguard ที่พลาดเงียบได้ ไม่ใช่ safeguard.
+3. **เก็บภาพสะอาดไว้พิสูจน์.** ขั้นตอน capture เขียน PNG ดิบก่อนวาดวง — **copy ไป `manual-assets/<slug>/clean/`
+   ก่อนวาดเสมอ** (ชื่อไฟล์เดิม) ไม่งั้นด่านชั้น 4 ไม่มีภาพก่อน-วง มาเทียบ = พิสูจน์ไม่ได้ = ไม่ผ่าน.
+4. **ด่านพิกเซล (บังคับด้วยสคริปต์).** `scripts/verify-annotations.py` ข้อ 10 เทียบรอยดิสก์ที่วาดจริงกับ
+   `clean/` — footprint ไม่เรียบ = **FAIL, exit 1, ห้ามส่ง**. ค่าปรับได้: `--ring 3 --guard 8 --ink-delta 55
+   --ink-max 6 --clean <dir>` (ดีฟอลต์ `<assets>/clean`). ค่าเหล่านี้ตั้งจาก prototype สังเคราะห์ — ยืนยัน/จูน
+   กับภาพจริงรอบแรกได้ เหมือนที่ `find_circles` จูนกับ 19 ภาพจริง.
+5. **ด่านคน (บนไฟล์ export จริง).** `review.md` ชั้นที่ 3 มีแถว "ไม่มีวงทับตัวอักษร" — ตรวจบนไฟล์ที่ build แล้ว
+   **ตรวจไม่ได้ = ไม่ผ่าน**. สคริปต์ผ่าน ≠ ชั้นนี้ผ่าน (สคริปต์รู้แค่ footprint เรียบ ไม่รู้ว่าวงชี้ปุ่มที่ถูกไหม).
+
+รหัสอ้างอิง — ตัววัด "เรียบ" และการวางหลบ ใช้เกณฑ์เดียวกับสคริปต์ (annotator กับ verifier ต้องเห็นตรงกัน):
+
+```python
+from PIL import Image
+R, RING, GUARD, DELTA, INK_MAX = 18, 3, 8, 55, 6
+SR = R + RING + GUARD                       # 29 = รัศมีรอยทึบ + กันชน (ตรงกับ verify-annotations.py)
+
+def flat(gray, cx, cy, r=SR, delta=DELTA, ink_max=INK_MAX):
+    """footprint บนภาพสะอาด (โหมด 'L') เรียบสีเดียวไหม — True = วางวงตรงนี้ได้."""
+    W, H = gray.size; px = gray.load(); vals = []
+    for j in range(max(0, cy-r), min(H, cy+r+1)):
+        for i in range(max(0, cx-r), min(W, cx+r+1)):
+            if (i-cx)**2 + (j-cy)**2 <= r*r:
+                vals.append(px[i, j])
+    vals.sort(); bg = vals[len(vals)//2]
+    return sum(1 for v in vals if abs(v-bg) > delta) <= ink_max
+
+def place(gray, bbox):
+    """นัดจ์ไปจุดพื้นเรียบที่ใกล้ศูนย์กลางเป้าที่สุด (ขยายวงค้นจนเจอ)."""
+    x0, y0, x1, y1 = bbox; cx0, cy0 = (x0+x1)//2, (y0+y1)//2
+    for pad in range(SR, 260, 6):
+        best = None
+        for y in range(y0-pad, y1+pad, 3):
+            for x in range(x0-pad, x1+pad, 3):
+                if flat(gray, x, y):
+                    d = (x-cx0)**2 + (y-cy0)**2
+                    if best is None or d < best[0]:
+                        best = (d, x, y)
+        if best:
+            return best[1], best[2]
+    raise SystemExit('ไม่มีจุดพื้นเรียบใกล้เป้า — ถ่ายจอกว้างขึ้น หรือแก้ขั้นตอนให้ชี้เป้าที่มองเห็น')
+
+clean = Image.open(f'manual-assets/{slug}/clean/{sec}-{step}.png').convert('L')
+cx, cy = place(clean, target_bbox)          # ชั้น 1: หาจุดวาง
+assert flat(clean, cx, cy)                  # ชั้น 2: fail-closed ก่อนวาดจริง
+# วาดวงที่ (cx, cy) + เส้นชี้ถ้า (cx,cy) อยู่นอก target_bbox แล้วบันทึกลง annotations.json
+```
 
 ## `annotations.json` — the annotation manifest (write it while annotating, not afterwards)
 
@@ -135,6 +200,11 @@ and the red circle numbers line up with the step numbers by construction.
 
 `/tmp` is **scratch only** (clipboard bridge + PIL work). The **final annotated PNG** is always
 saved into `manual-assets/<slug>/` under its deterministic name — that copy is what gets embedded.
+
+**`manual-assets/<slug>/clean/` เก็บภาพก่อนวาดวง.** ก่อน annotate ทุกไฟล์ ให้ copy PNG ดิบ (ที่ capture
+เขียนมา) ไป `clean/<section>-<step>.png` **ก่อน** วาดวงทับตัวเดิม — ด่านชั้น 4 (`verify-annotations.py`
+ข้อ 10) ใช้ภาพใน `clean/` เทียบว่าใต้วงมีตัวอักษรไหม. ไม่มี `clean/` = พิสูจน์ไม่ได้ = ไม่ผ่าน. โฟลเดอร์นี้
+เป็นไฟล์งาน ไม่ถูกฝังในเอกสารและไม่ส่งมอบ.
 
 ## Prerequisites — installed for the user, never asked of them
 

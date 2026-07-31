@@ -2,6 +2,43 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.23.0] - 2026-07-31
+
+A red callout disc must never cover text in a screenshot — now guarded by a 5-stage, defense-in-depth
+gate, closing a hole where a disc drawn on a button's own label passed every 0.22.0 check.
+
+### Added
+- **ด่านป้องกัน 5 ชั้น "วงห้ามทับตัวอักษร"** — the disc marks the target but sits on a flat, text-free
+  spot; the label, icons, and borders under it stay readable.
+  1. **วางหลบ (draw-time)** — nudge the disc to the nearest flat spot near the target, with a leader
+     line when it lands off the target, instead of blind-centering on the label.
+  2. **fail-closed self-check** — re-sample the chosen spot on the clean image; relocate if not flat,
+     abort if no flat spot exists near the target (same stance as the name scrub).
+  3. **clean-image retention** — the pristine pre-annotation PNG is copied to
+     `manual-assets/<slug>/clean/` **before** drawing; without it, overlap cannot be proved.
+  4. **`verify-annotations.py` check 10 (mechanical)** — compares each drawn disc to the `clean/`
+     copy; the marker footprint (`radius+ring+guard` = 29 px) must be a flat single colour (median =
+     background, pixels beyond `--ink-delta` = ink, `ink > --ink-max` fails). Rejects covering glyphs
+     **and** straddling borders/icons; a disc on a solid button fill with no label under it passes.
+     Missing `clean/` = FAIL (ตรวจไม่ได้ = ไม่ผ่าน). New flags: `--clean --ring --guard --ink-delta
+     --ink-max`. **Exit 1 blocks delivery.**
+  5. **`review.md` layer-3 human row** — "ไม่มีวงทับตัวอักษร", proved on the exported file.
+
+### Changed
+- `screenshots.md` rule 4 — a disc now **marks** the target on a flat spot, no longer drawn "on each
+  click target"; adds the "วงห้ามทับตัวอักษร" section (placement algorithm + fail-closed snippet, sharing
+  check 10's exact flatness metric) and `clean/` retention.
+- `SKILL.md` (rule 7, Step 4, Step 8), `template.md` (annotation bullet + final checklist),
+  `review.md` (layer 3) — kept consistent with the new invariant.
+
+### Notes
+- The thresholds (`ring 3 / guard 8 / ink-delta 55 / ink-max 6`) were set on a **synthetic PIL
+  fixture**, not the real ELMS screenshots, so they are CLI-tunable and to be confirmed on the first
+  real run. Check 10 proves a flat footprint only — whether the disc points at the **right** control
+  stays layer 2 / human.
+- Existing installs with auto-update on get this on their next session (SessionStart hook →
+  `claude plugin update`); others run `/plugin marketplace update manual-maker-dev`.
+
 ## [0.22.0] - 2026-07-20
 
 A second skill in the plugin: populate a Confluence doc-space with real data in place of mock.

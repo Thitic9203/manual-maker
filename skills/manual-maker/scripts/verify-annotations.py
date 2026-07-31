@@ -11,15 +11,20 @@ manual-maker — pixel verifier for the red numbered callouts.
 แมนิเฟสต์ที่โกหกว่าวาดอะไรไว้ จะไม่ผ่าน.
 
     verify-annotations.py <annotations.json> --assets <dir> [--docx <file.docx>]
-                          [--radius 18] [--tol 40] [--max-dist 25] [--color "#E53935"]
+                          [--clean <dir>] [--radius 18] [--tol 40] [--max-dist 25] [--color "#E53935"]
+                          [--ring 3] [--guard 8] [--ink-delta 55] [--ink-max 6]
 
 อาร์กิวเมนต์แรกเป็น **ไฟล์เดียว** หรือ **โฟลเดอร์** ที่มี `<หัวข้อ>.annotations.json` หลายไฟล์ก็ได้
 (ผู้เขียนขนานใน Step 4–6 ต่างคนต่างเขียนไฟล์ของหัวข้อตัวเอง สคริปต์รวมให้เอง — ดู parallel.md)
 
+`--clean <dir>` = โฟลเดอร์ภาพ **สะอาดก่อนวาดวง** (ดีฟอลต์ `<assets>/clean`) — ใช้พิสูจน์ว่าวงไม่ทับตัวอักษร
+(ข้อ 10). ไม่มีโฟลเดอร์นี้ = พิสูจน์ไม่ได้ = ไม่ผ่าน. ขั้นตอน annotate ต้อง copy ภาพดิบไป clean/ ก่อนวาดเสมอ.
+
 Exit 0 = ไม่พบข้อผิดเชิงกล   Exit 1 = มี FAIL อย่างน้อยหนึ่งข้อ (ห้ามส่งมอบ)   Exit 2 = เปิด/อ่านไม่ได้
 
 ขอบเขตที่สคริปต์นี้ **ตัดสินไม่ได้**: วงอยู่บน "ปุ่มที่ถูกต้อง" หรือไม่ — นั่นคือความหมาย ไม่ใช่เรขาคณิต
-สคริปต์พิสูจน์ได้แค่ว่า *เลขครบและไม่ซ้ำ* และ *แมนิเฟสต์ตรงกับวงที่วาดจริง* เท่านั้น (ดู review.md ชั้นที่ 3).
+สคริปต์พิสูจน์ได้ว่า *เลขครบและไม่ซ้ำ*, *แมนิเฟสต์ตรงกับวงที่วาดจริง*, และ *วงไม่ทับตัวอักษร* (footprint บนภาพ
+สะอาดต้องเรียบสีเดียว) เท่านั้น — ยังไม่รู้ว่าใต้วงคือปุ่มที่ควรคลิกจริงไหม (ดู review.md ชั้นที่ 3).
 
 Pinned to /usr/bin/python3 — stdlib + Pillow เท่านั้น (PIL อยู่บนอินเทอร์พรีเตอร์นี้ เหมือนขั้นตอน annotate).
 """
@@ -203,6 +208,38 @@ def find_circles(path, target, tol, radius):
     return found, (w, h)
 
 
+# ------------------------------------------------------- overlap: disc vs text
+def footprint_ink(limg, cx, cy, r, delta):
+    """
+    (#ink, total) พิกเซลใต้รอยดิสก์รัศมี r บน **ภาพสะอาด** (โหมด 'L') — ink = ห่างจากค่ากลางเกิน delta.
+
+    เจตนาไม่ใช่ 'นับพิกเซลดำ' แต่คือ **footprint ต้องเรียบสีเดียว**: ค่ากลาง (median) คือสีพื้นของรอยนั้น
+    ส่วนที่ต่างจากพื้นมากคือ glyph/ไอคอน/เส้นขอบ ที่จะถูกวงทับ. ดิสก์นั่งบนพื้นขาว หรือบนพื้นปุ่มสีล้วน
+    (ที่ไม่มี label ใต้วง) → เรียบ → ink ≈ 0 = ผ่าน. ดิสก์ทับตัวอักษร หรือคร่อมขอบปุ่ม → ปนสองสี → ink สูง = ตก.
+    นี่คือกฎที่เข้มและปลอดภัยกว่า 'ไม่ทับ glyph' อย่างเดียว เพราะกันการคร่อมขอบ/ไอคอนไปด้วย.
+
+    ครอปถูก clamp กับขอบภาพ จึงไม่คืน None แม้วงจะชิดขอบ — วัดจากพิกเซลที่อยู่ในภาพจริงเท่านั้น.
+    """
+    W, H = limg.size
+    x0, y0 = max(0, int(cx - r)), max(0, int(cy - r))
+    x1, y1 = min(W, int(cx + r) + 1), min(H, int(cy + r) + 1)
+    if x1 <= x0 or y1 <= y0:
+        return 0, 0
+    px = limg.crop((x0, y0, x1, y1)).load()
+    rr, vals = r * r, []
+    for j in range(y1 - y0):
+        dy = (y0 + j) - cy
+        for i in range(x1 - x0):
+            dx = (x0 + i) - cx
+            if dx * dx + dy * dy <= rr:
+                vals.append(px[i, j])
+    if not vals:
+        return 0, 0
+    vals.sort()
+    bg = vals[len(vals) // 2]
+    return sum(1 for v in vals if abs(v - bg) > delta), len(vals)
+
+
 # ------------------------------------------------------------------------------- docx
 def _fingerprint(im):
     """Coarse content fingerprint that survives a re-encode: size + 16x16 grey, quantised."""
@@ -259,21 +296,28 @@ def main():
     args = sys.argv[1:]
     if not args or args[0].startswith('-'):
         print('usage: verify-annotations.py <annotations.json> --assets <dir> [--docx <file.docx>]\n'
-              '                             [--radius 18] [--tol 40] [--max-dist 25] [--color "#E53935"]',
+              '                             [--clean <dir>] [--radius 18] [--tol 40] [--max-dist 25]\n'
+              '                             [--color "#E53935"] [--ring 3] [--guard 8] [--ink-delta 55] [--ink-max 6]',
               file=sys.stderr)
         return 2
 
     man_path = args[0]
-    assets = docx_path = None
+    assets = docx_path = clean = None
     radius, tol, max_dist, color = 18.0, 40, 25.0, '#E53935'
+    ring, guard, ink_delta, ink_max = 3.0, 8.0, 55, 6
     for i, a in enumerate(args):
         nxt = args[i + 1] if i + 1 < len(args) else None
         if a == '--assets' and nxt: assets = nxt
         if a == '--docx' and nxt: docx_path = nxt
+        if a == '--clean' and nxt: clean = nxt
         if a == '--radius' and nxt: radius = float(nxt)
         if a == '--tol' and nxt: tol = int(nxt)
         if a == '--max-dist' and nxt: max_dist = float(nxt)
         if a == '--color' and nxt: color = nxt
+        if a == '--ring' and nxt: ring = float(nxt)
+        if a == '--guard' and nxt: guard = float(nxt)
+        if a == '--ink-delta' and nxt: ink_delta = int(nxt)
+        if a == '--ink-max' and nxt: ink_max = int(nxt)
 
     if not assets:
         print('ต้องระบุ --assets <dir> (โฟลเดอร์ manual-assets/<slug>/)', file=sys.stderr)
@@ -397,6 +441,11 @@ def main():
     # -- 6..7 pixel agreement -------------------------------------------------
     # ชั้นที่ทำให้ gate นี้ "จริง" แทนที่จะเป็นการรายงานตัวเอง: แมนิเฟสต์ที่อ้างว่าวาดวงไว้ตรงไหน
     # ต้องตรงกับวงที่ **วาดไว้จริง** ในพิกเซล
+    # ชั้นที่ 4 ของด่านป้องกัน "วงห้ามทับตัวอักษร": เทียบรอยดิสก์ที่ **วาดจริง** กับ **ภาพสะอาด** ก่อนวาด
+    clean_dir = clean or os.path.join(assets, 'clean')
+    sample_r = radius + ring + guard          # รอยทึบของ marker (fill+ขอบขาว) + ระยะกันชน
+    overlap_bad, clean_missing, clean_unreadable = [], [], []
+
     count_bad, pos_bad, unreadable = [], [], []
     for fname in sorted(by_file):
         p = os.path.join(assets, fname)
@@ -407,6 +456,25 @@ def main():
         except Exception as e:
             unreadable.append(f'{fname}: {e}')
             continue
+
+        # -- overlap vs the clean (pre-annotation) image --------------------
+        cpath = os.path.join(clean_dir, fname)
+        if not os.path.isfile(cpath):
+            clean_missing.append(fname)
+        else:
+            try:
+                limg = Image.open(cpath).convert('L')
+            except Exception as e:
+                clean_unreadable.append(f'{fname}: {e}')
+            else:
+                for (dx, dy, _a) in detected:
+                    ink, tot = footprint_ink(limg, dx, dy, sample_r, ink_delta)
+                    if tot and ink > ink_max:
+                        near = by_file[fname]
+                        nn = min(near, key=lambda t: (t[1]['x'] - dx) ** 2 + (t[1]['y'] - dy) ** 2)[1]['n']
+                        overlap_bad.append('%s วง %s ที่ (%.0f,%.0f) ทับตัวอักษร/ขอบ '
+                                           '(%d/%d พิกเซลไม่เรียบ)' % (fname, nn, dx, dy, ink, tot))
+
         claimed = by_file[fname]
         if len(detected) != len(claimed):
             count_bad.append(f'{fname}: แมนิเฟสต์อ้าง {len(claimed)} วง แต่ในภาพมี {len(detected)}')
@@ -490,6 +558,25 @@ def main():
             'เช่น "เปิดเบราว์เซอร์ แล้วเข้าที่ https://…") — '
             '"คอนโทรลที่อ้างเป็นตัวที่ควรคลิกจริงไหม" ยังต้องใช้คนตัดสิน'
             % (len(checked), len(skipped)))
+
+    # -- 10. วงห้ามทับตัวอักษร — เทียบรอยดิสก์กับภาพสะอาด (footprint ต้องเรียบสีเดียว) -----
+    # ปิดช่องที่ 0.22.0 ยังเปิดอยู่: เลข/พิกัด/label ถูกหมด แต่วงนั่งทับ label ของปุ่มก็ยังผ่าน
+    # เพราะไม่มีอะไรมองใต้วง. ตรวจโดยดูพิกเซลก่อนวาดวงว่าบริเวณนั้นเรียบสีเดียวจริง (ไม่มี glyph/ไอคอน/ขอบ)
+    if clean_unreadable:
+        add('10', 'วงไม่ทับตัวอักษร (เทียบภาพสะอาด)', 'FAIL',
+            'อ่านภาพสะอาดไม่ได้: ' + '; '.join(clean_unreadable[:3]))
+    elif clean_missing:
+        add('10', 'วงไม่ทับตัวอักษร (เทียบภาพสะอาด)', 'FAIL',
+            'ไม่พบภาพสะอาดใน %s: %s — ต้อง copy ภาพดิบไป clean/ ก่อนวาดวง ไม่งั้นพิสูจน์ไม่ได้ = ไม่ผ่าน'
+            % (clean_dir, ', '.join(clean_missing[:4]) + (' …' if len(clean_missing) > 4 else '')))
+    elif overlap_bad:
+        add('10', 'วงไม่ทับตัวอักษร (เทียบภาพสะอาด)', 'FAIL', '; '.join(overlap_bad[:3]))
+    elif not by_file:
+        add('10', 'วงไม่ทับตัวอักษร (เทียบภาพสะอาด)', 'SKIP', 'ไม่มีวงให้ตรวจ')
+    else:
+        add('10', 'วงไม่ทับตัวอักษร (เทียบภาพสะอาด)', 'PASS',
+            'ทุกวงอยู่บนพื้นเรียบสีเดียว (ไม่ทับ glyph/ไอคอน/ขอบ) — รัศมีตรวจ %.0fpx (guard %.0fpx)'
+            % (sample_r, guard))
 
     return report()
 

@@ -59,7 +59,7 @@ silently merge volumes back into one, and never split a confirmed single volume.
 - **Real live-system screens only** — never a placeholder box, a mock-up, or a redrawn table standing in for a screen.
 - **Full screen (เต็มจอ)** — never crop the content. The primary **headless Playwright** capture has no glow border and no cursor; only the screen/clipboard **fallback** needs the glow removed (mind the orange agency logo, which naive orange-detection will eat).
 - **No mouse cursor** in the image (headless has none; paint it out only on the fallback path).
-- **Red numbered circles** on the click targets, **numbers matching the step numbers 1:1**, ≤ 5 per image, same style throughout.
+- **Red numbered circles** marking the click targets, **numbers matching the step numbers 1:1**, ≤ 5 per image, same style throughout — the disc sits on a **flat, text-free spot (never covering the button's label)**; see `screenshots.md` "วงห้ามทับตัวอักษร".
 - Steps name the system's **real** menu/button/tab wording — no placeholder text left behind.
 - **Mask people's names** (students are minors). Every screenshot sharp and legible; caption what to look at.
 - **File location:** every source PNG lives in `manual-assets/<slug>/`, named `<section>-<step>.png` (see `screenshots.md`) — figure ↔ step ↔ filename stay 1:1, so the red circle numbers align with the step numbers by construction.
@@ -93,7 +93,7 @@ Example — ✅ "เลือกเมนู **หลักสูตรของ
 ### 5.2 สร้างรายการใหม่
 
 1. คลิกปุ่ม **"+ สร้างใหม่"** มุมขวาบน
-   ![create button](manual-assets/<slug>/05-2-01.png)   ← กรอบ + เลข 1 ที่ปุ่ม
+   ![create button](manual-assets/<slug>/05-2-01.png)   ← เลข 1 ชี้ปุ่ม วางบนที่ว่าง ไม่ทับตัวอักษร
 2. กรอกชื่อในช่อง **ชื่อ**
 3. คลิก **บันทึก**
    → ระบบแสดง "บันทึกสำเร็จ" และรายการปรากฏในตาราง
@@ -120,6 +120,7 @@ Go through **every** line; fix all before handing over. Do not deliver a manual 
 - [ ] **ภาพเป็นระบบจริง** — every figure is a **real, full-screen** live-system screenshot. No placeholder box, no mock-up, no redrawn table.
 - [ ] **ภาพสะอาด** — no glow border, **no mouse cursor**, agency logo intact, content never cropped (headless capture is clean by default; fallback captures must have the glow/cursor removed).
 - [ ] **วงแดงตรงสเตป** — red numbered circles map **1:1** to the step numbers (≤ 5 per image), consistent style.
+- [ ] **วงไม่ทับตัวอักษร** — every disc sits on a flat, text-free spot; no label/icon/border hidden under a circle (proved by `verify-annotations.py` ข้อ 10 vs `clean/`).
 - [ ] **ชื่อคนถูกปิด** — students'/teachers' real names masked or blurred.
 - [ ] **ไม่มี placeholder ค้าง** — no "TODO", no "[…]", no `SCREENSHOT PLACEHOLDER`, no `[ระบุ…]`, no missing caption.
 - [ ] **รูปฝังจริง** — `word/media/` has the image, the relationship resolves, the `<w:drawing>` block is complete.
