@@ -1,6 +1,6 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.23.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.24.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 **A Claude Code plugin that documents the web systems your team builds.** It ships **two skills** that turn a running system into finished documentation — a step-by-step user handbook, or a fully populated Confluence space.
 
@@ -93,6 +93,7 @@ claude plugin list | grep -A3 'manual-maker@'   # prints version + enabled statu
 - Updates fire only when the **`version` string changes** — which `scripts/bump-version.sh` does on every release.
 - Uses the official `claude plugin update` command (never touches the cache directly), guards against overlapping updates with a lock, and stays silent when offline, up to date, or `claude` is not on PATH.
 - Applies to updates **from v0.6.0 onward** — an older install must reach v0.6.0 once (its old hook only notifies), then it is fully automatic.
+- **Survives a _disabled_ plugin (v0.24.0+).** A disabled plugin's own hooks never run, which used to freeze the install silently at whatever version it was disabled at. The plugin now also registers a **user-scope** hook in `~/.claude/settings.json` (`~/.manual-maker/self-update.sh`) that runs regardless of plugin state: if it finds the install **disabled _and_ behind**, it re-enables and updates in the background, then says so. Enabled or up-to-date → it stays silent. Same `MANUAL_MAKER_NO_AUTOUPDATE=1` opt-out stops it. The `settings.json` edit is marker-scoped, atomic, backed up to `settings.json.mm-bak`, and unit-tested — recorded trade-off in `RISK_REGISTER.md` (MM-005).
 - GitHub's raw CDN caches ~5 minutes, so a hook may not see a brand-new release immediately. Wait ~5 minutes and open a new session.
 
 **Turn auto-update off** — the hook falls back to notify-only:
@@ -141,6 +142,7 @@ Third-party native auto-update is **off by default** (only Anthropic's official 
 - **Plugin:** inside Claude Code → `/plugin uninstall manual-maker@manual-maker-dev`.
 - **Personal skill:** `rm -rf ~/.claude/skills/manual-maker ~/.claude/skills/confluence-docs`.
 - **Shim commands:** `rm ~/.claude/commands/manual-maker.md ~/.claude/commands/confluence-docs.md` — these live outside the plugin system, so `/plugin uninstall` leaves them. See [Bare commands & shims](#bare-commands--shims).
+- **Self-update hook (v0.24.0+):** `rm ~/.manual-maker/self-update.sh` and delete the `# manual-maker-plugin managed self-update` entry from `~/.claude/settings.json` (or restore `~/.claude/settings.json.mm-bak`) — it is user-scope, so `/plugin uninstall` leaves it. See [Update](#update) / `RISK_REGISTER.md` MM-005.
 
 ---
 

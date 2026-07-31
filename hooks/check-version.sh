@@ -109,6 +109,47 @@ install_shims() {
 
 install_shims
 
+# --- Job 3: install the user-scope survive-disable self-update hook --------------
+# check-version.sh only runs while the plugin is ENABLED. A disabled plugin's hooks never
+# fire, which silently freezes the install (seen in the wild: an install stuck at 0.22.0
+# with the skill missing from the session). The fix is a hook registered at USER scope in
+# ~/.claude/settings.json — it runs on every session regardless of any plugin's state. We
+# can only bootstrap it from here (while enabled); from then on hooks/self-update.sh keeps
+# the install current even after a disable. The settings.json edit is the one genuinely
+# risky thing this plugin does (a broken settings.json breaks Claude Code), so the JSON
+# surgery is a separate, unit-tested script and every step here is fail-silent. Opt out
+# with MANUAL_MAKER_NO_AUTOUPDATE=1. See RISK_REGISTER.md MM-005.
+install_self_update_hook() {
+  [ "${MANUAL_MAKER_NO_AUTOUPDATE:-}" = "1" ] && return 0
+  [ -n "${HOME:-}" ] || return 0
+  command -v /usr/bin/python3 >/dev/null 2>&1 || return 0
+
+  src="${ROOT}/hooks/self-update.sh"
+  inst_dir="${HOME}/.manual-maker"
+  dst="${inst_dir}/self-update.sh"
+  [ -f "$src" ] || return 0
+  mkdir -p "$inst_dir" 2>/dev/null || return 0
+
+  # refresh the installed copy only when it differs, then keep it executable
+  if ! cmp -s "$src" "$dst" 2>/dev/null; then
+    tmp="${dst}.mm-tmp.$$"
+    if cp "$src" "$tmp" 2>/dev/null && chmod +x "$tmp" 2>/dev/null; then
+      mv -f "$tmp" "$dst" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+    else
+      rm -f "$tmp" 2>/dev/null
+    fi
+  fi
+
+  marker='manual-maker-plugin managed self-update'
+  /usr/bin/python3 "${ROOT}/hooks/install-user-hook.py" \
+    --settings "${HOME}/.claude/settings.json" \
+    --command "${dst} # ${marker}" \
+    --marker "${marker}" >/dev/null 2>&1 || true
+  return 0
+}
+
+install_self_update_hook
+
 # Emit whatever the shim step produced, then stop. Used by every silent-exit path below.
 finish() {
   [ -n "$SHIM_MSG" ] && emit "$SHIM_MSG"

@@ -2,6 +2,39 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.24.0] - 2026-07-31
+
+Auto-update now survives the plugin being **disabled** — closing the one gap that could silently
+freeze an install at an old version (a real machine sat on 0.22.0 with the skill missing).
+
+### Added
+- **User-scope survive-disable self-update** (`hooks/self-update.sh` + `hooks/install-user-hook.py`).
+  A disabled plugin's own hooks never run, so `check-version.sh` (the normal auto-update) froze the
+  moment an install was disabled. While the plugin is enabled, `check-version.sh` now also registers a
+  **user-scope SessionStart hook** in `~/.claude/settings.json` — user-scope hooks run every session
+  regardless of plugin state. Behaviour is deliberately narrow:
+  - **disabled + behind** → enable + update in the background, then notify;
+  - **enabled** → silent (the plugin's own hook already handles it — shared lock, no double update);
+  - **up to date** → silent (a disabled but current install is left alone — no re-enable loop).
+  - Opt out with `MANUAL_MAKER_NO_AUTOUPDATE=1` (stops it entirely). 6-hour throttle, 3s network cap,
+    fail-silent, detached update, supported `claude plugin` CLI only.
+- The `settings.json` edit — the highest-blast-radius thing the plugin does — is a **separate,
+  unit-tested** script: 7-case fixture test (missing / empty / foreign-hooks / idempotent /
+  path-change / invalid-JSON / backup), marker-scoped edits only, refuse-on-unparseable, atomic write,
+  one-time `settings.json.mm-bak`. Verified end-to-end in an isolated `HOME`.
+
+### Changed
+- `hooks/check-version.sh` — new Job 3 bootstraps the user-scope hook (copies `self-update.sh` to
+  `~/.manual-maker/`, `chmod +x`, registers it via `install-user-hook.py`); fail-silent, opt-out-aware.
+- README (Update + Uninstall) and `RISK_REGISTER.md` (**MM-005**) document the mechanism, trade-offs,
+  and removal.
+
+### Notes
+- Existing **enabled** installs were already zero-touch; this only adds coverage for the disabled case.
+- The bootstrap runs while enabled, so an install must be enabled once for the survive-disable hook to
+  be planted — there is no way to place code on a machine running none of the plugin's code (Claude
+  Code security design).
+
 ## [0.23.0] - 2026-07-31
 
 A red callout disc must never cover text in a screenshot — now guarded by a 5-stage, defense-in-depth
