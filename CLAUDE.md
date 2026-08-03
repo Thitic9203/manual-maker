@@ -145,6 +145,23 @@ not be "simplified" away:
   layer 5 **screenshots the published page** to prove it renders as a diagram, not raw code. No renderable
   macro in the space → ตรวจไม่ได้ = ไม่ผ่าน: stop and ask to install one / attach manually. See
   `references/diagrams.md`. The diagram content is never invented.
+- **Diagrams must be white-background only — a 5-layer defense (v0.24.1/0.24.2), because nothing checked it.**
+  Mermaid's stock theme tints its own output — `note` blocks render **yellow**, actors/activation lavender —
+  and a delivered EvMS sequence diagram shipped with exactly that yellow. The fix is not "pick a nicer theme":
+  it is a white-only palette pinned per diagram plus five layers, split across the two owners the skill already
+  has. **(1)** authoring — every Mermaid source opens with a mandatory `%%{init:{'theme':'base',…white…}}%%`
+  directive (`diagrams.md` item 3), bans `style`/`classDef`/`fill:` backgrounds and the pre-baked
+  `forest`/`neutral`/`dark`/`default` themes; **(2)** drafting-agent self-check before write; **(3)** the
+  enforceable gate — `verify-confluence.py`'s `check_diagrams` (exit 1 blocks the write); **(4)** the layer-5
+  rendered-page screenshot; **(5)** the layer-5 human row + re-review-all-on-fix. The load-bearing idea in
+  check 3 is that the mandated palette is **white/black/grey only, i.e. every hex is greyscale (R==G==B)**, so
+  the mechanical rule is exact and false-positive-free: inside each Mermaid block (scoped to CDATA /
+  `<ac:plain-text-body>` / `<pre>` so unrelated Confluence panel colours aren't scanned) **every hex must be
+  greyscale and the white-init directive must be present**; a yellow `#fff5ad` or lavender `#ECECFF` is R≠G≠B
+  and fails. Proven on RED/GREEN fixtures, not real pages. **What it cannot know** (say so, don't oversell): it
+  proves the *source* is clean, never that the *rendered* pixels are white — a macro could ignore the
+  directive, and it only sees Mermaid stored in those three forms. That gap is exactly why layers 4–5
+  (screenshot + human) stay mandatory and ตรวจไม่ได้ = ไม่ผ่าน still applies.
 - **The 5-layer review is adapted, not the manual-maker file.** `references/review.md` keeps the
   philosophy (ตรวจไม่ได้=ไม่ผ่าน, 5/5, re-review all after a fix) but layers map to Confluence: (1) ตรงตาม
   ยืนยัน (2) ทุกค่ามีที่มา + **ไม่มี mock เหลือ** (3) โครง/ฟอแมตคงเดิม (4) ศัพท์/ตัวเลข/คำพราก (5) **render บนหน้าที่

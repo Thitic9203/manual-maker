@@ -73,6 +73,82 @@ CRED_PATTERNS = [
 
 INVISIBLE = {"​": "ZERO WIDTH SPACE", "­": "SOFT HYPHEN", "‌": "ZWNJ"}
 
+# ---------------------------------------------------------------- diagram (Mermaid) white-only palette
+# doc-types with diagrams must render black/grey on a PURE WHITE background — Mermaid's
+# stock themes tint their output (yellow `note`, lavender actor/activation). The mandated
+# palette (see references/diagrams.md) uses only white/black/grey, i.e. every hex is
+# greyscale (R==G==B). So the mechanical rule is exact and false-positive-free: inside a
+# Mermaid source, EVERY hex colour must be greyscale, AND the white-init directive must be
+# present so the theme cannot inject its own non-grey defaults. This proves the *source* is
+# clean; it cannot prove the rendered pixels are white (a macro could ignore the directive) —
+# that stays layers 4/5 (screenshot + human). It only sees Mermaid stored in CDATA /
+# <ac:plain-text-body> / <pre>; an app storing it otherwise falls to layers 4/5.
+DIAGRAM_KW = re.compile(
+    r"\b(?:sequenceDiagram|erDiagram|classDiagram|stateDiagram(?:-v2)?|"
+    r"journey|gantt|pie|flowchart\s+\w+|graph\s+(?:TB|TD|BT|RL|LR)\b)",
+    re.I,
+)
+PREBAKED_THEME = re.compile(
+    r"theme['\"]?\s*:\s*['\"](forest|default|neutral|dark)['\"]", re.I
+)
+WHITE_INIT = re.compile(
+    r"%%\{[^%]*init[^%]*theme['\"]?\s*:\s*['\"]base['\"][^%]*#(?:fff|ffffff)\b[^%]*\}%%",
+    re.I | re.S,
+)
+HEX = re.compile(r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
+
+
+def _mermaid_blocks(body):
+    raw = []
+    raw += re.findall(r"<!\[CDATA\[(.*?)\]\]>", body, re.S)
+    raw += re.findall(r"<ac:plain-text-body[^>]*>(.*?)</ac:plain-text-body>", body, re.S)
+    raw += re.findall(r"<pre[^>]*>(.*?)</pre>", body, re.S)
+    out, seen = [], set()
+    for b in raw:
+        u = _html.unescape(b).replace("<![CDATA[", "").replace("]]>", "").strip()
+        if not u or u in seen:
+            continue
+        seen.add(u)
+        if DIAGRAM_KW.search(u):
+            out.append(u)
+    return out
+
+
+def _non_grey_hexes(block):
+    bad = []
+    for hx in HEX.findall(block):
+        h = hx.lower()
+        if len(h) == 3:
+            r, g, b = h[0] * 2, h[1] * 2, h[2] * 2
+        else:
+            r, g, b = h[0:2], h[2:4], h[4:6]
+        if not (r == g == b):
+            bad.append("#" + hx)
+    return bad
+
+
+def check_diagrams(body):
+    blocks = _mermaid_blocks(body)
+    if not blocks:
+        add("diagram", "ไดอะแกรมพื้นขาวล้วน", "ok", "ไม่พบ Mermaid source (ไม่มีไดอะแกรม)")
+        return
+    problems = []
+    for i, b in enumerate(blocks, 1):
+        if not WHITE_INIT.search(b):
+            problems.append(f"block {i}: ไม่มี white-init directive (theme:base + #ffffff)")
+        th = PREBAKED_THEME.search(b)
+        if th:
+            problems.append(f"block {i}: ใช้ธีมสีสำเร็จ '{th.group(1)}' (ต้อง base เท่านั้น)")
+        bad = _non_grey_hexes(b)
+        if bad:
+            uniq = ", ".join(sorted(set(bad))[:8])
+            problems.append(f"block {i}: มีสีไม่ใช่ขาว/เทา ({uniq})")
+    if problems:
+        add("diagram", "ไดอะแกรมพื้นขาวล้วน", "fail", "; ".join(problems))
+    else:
+        add("diagram", "ไดอะแกรมพื้นขาวล้วน", "ok",
+            f"{len(blocks)} block ผ่าน (init ครบ, hex เทา/ขาวล้วน)")
+
 
 def check_mock(body):
     hits = []
@@ -221,6 +297,7 @@ def main():
     check_credentials(body)
     check_invisible(body)
     check_subsystem(body)
+    check_diagrams(body)
 
     if original_path:
         try:

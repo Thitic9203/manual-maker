@@ -2,6 +2,27 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.24.2] - 2026-08-03
+
+The white-only diagram rule from 0.24.1 was prose only — nothing enforced it. 0.24.2 makes it a
+**5-layer defense** with a real mechanical gate, mirroring the "วงห้ามทับตัวอักษร" pattern.
+
+### Added
+- **`verify-confluence.py` → `check_diagrams` (ชั้น 3, exit 1 blocks the write).** Scans every Mermaid
+  source in the prepared body (scoped to CDATA / `<ac:plain-text-body>` / `<pre>` so unrelated Confluence
+  panel colours aren't touched) and FAILs if a block lacks the white-init directive, uses a pre-baked
+  colour theme, or contains **any non-greyscale hex**. The mandated palette is white/black/grey only —
+  every hex has R==G==B — so the rule is exact and false-positive-free; a yellow `#fff5ad` or lavender
+  `#ECECFF` is R≠G≠B and fails. Proven on RED/GREEN fixtures. It proves the *source* is clean, never the
+  *rendered* pixels — that stays layers 4–5.
+- **`diagrams.md` "แนวป้องกัน 5 ชั้น"** — the full defense written out with owner + evidence per layer:
+  (1) authoring directive, (2) drafting-agent self-check, (3) the `check_diagrams` gate, (4) rendered-page
+  screenshot, (5) human review row + re-review-all-on-fix. Layers 1–3 before write, 4–5 after publish.
+
+### Changed
+- `review.md` layer 5 — proof section now names both halves (`check_diagrams` for source, screenshot for
+  rendered page); `CLAUDE.md` records the defense and its honest limits.
+
 ## [0.24.1] - 2026-08-03
 ### Changed
 - **`confluence-docs` diagrams are now white-background only.** Mermaid's default theme tints its
