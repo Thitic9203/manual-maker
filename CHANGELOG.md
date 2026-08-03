@@ -2,6 +2,17 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.24.1] - 2026-08-03
+### Changed
+- **`confluence-docs` diagrams are now white-background only.** Mermaid's default theme tints its
+  output — `note` blocks render **yellow**, actors/activation bars render lavender. `references/diagrams.md`
+  now requires **every** generated diagram to open with a white-only `%%{init: {'theme':'base', …}}%%`
+  directive that pins all fills to `#ffffff` and all lines/text to dark grey/black (covers sequence, ER,
+  and flow/EA), bans `style`/`classDef`/`fill:` background colours and the pre-baked `forest`/`neutral`/
+  `dark` themes, and steers emphasis to heavier borders instead of fills. Review layer 5 gains a matching
+  check — a published diagram with any non-white fill (yellow/lavender/other) now **fails** and must be
+  re-published with the corrected directive.
+
 ## [0.24.0] - 2026-07-31
 
 Auto-update now survives the plugin being **disabled** — closing the one gap that could silently

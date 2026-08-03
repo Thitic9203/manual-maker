@@ -164,6 +164,7 @@ export จริง" ของ manual-maker: ข้อผิดหลายอ�
 - [ ] **screenshot หน้า Confluence จริง** (Playwright/Chrome MCP) แล้วดูด้วยตา:
   - [ ] ตาราง render ครบ ไม่พัง คอลัมน์ `Subsystem` แสดง
   - [ ] **Mermaid/diagram macro render เป็นภาพ ไม่ใช่โค้ดดิบ ไม่ใช่กล่อง error** (ถ้า doc-type มี diagram)
+  - [ ] **ไดอะแกรมพื้นขาวล้วน** — ไม่มีบล็อกเหลือง (`note`) / ลาเวนเดอร์ (actor/activation) / สีพื้นอื่นแซม (ดู `diagrams.md`)
   - [ ] panel/expand/status แสดงถูก
   - [ ] ลิงก์ index → child resolve ได้ (คลิกได้จริง), label ติดครบบนหน้า
   - [ ] ไม่มีคำพรากตอน render, ภาษาไทยแสดงถูก
@@ -173,8 +174,8 @@ export จริง" ของ manual-maker: ข้อผิดหลายอ�
 
 **หลักฐานที่ต้องแสดง:** ภาพ screenshot หน้าจริง + คำอธิบายว่าเห็นตาราง/diagram/ลิงก์ทำงานจริง.
 
-**ตกทันทีเมื่อ:** diagram แสดงเป็นโค้ดดิบ/error · ตารางพัง · ลิงก์ index เสีย · "(Mock)" ค้างในชื่อ · คำพราก
-ตอน render.
+**ตกทันทีเมื่อ:** diagram แสดงเป็นโค้ดดิบ/error · **diagram มีสีพื้นอื่นแซม (เหลือง/ลาเวนเดอร์/ฯลฯ) ไม่ใช่ขาวล้วน** ·
+ตารางพัง · ลิงก์ index เสีย · "(Mock)" ค้างในชื่อ · คำพรากตอน render.
 
 **ห้ามมโน/โกหกในด่านนี้:** **ห้ามขึ้น ✅ ด่าน 5 โดยไม่ได้ screenshot หน้าจริง** — ตรวจไม่ได้ = ❌ · ถ้า diagram
 ไม่ render ห้ามบอกว่า "ใส่แล้ว" — มันยังไม่ครบ (ดู `diagrams.md`) · บน **production space** ควร publish เป็น
