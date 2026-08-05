@@ -146,8 +146,8 @@ Go through **every** line; fix all before handing over. Do not deliver a manual 
 - [ ] **แบ่งเล่มถูกตามที่ยืนยัน** — the number of volumes and the split dimension match the confirmed intake Q9 choice; each by-role/-module volume has its own cover, TOC, and numbering restarting at 1, and covers only its role/module.
 - [ ] **เลขข้อถูกต้อง** — numbering continuous, no gaps/duplicates; TOC matches body.
 - [ ] **หัวข้อเลขอัตโนมัติ** — heading numbers come from Word's multilevel list (no hand-typed `1.1` in the heading text, no double-numbering). `verify-doc.py` ข้อ 13.
-- [ ] **ทุกรูป/ตารางมี caption** — every figure `รูปที่ N` and content table `ตารางที่ N`, auto `SEQ`; none missing. `verify-doc.py --captions required` ข้อ 11.
-- [ ] **รูปอยู่ในแถวขั้นตอน** — each screenshot sits in its own step's row; a multi-step image is in the first of those steps' rows.
+- [ ] **ทุกรูป/ตารางมี caption** — every figure `รูปที่ N` and content table `ตารางที่ N`, auto `SEQ`; none missing. `verify-doc.py --captions required` ข้อ 11 (รูป) + ข้อ 14 (ตาราง).
+- [ ] **รูปอยู่ในแถวขั้นตอน** — each screenshot sits in its own step's row; a multi-step image is in the first of those steps' rows. `verify-doc.py` ข้อ 15 + ยืนยันด้วยตาว่าแต่ละรูปอยู่แถวที่ถูก.
 - [ ] **Thai Distribute** — authored Thai body paragraphs justify with `w:jc w:val="thaiDistribute"`. `verify-doc.py --thai-distribute required` ข้อ 12.
 - [ ] **คำศัพท์สอดคล้อง** — one locked term per concept throughout; no synonyms slipped in (NDLP: ตรงกับ `glossary-ndlp.md`).
 - [ ] **โทน/ภาษาถูกต้อง** — formal written language; no 1st/2nd-person pronouns (ผม/คุณ/ท่าน), no particles (ครับ/ค่ะ); reads naturally, not machine-translated; spelling correct.

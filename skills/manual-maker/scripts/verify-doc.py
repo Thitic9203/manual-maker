@@ -264,6 +264,30 @@ def main():
             (f"{inline_imgs} รูป มี caption ครบ (ตารางเนื้อหาต้องตรวจ caption ด้วยตา)"
              if inline_imgs else "ไม่มีรูป inline"))
 
+    # -- 14. content-table captions (feedback: "รูปภาพ หรือ ตาราง" → ตาราง too) --
+    # Every *content* table needs a "ตารางที่ N" caption so tables order too. The
+    # step-layout table is NOT a content table — exclude it by its header signature
+    # (contains ภาพประกอบ together with ขั้นตอน/ลำดับ) so this never fires on a step
+    # table. Same floor logic as figures: FAIL if content tables outnumber captions.
+    if captions == "required":
+        content_tbls = 0
+        for tm in re.finditer(r"<w:tbl[ >].*?</w:tbl>", doc, re.S):
+            ttext = text_of(tm.group(0))
+            is_step = "ภาพประกอบ" in ttext and ("ขั้นตอน" in ttext or "ลำดับ" in ttext)
+            if not is_step:
+                content_tbls += 1
+        tbl_caps = 0
+        for m in re.finditer(r"<w:p(?:\s[^>]*)?>.*?</w:p>", doc, re.S):
+            ptext = text_of(m.group(0)).strip()
+            if re.match(r'^(ตารางที่|Table\b)', ptext) or re.search(r'SEQ\s+(Table|ตาราง)', m.group(0)):
+                tbl_caps += 1
+        add("14", "ตารางเนื้อหามีคำบรรยาย (caption)",
+            "FAIL" if content_tbls > tbl_caps else ("SKIP" if content_tbls == 0 else "PASS"),
+            f"ตารางเนื้อหา {content_tbls} แต่พบ caption ตารางเพียง {tbl_caps} — บางตารางไม่มีคำบรรยาย"
+            if content_tbls > tbl_caps else
+            (f"{content_tbls} ตารางเนื้อหา มี caption ครบ (ตารางขั้นตอนไม่นับ)"
+             if content_tbls else "ไม่มีตารางเนื้อหา (ตารางขั้นตอนไม่นับ)"))
+
     # -- 12. Thai Distribute justification (feedback: การตัดคำใช้ Thai Distribute)
     # Authored Thai body paragraphs should justify with w:jc w:val="thaiDistribute"
     # (even Thai wrapping + margins). Conservative, false-positive-free floor: fail
@@ -323,6 +347,30 @@ def main():
             + ("" if auto_num else " — ไม่พบ numPr; ถ้าไม่มีต้นแบบบังคับ ควรผูก Heading กับ multilevel list"))
     else:
         add("13", "หัวข้อใช้เลขอัตโนมัติ ไม่ซ้อนเลขมือ", "SKIP", "ไม่พบย่อหน้าที่เป็นหัวข้อ")
+
+    # -- 15. step screenshots live inside the step table's rows (feedback 4) ---
+    # The defect to prevent: walkthrough screenshots dumped outside their step
+    # rows. False-positive-safe signature: a doc that HAS step tables and HAS
+    # inline images but with NONE inside any table cell → images were collected
+    # outside the rows. Standalone UI-orientation figures are fine, so this only
+    # fires on the total-miss case, and SKIPs when there is no step table.
+    step_tables = [tm.group(0) for tm in re.finditer(r"<w:tbl[ >].*?</w:tbl>", doc, re.S)
+                   if "ภาพประกอบ" in text_of(tm.group(0))
+                   and ("ขั้นตอน" in text_of(tm.group(0)) or "ลำดับ" in text_of(tm.group(0)))]
+    inline_total = len(re.findall(r'<wp:inline[\s>]', doc))
+    inline_in_cells = sum(len(re.findall(r'<wp:inline[\s>]', tc))
+                          for tc in re.findall(r"<w:tc>.*?</w:tc>", doc, re.S))
+    if step_tables and inline_total and inline_in_cells == 0:
+        add("15", "รูปขั้นตอนอยู่ในแถวของตารางขั้นตอน", "FAIL",
+            f"มีตารางขั้นตอน {len(step_tables)} และรูป {inline_total} แต่ไม่มีรูปอยู่ในเซลล์เลย "
+            f"— รูปถูกวางนอกแถวขั้นตอน")
+    elif step_tables:
+        add("15", "รูปขั้นตอนอยู่ในแถวของตารางขั้นตอน", "PASS",
+            f"ตารางขั้นตอน {len(step_tables)} · รูปในเซลล์ {inline_in_cells}/{inline_total} "
+            f"(รูปนอกตารางอาจเป็นภาพแนะนำหน้าจอ — ยืนยันด้วยตา)")
+    else:
+        add("15", "รูปขั้นตอนอยู่ในแถวของตารางขั้นตอน", "SKIP",
+            "ไม่พบตารางขั้นตอน (คู่มือข้อความล้วน หรือยังไม่ประกอบตารางขั้นตอน)")
 
     # ------------------------------------------------------------------ report
     print()

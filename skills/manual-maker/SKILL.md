@@ -35,6 +35,7 @@ It is a thin team wrapper that **composes** Anthropic's first-party skills (it d
    unclear comes back as `BLOCKED`/`ASK` and **this thread asks the user in chat** before any fix is
    chosen. Per-section review is a **pre-check, never a replacement** for the Step 8 five-layer gate.
 9. **Login is headless & env-seeded; credentials are session-only.** Screenshots use a **headless Playwright** browser that authenticates by reading the credential **from the environment** (`process.env.EMAIL`/`process.env.PW`) or a pre-saved `storageState` — Claude **never types a password into a live form by hand**. The secret is used only in-session, **never** written to the manual, repo, logs, a committed script, or the profile, and **never echoed** (show `password provided (not shown)`). If login can't be automated (SSO/MFA/captcha), the **user logs in** and Claude captures read-only. See `references/screenshots.md`.
+10. **แนวป้องกัน feedback 5 ชั้น — ห้ามเกิดปัญหาเดิมซ้ำ.** The five team-feedback defects (missing figure/table **captions**, hand-typed heading numbers, missing **Thai Distribute**, screenshots not in their **step row**, off-glossary terms) are each guarded by a **5-layer defense** in `references/feedback-guards.md` — authoring rule → writer self-check → retained evidence → mechanical gate (`verify-doc.py` ข้อ 11–15, exit 1) → human review row. **ครบทั้ง 5 ชั้นของทุกข้อเท่านั้นจึงเรียกว่าเสร็จ**; ตรวจไม่ได้ = ไม่ผ่าน; FAIL ข้อเดียว = รีวิวใหม่ทั้งหมด.
 
 ## When to Use
 
@@ -228,6 +229,11 @@ never silently replace a document the user may still need.
 **Read `references/review.md` and follow it exactly.** Review the **built file from Step 7**, not the
 draft in conversation — most defects (font fallback, dropped images, stale TOC, คำพราก) are born in
 the conversion, so reviewing the draft proves nothing.
+
+**Also confirm the feedback 5-layer guards (`references/feedback-guards.md`) — every one of the five
+team-feedback defects must clear all five layers.** Their mechanical layer is `verify-doc.py` ข้อ 11–15
+(captions รูป/ตาราง, thaiDistribute, หัวข้อเลขอัตโนมัติ, รูปในแถวขั้นตอน); the human layer is the review
+rows below. Passing the script is **not** passing the guard.
 
 The five layers, each decided against the **Step 2 confirmation table** and each needing evidence:
 

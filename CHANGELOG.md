@@ -5,15 +5,23 @@ All notable changes to manual-maker are recorded here. Versions follow semver (m
 ## [0.25.0] - 2026-08-05
 
 Acts on five feedback items from the QA team (Google Doc "Feedback update Skill") for the docx manual
-output. Enforcement follows the repo's own pattern — authoring rule + review layer + a false-positive-free
-mechanical check where one is possible.
+output. Each defect is guarded by the repo's **5-layer defense** — authoring rule → writer self-check →
+retained evidence → mechanical gate (`verify-doc.py`, exit 1) → human review row — mapped item-by-item in
+the new `references/feedback-guards.md`. "ครบทั้ง 5 ชั้นทุกข้อเท่านั้นจึงเรียกว่าเสร็จ".
 
 ### Added
+- **`references/feedback-guards.md`** — the 5-layer defense for all five feedback items in one place, with
+  the hard rules (ตรวจไม่ได้=ไม่ผ่าน · ผ่านสคริปต์≠ผ่านรีวิว · FAIL ข้อเดียว→รีวิวใหม่ทั้งหมด · ยังไม่ครบ 5
+  ชั้น=ยังไม่เสร็จ) and an explicit เครื่อง-vs-คน line so the scripts are not oversold. Wired into
+  `SKILL.md` (rule 10 + Step 8), `review.md`, `template.md`, and `CLAUDE.md`.
 - **Figure/table captions (feedback 1).** Every content figure gets a `รูปที่ N` caption and every content
   table a `ตารางที่ N`, numbered by a Word **`SEQ` field** in the `Caption` style (auto-renumber, feeds a
-  List of Figures). `verify-doc.py --captions required` (check 11) FAILs when inline images outnumber figure
-  captions. The step-layout table is explicitly **not** a "content table" and takes no caption. Authoring
-  recipe in `docx-build.md` §3.3.
+  List of Figures). `verify-doc.py --captions required` FAILs when inline images outnumber figure captions
+  (**check 11**) or content tables outnumber table captions (**check 14**). The step-layout table is
+  excluded from check 14 by its header signature, so it never false-positives there. `docx-build.md` §3.3.
+- **Step screenshot in its own row (feedback 4) — mechanical floor.** `verify-doc.py` **check 15** FAILs
+  when a doc has step tables and inline images but **none inside any table cell** (images collected outside
+  the step rows). "รูปอยู่แถวที่ถูก" stays writer + human (standalone UI figures are legitimate).
 - **Thai Distribute justification (feedback 3).** Authored Thai body paragraphs set
   `w:jc w:val="thaiDistribute"` so lines break on Thai word boundaries with even margins (pairs with the
   existing `w:cs` + `w:lang w:bidi` คำพราก guards). `verify-doc.py --thai-distribute required` (check 12) is
