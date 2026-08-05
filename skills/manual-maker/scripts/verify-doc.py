@@ -249,7 +249,7 @@ def main():
     # would false-positive. Caption = a paragraph whose text starts with
     # รูปที่/ภาพที่/แผนภาพที่/Figure, or a paragraph carrying a SEQ Figure field.
     if captions == "required":
-        inline_imgs = len(re.findall(r'<wp:inline[ >]', doc))
+        inline_imgs = len(re.findall(r'<wp:inline[\s>]', doc))
         fig_caps = 0
         for m in re.finditer(r"<w:p(?:\s[^>]*)?>.*?</w:p>", doc, re.S):
             para = m.group(0)
@@ -289,9 +289,17 @@ def main():
     # -- 13. headings auto-numbered, not double-numbered (feedback: Numbering) -
     # Feedback wants headings numbered by Word (multilevel list on the Heading
     # styles), not hand-typed. The false-positive-free half is the double-number
-    # guard: a heading that has BOTH numPr (auto) AND a manual outline number in
-    # its text is unambiguously wrong. Absence of numPr only SKIPs (a base
+    # guard: a heading that has BOTH auto numbering AND a manual outline number in
+    # its text is unambiguously wrong. Absence of numbering only SKIPs (a base
     # template may legitimately dictate its own scheme) with a nudge in detail.
+    # Numbering counts whether it is bound on the PARAGRAPH (numPr in the <w:p>) or
+    # on the STYLE (docx-build.md §3.2 recommends the style) — a style-numbered
+    # heading with a hand-typed number is the likeliest real double-number, so the
+    # guard must see style-level numPr too or it misses exactly that case.
+    autonum_styles = set()
+    for sm in re.finditer(r'<w:style\b[^>]*?w:styleId="([^"]+)"[^>]*?>(.*?)</w:style>', styles_xml, re.S):
+        if '<w:numPr' in sm.group(2):
+            autonum_styles.add(sm.group(1))
     heading_paras, auto_num, dbl = 0, 0, []
     for m in re.finditer(r"<w:p(?:\s[^>]*)?>.*?</w:p>", doc, re.S):
         para = m.group(0)
@@ -300,7 +308,7 @@ def main():
         if not is_heading:
             continue
         heading_paras += 1
-        has_numpr = '<w:numPr' in para
+        has_numpr = '<w:numPr' in para or (pstyle and pstyle.group(1) in autonum_styles)
         if has_numpr:
             auto_num += 1
         if has_numpr and re.match(r'^\d+(\.\d+)*[.)]?\s', text_of(para).strip()):
