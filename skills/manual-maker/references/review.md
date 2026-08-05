@@ -82,6 +82,8 @@
 - **ไม่มีวงทับตัวอักษร** — รอยวง (รวมกันชน) ต้องอยู่บนพื้นเรียบ ไม่บัง label/ไอคอน/ขอบ; พิสูจน์ด้วย `verify-annotations.py` ข้อ 10 (เทียบภาพ `clean/`)
 - ไม่มีเคอร์เซอร์ ไม่มีขอบเรืองแสง โลโก้หน่วยงานไม่ถูกกินหาย
 - **ปิดชื่อคนจริง** (ผู้เรียนเป็นเยาวชน)
+- **ทุกรูปมี caption `รูปที่ N`** (auto `SEQ`) ใต้รูป — ไม่มีรูปไหนไม่มีคำบรรยาย (`verify-doc.py --captions required` ข้อ 11)
+- **รูปอยู่ในแถวขั้นตอนของตัวเอง** — screenshot ฝังในแถว step นั้นในตารางขั้นตอน; รูปครอบหลายขั้น = อยู่แถวขั้นแรก (feedback ข้อ 4)
 - รูปฝังในไฟล์จริง — `word/media/` มีไฟล์ และ relationship ไม่หลุด
 
 **ชื่อคนและรหัสนักเรียน — ต้องมีหลักฐาน ไม่ใช่ความรู้สึก.** การลบชื่อทำที่ DOM ก่อนกดชัตเตอร์ และ**ต้อง fail closed** — อ่านหน้าเว็บซ้ำหลัง scrub แล้วโยน error ถ้ายังเจอชื่อ ห้ามถ่ายต่อ. ก่อน build ให้ครอปแถบบัญชีผู้ใช้ของ**ทุกภาพ**มาต่อเป็นแผ่นเดียวแล้วดูด้วยตา — รอบจริงที่ผ่านมา สามรอบแรกรายงานว่าสะอาดทั้งที่ยังมีชื่อครูหลุดอยู่หนึ่งภาพ. **ตรวจไม่ได้ = ไม่ผ่าน** ใช้กับข้อนี้เต็มที่.
@@ -147,7 +149,9 @@ MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/n
   1. มี **ช่องว่าง/บรรทัดใหม่แทรกกลางคำ** ในต้นฉบับ
   2. run ภาษาไทย **ไม่ได้ตั้ง `w:lang w:bidi`** → Word ไม่มีพจนานุกรมไว้ตัดคำ เลยตัดกลางคำ
      (และ `w:cs` หายก็ทำให้ฟอนต์ fallback)
-- **คำศัพท์ล็อกเดียวทั้งเล่ม** — เลือก "ผู้เรียน" แล้วห้ามมี "นักเรียน"/"นร."/"ผู้ใช้" ปนเข้ามา
+- **Thai Distribute** — ย่อหน้าเนื้อหาไทยจัดแนวด้วย `w:jc w:val="thaiDistribute"` (feedback ข้อ 3, `verify-doc.py` ข้อ 12)
+- **หัวข้อเลขอัตโนมัติ** — เลขหัวข้อมาจาก multilevel list ของ Word ไม่พิมพ์มือ ไม่ซ้อนเลข (`verify-doc.py` ข้อ 13)
+- **คำศัพท์ล็อกเดียวทั้งเล่ม** — เลือก "ผู้เรียน" แล้วห้ามมี "นักเรียน"/"นร."/"ผู้ใช้" ปนเข้ามา (NDLP: ตรงกับ `glossary-ndlp.md`)
 - **โทนภาษา** — ทางการ ไม่มีสรรพนามบุรุษ 1/2 (ผม/ฉัน/คุณ/ท่าน) ไม่มีคำลงท้าย (ครับ/ค่ะ/นะ) ไม่ใช่ภาษาแปล
 - **ไม่มี placeholder ค้าง** — `TODO`, `[ระบุ…]`, `SCREENSHOT PLACEHOLDER`
 
@@ -179,7 +183,7 @@ MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/n
 
 | สคริปต์ | ตรวจอะไร | ชั้นที่ให้หลักฐาน |
 |---|---|---|
-| `verify-doc.py` | ตัวเอกสาร — ฟอนต์ ตัดคำ TOC รูปฝัง placeholder credential | 4, 5 |
+| `verify-doc.py` | ตัวเอกสาร — ฟอนต์ ตัดคำ TOC รูปฝัง placeholder credential · caption รูป · Thai Distribute · หัวข้อเลขอัตโนมัติ | 4, 5 |
 | `verify-annotations.py` | วงแดง — เลขครบ/ไม่ซ้ำ/ไม่หลุดช่วง · แมนิเฟสต์ตรงกับพิกเซลจริง · `label` ตรงกับคอนโทรลใน `step_text` · **วงไม่ทับตัวอักษร (เทียบ `clean/`)** | 3 |
 
 รันกับ **ไฟล์ .docx ที่ build เสร็จแล้ว**:
@@ -191,11 +195,14 @@ MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/n
 MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/null | sort -V | tail -1); [ -n "$MM" ] || MM=~/.claude/skills/manual-maker
 /usr/bin/python3 "$MM/scripts/verify-doc.py" <ไฟล์.docx> \
     --terms "ผู้เรียน,ครูผู้สอน,ผู้ดูแลระบบ" \
-    --annotations required     # หรือ none ตามที่ผู้ใช้สั่ง
+    --annotations required \    # หรือ none ตามที่ผู้ใช้สั่ง
+    --captions required \       # ทุกรูปต้องมี caption (feedback ข้อ 1)
+    --thai-distribute required  # ย่อหน้าไทยจัดแนว Thai Distribute (feedback ข้อ 3)
 ```
 
 ครอบคลุม: placeholder ค้าง · `w:cs` · `w:lang w:bidi` (ต้นเหตุคำพราก) · คำล็อกถูกเว้นวรรคกลางคำ ·
-อักขระล่องหน · รูปฝังจริง/rel ไม่หลุด · ปก-header-footer-PAGE-TOC · เลขหัวข้อต่อเนื่อง · credential หลุด.
+อักขระล่องหน · รูปฝังจริง/rel ไม่หลุด · ปก-header-footer-PAGE-TOC · เลขหัวข้อต่อเนื่อง · credential หลุด ·
+**caption รูปครบ (ข้อ 11)** · **Thai Distribute (ข้อ 12)** · **หัวข้อเลขอัตโนมัติ/ไม่ซ้อนเลข (ข้อ 13)**.
 **Exit 1 = ห้ามส่ง.**
 
 แล้วรันตัววงแดงต่อ (รายละเอียดและขอบเขตอยู่ในชั้นที่ 3 ด้านบน):

@@ -2,6 +2,42 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.25.0] - 2026-08-05
+
+Acts on five feedback items from the QA team (Google Doc "Feedback update Skill") for the docx manual
+output. Enforcement follows the repo's own pattern — authoring rule + review layer + a false-positive-free
+mechanical check where one is possible.
+
+### Added
+- **Figure/table captions (feedback 1).** Every content figure gets a `รูปที่ N` caption and every content
+  table a `ตารางที่ N`, numbered by a Word **`SEQ` field** in the `Caption` style (auto-renumber, feeds a
+  List of Figures). `verify-doc.py --captions required` (check 11) FAILs when inline images outnumber figure
+  captions. The step-layout table is explicitly **not** a "content table" and takes no caption. Authoring
+  recipe in `docx-build.md` §3.3.
+- **Thai Distribute justification (feedback 3).** Authored Thai body paragraphs set
+  `w:jc w:val="thaiDistribute"` so lines break on Thai word boundaries with even margins (pairs with the
+  existing `w:cs` + `w:lang w:bidi` คำพราก guards). `verify-doc.py --thai-distribute required` (check 12) is
+  a conservative floor: it FAILs only when several long Thai paragraphs exist and thaiDistribute is set
+  **nowhere** (document + styles), so a compliant build never trips it. `docx-build.md` §3.1.
+- **Auto-numbered headings (feedback 2).** Heading numbers come from a **multilevel list bound to the
+  Heading styles**, never typed into the heading text; `verify-doc.py` check 13 FAILs on double-numbering
+  (a heading carrying both `numPr` and a manual outline number) and SKIPs (with a nudge) when a base
+  template dictates its own scheme. `docx-build.md` §3.2.
+- **NDLP locked-term glossary (feedback 5).** New `references/glossary-ndlp.md` — the team's live glossary
+  sheet as source of truth plus a dated snapshot — offered as the default locked-term list at intake Q15
+  for OLS/ELMS/CBMS/EvMS. A sheet-vs-snapshot spelling discrepancy is flagged for the user to confirm,
+  never auto-"fixed".
+- `verify-doc.py`: new `--captions required` and `--thai-distribute required` flags (checks 11–13). All
+  three proven on RED/GREEN docx fixtures; absent flags leave existing behavior byte-for-byte unchanged.
+
+### Changed
+- **Step layout is now a table with each screenshot in its own step's row (feedback 4).** A single image
+  covering several steps goes in the **first** of those steps' rows with all its red circles. `template.md`
+  §Example step format, `docx-build.md` §3.4, `screenshots.md` naming note.
+- `template.md` quality axes expanded (captions, Thai Distribute, auto-numbering, glossary) with matching
+  Final Review Checklist rows; `review.md` layers 3–4 and the `verify-doc.py` invocation updated with the
+  new flags; `SKILL.md` Steps 3/6/8 wired to the new references and checks.
+
 ## [0.24.2] - 2026-08-03
 
 The white-only diagram rule from 0.24.1 was prose only — nothing enforced it. 0.24.2 makes it a

@@ -42,7 +42,7 @@ chapters in one file, emit one styled volume per confirmed role/module. If the b
 the Q9 split imply different groupings, the **confirmed Q9 choice wins for packaging**; never
 silently merge volumes back into one, and never split a confirmed single volume.
 
-## Quality rules — the four axes (be exact)
+## Quality rules — the quality axes (be exact)
 
 ### 1. Font & size
 - Take the exact font and sizes from the **reference document** the user provided. If none, **ask** — never assume a font.
@@ -50,8 +50,14 @@ silently merge volumes back into one, and never split a confirmed single volume.
 - **Thai default (unless the template says otherwise): `TH SarabunPSK` — body 16 pt, headings 18 pt bold.**
 - ⚠️ Thai is a **complex script**: in `.docx`, set **all four** `w:rFonts` slots (`w:ascii`, `w:hAnsi`, `w:eastAsia`, **`w:cs`**). Miss `w:cs` and Word silently renders Thai in a fallback font.
 
-### 2. Numbering
+### 2. Numbering — **auto-numbered headings, not hand-typed**
 - Continuous decimal outline (`1`, `1.1`, `1.1.1`) with **no gaps and no duplicates**.
+- 🔴 **Heading numbers come from Word's own numbering, never typed into the heading text.** Bind the
+  `Heading1/2/3` styles to a **multilevel numbered list** so the numbers are generated (insert or
+  reorder a section and everything renumbers itself; the TOC picks the numbers up automatically).
+  Do **not** write `1.1` into the heading run — that double-numbers and drifts. See
+  `docx-build.md` §"หัวข้อเลขอัตโนมัติ". *(If a base template dictates its own scheme, follow the
+  template.)*
 - Step lists restart at 1 within each task; section numbers never restart.
 - The table of contents must match the body numbering exactly.
 
@@ -66,7 +72,25 @@ silently merge volumes back into one, and never split a confirmed single volume.
 
 ### 4. Terminology consistency
 - Use the **locked term** for each concept **everywhere** — e.g. if "ผู้เรียน" is chosen, never use "นักเรียน" / "นร." / "ผู้ใช้" interchangeably.
+- **NDLP family (OLS / ELMS / CBMS / EvMS …): the locked-term list is `references/glossary-ndlp.md`**, sourced from the team's live glossary sheet. Offer it as the default at intake Q15 and read it back to confirm; **pull the sheet fresh** each run (the sheet wins over the snapshot).
 - Keep the term list in the Glossary. If a new term appears mid-draft and isn't on the list → **ask the user** which word to use before writing it.
+
+### 5. Figure & table captions — **every image and content table is captioned**
+- 🔴 **Each figure gets a caption `รูปที่ N: …`; each content table gets `ตารางที่ N: …`.** This is what
+  lets figures and tables order and cross-reference correctly (feedback item 1). No caption = the figure
+  cannot be placed in sequence.
+- Numbers are **auto** — a Word **`SEQ` field** (`SEQ Figure` / `SEQ Table`) in the `Caption` style, not
+  a typed number; insert a figure and the rest renumber. See `docx-build.md` §"คำบรรยายรูป/ตาราง".
+- The caption sits **directly under** its figure/table (a screenshot inside a step row is captioned in that
+  same cell). `verify-doc.py --captions required` fails the build if any inline image lacks a caption.
+- The **step-layout table itself is not a "content table"** and takes no `ตารางที่` caption — only tables
+  that present data do.
+
+### 6. Thai layout — **Thai Distribute justification**
+- 🔴 **Every authored Thai body paragraph is justified with Thai Distribute** (`w:jc w:val="thaiDistribute"`)
+  so lines break on Thai word boundaries and both margins stay even (feedback item 3). See `docx-build.md`
+  §"Thai Distribute". This pairs with the `w:cs` slot + `w:lang w:bidi` that prevent คำพราก.
+- `verify-doc.py --thai-distribute required` flags a Thai-heavy build that set it nowhere.
 
 ## Language & tone (the manual's writing)
 
@@ -87,17 +111,24 @@ Example — ✅ "เลือกเมนู **หลักสูตรของ
 - **No real credentials, tokens, or personal data** anywhere in the manual.
 - Plain, polite language matched to the audience; no internal jargon or dev terms.
 
-## Example step format
+## Example step format — **step table with the image inside the step's own row**
 
-```
-### 5.2 สร้างรายการใหม่
+Steps go in a **table**: one row per step, with that step's **screenshot in the same row** (feedback
+item 4). The red circle number in the image equals the step number 1:1.
 
-1. คลิกปุ่ม **"+ สร้างใหม่"** มุมขวาบน
-   ![create button](manual-assets/<slug>/05-2-01.png)   ← เลข 1 ชี้ปุ่ม วางบนที่ว่าง ไม่ทับตัวอักษร
-2. กรอกชื่อในช่อง **ชื่อ**
-3. คลิก **บันทึก**
-   → ระบบแสดง "บันทึกสำเร็จ" และรายการปรากฏในตาราง
-```
+| ลำดับ | ขั้นตอน | ภาพประกอบ |
+|---|---|---|
+| 1 | คลิกปุ่ม **"+ สร้างใหม่"** มุมขวาบน | ![create](manual-assets/<slug>/05-2-01.png)<br>*รูปที่ 12: ปุ่มสร้างรายการใหม่* |
+| 2 | กรอกชื่อในช่อง **"ชื่อ"** | ![name](manual-assets/<slug>/05-2-02.png)<br>*รูปที่ 13: ช่องกรอกชื่อ* |
+| 3 | คลิกปุ่ม **"บันทึก"**<br>→ ระบบแสดง "บันทึกสำเร็จ" | ![save](manual-assets/<slug>/05-2-03.png)<br>*รูปที่ 14: ปุ่มบันทึก* |
+
+- **The image sits in the step it belongs to** — never collected at the end of the section.
+- 🔴 **One image covering several steps → put it in the _first_ of those steps' rows** (feedback item 4),
+  leave the other rows' ภาพประกอบ cell empty (or "ดูรูปที่ N"), and draw all the relevant red circles on
+  that one image (circle numbers still = step numbers, ≤ 5 per image). Example: a screen that shows the
+  controls for steps 2–4 → the image goes in step 2's row with circles ②③④.
+- Every image carries its **`รูปที่ N` caption** in the cell (auto `SEQ` field — see quality axis 5).
+- The `ลำดับ` numbers are the step numbers; heading `5.2` itself is **auto-numbered** (axis 2).
 
 ## Final Review Checklist — run before delivery (ห้ามตกหล่น)
 
@@ -113,7 +144,11 @@ Go through **every** line; fix all before handing over. Do not deliver a manual 
 - [ ] **ครบตาม scope** — all requested modules/features covered; nothing extra added.
 - [ ] **แบ่งเล่มถูกตามที่ยืนยัน** — the number of volumes and the split dimension match the confirmed intake Q9 choice; each by-role/-module volume has its own cover, TOC, and numbering restarting at 1, and covers only its role/module.
 - [ ] **เลขข้อถูกต้อง** — numbering continuous, no gaps/duplicates; TOC matches body.
-- [ ] **คำศัพท์สอดคล้อง** — one locked term per concept throughout; no synonyms slipped in.
+- [ ] **หัวข้อเลขอัตโนมัติ** — heading numbers come from Word's multilevel list (no hand-typed `1.1` in the heading text, no double-numbering). `verify-doc.py` ข้อ 13.
+- [ ] **ทุกรูป/ตารางมี caption** — every figure `รูปที่ N` and content table `ตารางที่ N`, auto `SEQ`; none missing. `verify-doc.py --captions required` ข้อ 11.
+- [ ] **รูปอยู่ในแถวขั้นตอน** — each screenshot sits in its own step's row; a multi-step image is in the first of those steps' rows.
+- [ ] **Thai Distribute** — authored Thai body paragraphs justify with `w:jc w:val="thaiDistribute"`. `verify-doc.py --thai-distribute required` ข้อ 12.
+- [ ] **คำศัพท์สอดคล้อง** — one locked term per concept throughout; no synonyms slipped in (NDLP: ตรงกับ `glossary-ndlp.md`).
 - [ ] **โทน/ภาษาถูกต้อง** — formal written language; no 1st/2nd-person pronouns (ผม/คุณ/ท่าน), no particles (ครับ/ค่ะ); reads naturally, not machine-translated; spelling correct.
 - [ ] **Font & size สม่ำเสมอ** — matches the agreed values on every page.
 - [ ] **ตรงต้นแบบ** — if a base template was given: cover, header, footer (page numbers), TOC, styles, and role-based chapters are the template's own, not rebuilt.

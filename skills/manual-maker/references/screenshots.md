@@ -201,6 +201,12 @@ and the red circle numbers line up with the step numbers by construction.
 `/tmp` is **scratch only** (clipboard bridge + PIL work). The **final annotated PNG** is always
 saved into `manual-assets/<slug>/` under its deterministic name — that copy is what gets embedded.
 
+**รูปเดียวครอบหลายขั้นตอน → ตั้งชื่อตามขั้นตอนแรก และวางในแถวขั้นตอนแรก.** ถ้าหน้าจอเดียวแสดงคอนโทรลของ
+หลายขั้นตอน (เช่น ขั้น 2–4) ให้ใช้ **รูปเดียว** ชื่อตามขั้นแรก (`<section>-02.png`), วาดวงแดงทุกวงที่เกี่ยวข้อง
+บนรูปนั้น (②③④, ≤ 5 วง/รูป), แล้ว **ฝังในแถวของขั้นตอนแรก** ในตารางขั้นตอน (feedback ข้อ 4 — ดู
+`docx-build.md` §3.4 และ `template.md` §Example step format). ทุกรูปมี caption `รูปที่ N` ใต้รูปในเซลล์เดียวกัน
+(auto `SEQ`, ดู `docx-build.md` §3.3).
+
 **`manual-assets/<slug>/clean/` เก็บภาพก่อนวาดวง.** ก่อน annotate ทุกไฟล์ ให้ copy PNG ดิบ (ที่ capture
 เขียนมา) ไป `clean/<section>-<step>.png` **ก่อน** วาดวงทับตัวเดิม — ด่านชั้น 4 (`verify-annotations.py`
 ข้อ 10) ใช้ภาพใน `clean/` เทียบว่าใต้วงมีตัวอักษรไหม. ไม่มี `clean/` = พิสูจน์ไม่ได้ = ไม่ผ่าน. โฟลเดอร์นี้

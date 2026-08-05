@@ -126,7 +126,7 @@ satisfied. The user's single "go" covers this — do **not** open a second gate 
 
 - If the user gave a **base/reference document (ต้นแบบ)** → read it (docx/pdf) and **build on it**, reusing its cover, header, footer, TOC, styles, role-based chapters, font, and terminology. Do not approximate it by hand — see `references/docx-build.md`.
 - If the user gave **Confluence pages / spec / flow** → read them (Atlassian MCP `getConfluencePage`, or fetch) to learn the **real** steps.
-- Lock the **terminology list** (from intake Q15) and read it back for confirmation.
+- Lock the **terminology list** (from intake Q15) and read it back for confirmation. For NDLP-family systems the default list is `references/glossary-ndlp.md` — **pull the live glossary sheet** and confirm.
 
 Never write a step you cannot source. If a detail is unclear → ask.
 
@@ -192,7 +192,12 @@ Draft **section by section**, grounded only in verified sources, in the chosen l
 
 ### Step 6 — Apply template + quality rules
 
-Match `references/template.md` and enforce its four quality axes: **font & size**, **numbering consistency**, **image clarity + annotation**, **terminology consistency**.
+Match `references/template.md` and enforce its quality axes: **font & size**, **auto-numbered headings**
+(Word multilevel list, not hand-typed), **image clarity + annotation**, **terminology consistency**
+(NDLP → `references/glossary-ndlp.md`), **figure/table captions** (`รูปที่ N`/`ตารางที่ N`, auto `SEQ`),
+and **Thai Distribute** justification on Thai body text. Steps are laid out as a **table with each
+screenshot in its own step's row** (a multi-step image goes in the first step's row) — see
+`references/template.md` §Example step format and `references/docx-build.md` §3.1–3.4.
 
 Each writer applies these to its own หัวข้อย่อย and the reviewer checks them there. The axes that
 only exist across the whole document — TOC, cross-chapter numbering, uniform font in the built file —
@@ -230,8 +235,8 @@ The five layers, each decided against the **Step 2 confirmation table** and each
 |---|---|---|
 | 1 | ตรงตามที่ยืนยัน | scope, การแบ่งเล่ม (Q9), ภาษา, ฟอนต์, format, **โหมดวงแดง — มี/ไม่มี ตามที่สั่ง** |
 | 2 | ทุกอย่างมีที่มา | ทุกขั้นตอนสาวถึงระบบจริง+แหล่งของผู้ใช้; บทที่ไม่มีแหล่ง = ตัดทิ้ง ไม่ใช่แต่งเพิ่ม |
-| 3 | ภาพ | ของจริง, เต็มจอ, **เลขในวงตรงขั้นตอน 1:1 + วงไม่ทับตัวอักษร — พิสูจน์ด้วย `verify-annotations.py`**, ไม่มีเคอร์เซอร์/ขอบเรือง, ปิดชื่อคน |
-| 4 | ตัวหนังสือและตัวเลข | เลขข้อ+TOC ตรง, ไม่มีคำผิด, **ไม่มีคำพราก**, คำศัพท์ล็อกเดียว, โทนถูก |
+| 3 | ภาพ | ของจริง, เต็มจอ, **เลขในวงตรงขั้นตอน 1:1 + วงไม่ทับตัวอักษร — พิสูจน์ด้วย `verify-annotations.py`**, **ทุกรูปมี caption `รูปที่ N` + อยู่ในแถวขั้นตอน**, ไม่มีเคอร์เซอร์/ขอบเรือง, ปิดชื่อคน |
+| 4 | ตัวหนังสือและตัวเลข | เลขข้อ+TOC ตรง, **หัวข้อเลขอัตโนมัติ**, ไม่มีคำผิด, **ไม่มีคำพราก + Thai Distribute**, คำศัพท์ล็อกเดียว, โทนถูก |
 | 5 | รูปเล่ม | ปก + header + footer (`PAGE` field) + TOC field + ฟอนต์ ตามฟอร์แมตที่ผู้ใช้กำหนด |
 
 Run the mechanical half first — it settles what a regex and the pixels can settle, so judgement goes
@@ -240,7 +245,7 @@ calls, and the run's cwd is the user's project — a bare relative path finds ne
 
 ```bash
 MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/null | sort -V | tail -1); [ -n "$MM" ] || MM=~/.claude/skills/manual-maker
-/usr/bin/python3 "$MM/scripts/verify-doc.py" <ไฟล์.docx> --terms "<คำล็อก,คั่นด้วยจุลภาค>" --annotations required|none
+/usr/bin/python3 "$MM/scripts/verify-doc.py" <ไฟล์.docx> --terms "<คำล็อก,คั่นด้วยจุลภาค>" --annotations required|none --captions required --thai-distribute required
 /usr/bin/python3 "$MM/scripts/verify-annotations.py" manual-assets/<slug>/ --assets manual-assets/<slug>/ --docx <ไฟล์.docx>
 ```
 
