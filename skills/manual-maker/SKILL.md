@@ -35,6 +35,7 @@ It is a thin team wrapper that **composes** Anthropic's first-party skills (it d
    unclear comes back as `BLOCKED`/`ASK` and **this thread asks the user in chat** before any fix is
    chosen. Per-section review is a **pre-check, never a replacement** for the Step 8 five-layer gate.
 9. **Login is headless & env-seeded; credentials are session-only.** Screenshots use a **headless Playwright** browser that authenticates by reading the credential **from the environment** (`process.env.EMAIL`/`process.env.PW`) or a pre-saved `storageState` — Claude **never types a password into a live form by hand**. The secret is used only in-session, **never** written to the manual, repo, logs, a committed script, or the profile, and **never echoed** (show `password provided (not shown)`). If login can't be automated (SSO/MFA/captcha), the **user logs in** and Claude captures read-only. See `references/screenshots.md`.
+10. **แนวป้องกัน feedback 5 ชั้น — ห้ามเกิดปัญหาเดิมซ้ำ.** The five team-feedback defects (missing figure/table **captions**, hand-typed heading numbers, missing **Thai Distribute**, screenshots not in their **step row**, off-glossary terms) are each guarded by a **5-layer defense** in `references/feedback-guards.md` — authoring rule → writer self-check → retained evidence → mechanical gate (`verify-doc.py` ข้อ 11–15, exit 1) → human review row. **ครบทั้ง 5 ชั้นของทุกข้อเท่านั้นจึงเรียกว่าเสร็จ**; ตรวจไม่ได้ = ไม่ผ่าน; FAIL ข้อเดียว = รีวิวใหม่ทั้งหมด.
 
 ## When to Use
 
@@ -126,7 +127,7 @@ satisfied. The user's single "go" covers this — do **not** open a second gate 
 
 - If the user gave a **base/reference document (ต้นแบบ)** → read it (docx/pdf) and **build on it**, reusing its cover, header, footer, TOC, styles, role-based chapters, font, and terminology. Do not approximate it by hand — see `references/docx-build.md`.
 - If the user gave **Confluence pages / spec / flow** → read them (Atlassian MCP `getConfluencePage`, or fetch) to learn the **real** steps.
-- Lock the **terminology list** (from intake Q15) and read it back for confirmation.
+- Lock the **terminology list** (from intake Q15) and read it back for confirmation. For NDLP-family systems the default list is `references/glossary-ndlp.md` — **pull the live glossary sheet** and confirm.
 
 Never write a step you cannot source. If a detail is unclear → ask.
 
@@ -192,7 +193,12 @@ Draft **section by section**, grounded only in verified sources, in the chosen l
 
 ### Step 6 — Apply template + quality rules
 
-Match `references/template.md` and enforce its four quality axes: **font & size**, **numbering consistency**, **image clarity + annotation**, **terminology consistency**.
+Match `references/template.md` and enforce its quality axes: **font & size**, **auto-numbered headings**
+(Word multilevel list, not hand-typed), **image clarity + annotation**, **terminology consistency**
+(NDLP → `references/glossary-ndlp.md`), **figure/table captions** (`รูปที่ N`/`ตารางที่ N`, auto `SEQ`),
+and **Thai Distribute** justification on Thai body text. Steps are laid out as a **table with each
+screenshot in its own step's row** (a multi-step image goes in the first step's row) — see
+`references/template.md` §Example step format and `references/docx-build.md` §3.1–3.4.
 
 Each writer applies these to its own หัวข้อย่อย and the reviewer checks them there. The axes that
 only exist across the whole document — TOC, cross-chapter numbering, uniform font in the built file —
@@ -224,14 +230,19 @@ never silently replace a document the user may still need.
 draft in conversation — most defects (font fallback, dropped images, stale TOC, คำพราก) are born in
 the conversion, so reviewing the draft proves nothing.
 
+**Also confirm the feedback 5-layer guards (`references/feedback-guards.md`) — every one of the five
+team-feedback defects must clear all five layers.** Their mechanical layer is `verify-doc.py` ข้อ 11–15
+(captions รูป/ตาราง, thaiDistribute, หัวข้อเลขอัตโนมัติ, รูปในแถวขั้นตอน); the human layer is the review
+rows below. Passing the script is **not** passing the guard.
+
 The five layers, each decided against the **Step 2 confirmation table** and each needing evidence:
 
 | ชั้น | มุมมอง | ตัดสินว่า |
 |---|---|---|
 | 1 | ตรงตามที่ยืนยัน | scope, การแบ่งเล่ม (Q9), ภาษา, ฟอนต์, format, **โหมดวงแดง — มี/ไม่มี ตามที่สั่ง** |
 | 2 | ทุกอย่างมีที่มา | ทุกขั้นตอนสาวถึงระบบจริง+แหล่งของผู้ใช้; บทที่ไม่มีแหล่ง = ตัดทิ้ง ไม่ใช่แต่งเพิ่ม |
-| 3 | ภาพ | ของจริง, เต็มจอ, **เลขในวงตรงขั้นตอน 1:1 + วงไม่ทับตัวอักษร — พิสูจน์ด้วย `verify-annotations.py`**, ไม่มีเคอร์เซอร์/ขอบเรือง, ปิดชื่อคน |
-| 4 | ตัวหนังสือและตัวเลข | เลขข้อ+TOC ตรง, ไม่มีคำผิด, **ไม่มีคำพราก**, คำศัพท์ล็อกเดียว, โทนถูก |
+| 3 | ภาพ | ของจริง, เต็มจอ, **เลขในวงตรงขั้นตอน 1:1 + วงไม่ทับตัวอักษร — พิสูจน์ด้วย `verify-annotations.py`**, **ทุกรูปมี caption `รูปที่ N` + อยู่ในแถวขั้นตอน**, ไม่มีเคอร์เซอร์/ขอบเรือง, ปิดชื่อคน |
+| 4 | ตัวหนังสือและตัวเลข | เลขข้อ+TOC ตรง, **หัวข้อเลขอัตโนมัติ**, ไม่มีคำผิด, **ไม่มีคำพราก + Thai Distribute**, คำศัพท์ล็อกเดียว, โทนถูก |
 | 5 | รูปเล่ม | ปก + header + footer (`PAGE` field) + TOC field + ฟอนต์ ตามฟอร์แมตที่ผู้ใช้กำหนด |
 
 Run the mechanical half first — it settles what a regex and the pixels can settle, so judgement goes
@@ -240,7 +251,7 @@ calls, and the run's cwd is the user's project — a bare relative path finds ne
 
 ```bash
 MM=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/manual-maker 2>/dev/null | sort -V | tail -1); [ -n "$MM" ] || MM=~/.claude/skills/manual-maker
-/usr/bin/python3 "$MM/scripts/verify-doc.py" <ไฟล์.docx> --terms "<คำล็อก,คั่นด้วยจุลภาค>" --annotations required|none
+/usr/bin/python3 "$MM/scripts/verify-doc.py" <ไฟล์.docx> --terms "<คำล็อก,คั่นด้วยจุลภาค>" --annotations required|none --captions required --thai-distribute required
 /usr/bin/python3 "$MM/scripts/verify-annotations.py" manual-assets/<slug>/ --assets manual-assets/<slug>/ --docx <ไฟล์.docx>
 ```
 
