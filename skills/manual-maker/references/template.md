@@ -74,6 +74,7 @@ silently merge volumes back into one, and never split a confirmed single volume.
 - Use the **locked term** for each concept **everywhere** — e.g. if "ผู้เรียน" is chosen, never use "นักเรียน" / "นร." / "ผู้ใช้" interchangeably.
 - **NDLP family (OLS / ELMS / CBMS / EvMS …): the locked-term list is `references/glossary-ndlp.md`**, sourced from the team's live glossary sheet. Offer it as the default at intake Q15 and read it back to confirm; **pull the sheet fresh** each run (the sheet wins over the snapshot).
 - Keep the term list in the Glossary. If a new term appears mid-draft and isn't on the list → **ask the user** which word to use before writing it.
+- 🔴 **คำที่ดูเหมือนสะกดผิด — ห้ามแก้เอง (ห้ามมโน).** เจอคำที่น่าจะพิมพ์ตก/สะกดผิด (ในแหล่งข้อมูล, ต้นแบบ, glossary, หน้าจอ) → **บอกผู้ใช้ในแชทให้พิจารณาและยืนยันก่อน** แล้วจึงปรับตามที่ยืนยัน. อย่าเดาแก้เงียบ ๆ.
 
 ### 5. Figure & table captions — **every image and content table is captioned**
 - 🔴 **Each figure gets a caption `รูปที่ N: …`; each content table gets `ตารางที่ N: …`.** This is what
