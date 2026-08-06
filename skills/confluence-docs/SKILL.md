@@ -44,7 +44,10 @@ This skill lives beside `manual-maker` in the same plugin and shares its non-neg
    authoritative source in `references/source-map.md`. **No source for a doc-type → the run stops for
    that doc-type**; a placeholder is never filled with a guess.
 5. **โครง/ฟอแมตคงเดิม.** The page's existing structure — table columns, headings, panels, macros — is
-   **preserved exactly**. Only placeholder *values* change. Never rebuild a look-alike layout.
+   **preserved exactly**. Only placeholder *values* change. Never rebuild a look-alike layout. **Two
+   deliberate exceptions** (`template.md` §1): every table's **column headers are rewritten to English +
+   bold** (count/order unchanged, header word only), and a standalone page-level **`SUBSYSTEM: <X>`
+   badge is removed** (redundant with the page title + labels + the in-table `Subsystem` column).
 6. **Delivery gate — ผ่านรีวิว 5 ชั้นก่อนเท่านั้น** per `references/review.md`. **ตรวจไม่ได้ = ไม่ผ่าน.**
    One FAIL → fix, then **re-review all five layers**. Layers 1–4 are proven on the prepared body
    **before** any write; layer 5 (render) is proven on the **published page**. Publishing is
@@ -134,6 +137,11 @@ explicit "go". Do not read sources or write anything before this.
 - **Preserve the page's storage structure**; replace only placeholder values. Keep every table column,
   heading, panel, and macro. Placeholder nodes (`<span data-type="placeholder">…</span>`) are replaced
   by real content or, if genuinely not applicable, removed — never left as a placeholder.
+- **Table column headers → English + bold, every table** (`template.md` §5): header row in `<th>`, each
+  label wrapped in `<strong>`; translate any Thai header to its English equivalent (ask if the right word
+  is unclear — ห้ามมโน). Column count/order stay as the template had them; body cells keep their language.
+- **No page-level `SUBSYSTEM: <X>` badge** — remove it if the scaffold carries one; the page title,
+  labels, and in-table `Subsystem` column already convey the subsystem.
 - **Subsystem dimension:** every table carries a **`Subsystem`** column (values OLS / ELMS / CBMS /
   EvMS); tag the page with Confluence **labels** `ols` / `elms` / `cbms` / `evms` for the subsystems it
   covers. One consistent convention across the whole space.
@@ -165,7 +173,8 @@ CD=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/confluence-docs 2>/de
 ```
 
 The script proves the mechanical half (no mock/placeholder token survives, structure preserved,
-locked terms not split, no credential leak, subsystem column present). **Exit 1 = ห้ามเขียน.** The
+locked terms not split, no credential leak, subsystem column present, **every table header English +
+bold**, and **no page-level `SUBSYSTEM: <X>` badge**). **Exit 1 = ห้ามเขียน.** The
 human half of layers 1–4 (values actually correct per the real system, tone) is judged by you against
 the Step 2 table. A clean script run is necessary, never sufficient.
 

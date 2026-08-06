@@ -175,6 +175,20 @@ not be "simplified" away:
   round-trip-safe HTML+ format — panels, macros, tables, local IDs survive). Only placeholder *values*
   change; every column/panel/macro is kept. `verify-confluence.py --original` proves nothing structural
   was dropped. The `Subsystem` column + labels (`ols/elms/cbms/evms`) are the one cross-space convention.
+- **Two deliberate exceptions to structure-preservation (v0.26.0+), each a mechanical gate.** Both were
+  team feedback, both proven on RED/GREEN fixtures (not real pages). **(a) Table column headers are always
+  English + bold.** A Thai scaffold header (`ฟีเจอร์`, `เนื้อหา`…) is *translated* to English and wrapped in
+  `<strong>`; column **count and order are still preserved**, only the header word changes. This is why
+  `check_structure`'s `--original` comparison had to move from **exact header-text-set equality to `<th>`
+  count** — a translated header would otherwise register as a "dropped column". The new
+  `check_table_headers` FAILs any header still containing a Thai codepoint (`[฀-๿]`) or lacking
+  `<strong>/<b>`; it fires whenever a `<table>` exists, warns (not fails) when a table has no `<th>` to
+  judge. What it *cannot* know — whether `ฟีเจอร์→Feature` is the *correct* translation — stays layer-3
+  human, exactly like "วงชี้ปุ่มที่ถูกไหม". **(b) The standalone page-level `SUBSYSTEM: <X>` badge is
+  removed** (redundant with the page title `[EvMS] …` + labels + the in-table `Subsystem` column).
+  `check_subsystem_badge` matches on the **colon+value shape** (`subsystem\s*:\s*(ols|elms|cbms|evms)`), so
+  it FAILs the badge but never the bare `<th>Subsystem</th>` column header — that distinction is the whole
+  reason the regex is false-positive-free. The in-table Subsystem convention is untouched.
 - **Write is capability-gated and this was measured.** The Atlassian connector observed in-session was
   **read-only** — `getAccessibleAtlassianResources` listed only `read:page:confluence`, and no
   `updateConfluencePage`/`createConfluencePage` tool existed. So Step 0 preflights both the tool presence

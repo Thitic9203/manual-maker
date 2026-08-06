@@ -2,6 +2,29 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.26.0] - 2026-08-06
+
+Two Confluence table/page house-style rules for the `confluence-docs` skill, each guarded by the repo's
+mechanical gate (`verify-confluence.py`, exit 1) plus authoring rule + human review row — proven on
+RED/GREEN fixtures, not real pages.
+
+### Changed
+- **Table column headers are now always English + bold, in every table.** Header row goes in `<th>` with
+  each label wrapped in `<strong>`; a Thai scaffold header (`ฟีเจอร์`, `เนื้อหา`…) is **translated to its
+  English equivalent** — column count and order stay exactly as the template had them, only the header
+  word changes (ask if the right English word is unclear — ห้ามมโน). This is a deliberate exception to
+  "reproduce structure unchanged". `verify-confluence.py`'s new `check_table_headers` FAILs a header that
+  still contains Thai or is not bold; the `--original` structure check is now **count-based** (compares
+  `<th>` count, not exact header text) so a translated header no longer false-fails as a "dropped column".
+  What the script cannot judge — whether the English translation is the *correct* word — stays layer-3 human.
+- **The standalone page-level `SUBSYSTEM: <X>` badge is removed** — it is redundant with the page title
+  (`[EvMS] Master Data`), the Confluence labels, and the in-table `Subsystem` column. New
+  `check_subsystem_badge` FAILs a `SUBSYSTEM: <value>` badge; the bare `Subsystem` column header (no
+  `: value`) is untouched, so the in-table convention is preserved.
+- Wired into `SKILL.md` (rule 5 + Step 4 + verify description), `references/template.md` (§1/§2/§5 +
+  final checklist), and `references/review.md` (layer 3 checklist, fail-immediately list, verify map,
+  script-can't-judge note).
+
 ## [0.25.0] - 2026-08-05
 
 Acts on five feedback items from the QA team (Google Doc "Feedback update Skill") for the docx manual

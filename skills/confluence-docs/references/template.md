@@ -14,6 +14,10 @@ page's existing structure and format are kept exactly; only placeholder values c
 - Do not add columns, sections, panels, or macros the template did not have. Do not drop ones it had.
 - Preserve the ⚠️ intent of the page while removing the "MOCK" warning panel itself once real content
   is in (the warning was scaffold-only).
+- **Two deliberate exceptions to "reproduce unchanged"** (both scaffold-only, like the MOCK panel):
+  **(a)** table **column headers are always rewritten to English + bold** — see §5; the column *count
+  and order* are still preserved, only the header word changes. **(b)** a standalone page-level
+  **`SUBSYSTEM: <X>` badge / lozenge / heading is removed** — see §2.
 
 ## 2. Subsystem dimension — one convention across the whole space
 
@@ -22,6 +26,11 @@ page's existing structure and format are kept exactly; only placeholder values c
 - Tag each page with Confluence **labels** for the subsystems it covers: `ols`, `elms`, `cbms`, `evms`.
 - One row per (item × subsystem) where a value differs by subsystem; a single row tagged with multiple
   subsystems only when the value is genuinely shared.
+- **No page-level `SUBSYSTEM: <X>` badge.** The subsystem is already carried by the **page title**
+  (`[EvMS] Master Data`), the Confluence **labels**, and the in-table **`Subsystem` column**. A
+  standalone "SUBSYSTEM: EVMS" lozenge/heading at the top of the page is redundant — **do not add it,
+  and remove it if the scaffold carries one.** `verify-confluence.py` FAILs on a `SUBSYSTEM: <value>`
+  badge; the bare `Subsystem` column header is fine (it has no `: value`).
 
 ## 3. Terminology — one locked term per concept
 
@@ -44,6 +53,14 @@ page's existing structure and format are kept exactly; only placeholder values c
 - Index/parent pages that list child instances (PRD, BRD, Meeting notes) keep the index table in sync
   with the child pages that actually exist — every listed row links to a real page, every child page is
   listed.
+- **Column headers are ALWAYS English and bold — in every table, every time.** Put the header row in
+  `<th>` cells and wrap each label in `<strong>` (e.g. `<th><strong>Feature</strong></th>`). If a
+  scaffold header is Thai (`ฟีเจอร์`, `เนื้อหา`, `สถานะ`…), **translate it to its English equivalent** —
+  the column count and order stay exactly as the template had them; only the header word changes. Use the
+  established English term (`Feature`, `Contents`, `Status`, `Entity`, `Column`, `Type`, `Description`,
+  `Subsystem`…); if the right English word for a header is genuinely unclear, **ask the user — never
+  invent one** (ห้ามมโน). Body/data cells keep their normal language (Thai values stay Thai); this rule is
+  headers only. `verify-confluence.py` FAILs a header that still contains Thai or is not bold.
 
 ## 6. Diagrams
 
@@ -61,7 +78,9 @@ page's existing structure and format are kept exactly; only placeholder values c
 
 ## Final page checklist (per page, before it counts as done)
 
-- [ ] โครง/คอลัมน์/panel/macro ตรงกับ template เดิม ครบ ไม่ขาดไม่เกิน
+- [ ] โครง/คอลัมน์/panel/macro ตรงกับ template เดิม ครบ ไม่ขาดไม่เกิน (จำนวน+ลำดับคอลัมน์คงเดิม)
+- [ ] **หัวคอลัมน์ทุกตารางเป็นอังกฤษ + ตัวหนา** (`<th><strong>…</strong></th>`) — หัวไทยแปลเป็นอังกฤษหมด
+- [ ] **ไม่มีป้าย `SUBSYSTEM: <X>` ระดับหน้า** (ชื่อหน้า + label + คอลัมน์ Subsystem บอกอยู่แล้ว)
 - [ ] ไม่มี placeholder/mock token เหลือ (FEAT01, Module A, สมมติ, mock, TBD, `data-type="placeholder"`)
 - [ ] ทุกค่าสาวกลับไปถึงแหล่งใน `source-map.md` ได้
 - [ ] คอลัมน์ `Subsystem` + label ครบตาม scope

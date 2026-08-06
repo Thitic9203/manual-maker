@@ -34,11 +34,17 @@ def strip_tags(s):
     return re.sub(r"<[^>]+>", "", s)
 
 
+def th_raw(body):
+    # inner HTML of each header cell, tags intact (needed to check for <strong>)
+    return re.findall(r"<th[^>]*>(.*?)</th>", body, re.S)
+
+
 def th_texts(body):
-    return [
-        _html.unescape(strip_tags(m)).strip()
-        for m in re.findall(r"<th[^>]*>(.*?)</th>", body, re.S)
-    ]
+    return [_html.unescape(strip_tags(m)).strip() for m in th_raw(body)]
+
+
+# Thai code block — a header carrying any of these was not translated to English
+TH_CHAR = re.compile(r"[฀-๿]")
 
 
 def data_types(body):
@@ -217,6 +223,59 @@ def check_invisible(body):
         add("invis", "ไม่มีอักขระล่องหน", "ok")
 
 
+def check_table_headers(body):
+    # House style: EVERY table column header is English AND bold (<strong>/<b>).
+    # Thai scaffold headers are translated to English; the header row is kept as <th>.
+    # This proves headers are English+bold — never that the English word is the *right*
+    # translation (that stays layer-3 human, like "วงชี้ปุ่มที่ถูกไหม").
+    if "<table" not in body:
+        add("headers", "หัวคอลัมน์อังกฤษ + ตัวหนา", "ok", "ไม่มีตาราง")
+        return
+    cells = [c for c in th_raw(body) if _html.unescape(strip_tags(c)).strip()]
+    if not cells:
+        add(
+            "headers",
+            "หัวคอลัมน์อังกฤษ + ตัวหนา",
+            "warn",
+            "มีตารางแต่ไม่มี <th> — ใส่หัวคอลัมน์เป็น <th> ไม่งั้นตรวจอังกฤษ+ตัวหนาไม่ได้ (ตรวจด้วยตา)",
+        )
+        return
+    thai_bad, bold_bad = [], []
+    for c in cells:
+        txt = _html.unescape(strip_tags(c)).strip()
+        if TH_CHAR.search(txt):
+            thai_bad.append(txt)
+        if not re.search(r"<(?:strong|b)\b", c, re.I):
+            bold_bad.append(txt)
+    problems = []
+    if thai_bad:
+        problems.append("หัวยังเป็นภาษาไทย ต้องแปลเป็นอังกฤษ: " + ", ".join(list(dict.fromkeys(thai_bad))[:8]))
+    if bold_bad:
+        problems.append("หัวไม่ได้ทำตัวหนา (<strong>): " + ", ".join(list(dict.fromkeys(bold_bad))[:8]))
+    if problems:
+        add("headers", "หัวคอลัมน์อังกฤษ + ตัวหนา", "fail", "; ".join(problems))
+    else:
+        add("headers", "หัวคอลัมน์อังกฤษ + ตัวหนา", "ok",
+            f"{len(cells)} หัวคอลัมน์ อังกฤษล้วน + ตัวหนา")
+
+
+def check_subsystem_badge(body):
+    # The page title already carries the subsystem (e.g. "[EvMS] Master Data"), so a
+    # standalone "SUBSYSTEM: EVMS" badge/heading/lozenge on the page is redundant and
+    # must not be added. Matched by the colon+value shape — this never hits the in-table
+    # "Subsystem" column header (that is a bare <th>Subsystem</th>, no ": VALUE").
+    hits = re.findall(r"(?i)subsystem\s*:\s*(?:ols|elms|cbms|evms)\b", strip_tags(body))
+    if hits:
+        add(
+            "subsys-badge",
+            "ไม่มีป้าย SUBSYSTEM ระดับหน้า (ซ้ำกับชื่อหน้า)",
+            "fail",
+            f"พบป้าย SUBSYSTEM: … ×{len(hits)} — ลบออก ชื่อหน้าบอก subsystem อยู่แล้ว",
+        )
+    else:
+        add("subsys-badge", "ไม่มีป้าย SUBSYSTEM ระดับหน้า (ซ้ำกับชื่อหน้า)", "ok")
+
+
 def check_subsystem(body):
     if "<table" not in body:
         add("subsys", "คอลัมน์ Subsystem (ถ้ามีตาราง)", "ok", "ไม่มีตาราง")
@@ -233,9 +292,11 @@ def check_subsystem(body):
 
 
 def check_structure(body, original):
-    orig_th = set(t for t in th_texts(original) if t)
-    prep_th = set(t for t in th_texts(body) if t)
-    missing_cols = orig_th - prep_th
+    # Header TEXT legitimately changes now — Thai headers are translated to English
+    # (see check_table_headers). So compare header COUNT, not the exact text set:
+    # a dropped column still lowers the count, but a translated word does not fail.
+    orig_th_n = len(th_raw(original))
+    prep_th_n = len(th_raw(body))
     orig_dt = {}
     for d in data_types(original):
         orig_dt[d] = orig_dt.get(d, 0) + 1
@@ -250,8 +311,10 @@ def check_structure(body, original):
     orig_tables = len(re.findall(r"<table", original))
     prep_tables = len(re.findall(r"<table", body))
     problems = []
-    if missing_cols:
-        problems.append("คอลัมน์หายจากต้นฉบับ: " + ", ".join(sorted(missing_cols)))
+    if prep_th_n < orig_th_n:
+        problems.append(
+            f"จำนวนหัวคอลัมน์ (<th>) ลดลง ({orig_th_n}→{prep_th_n}) — อาจมีคอลัมน์หาย"
+        )
     if missing_dt:
         problems.append("macro/panel หายจากต้นฉบับ: " + ", ".join(sorted(missing_dt)))
     if prep_tables < orig_tables:
@@ -296,6 +359,8 @@ def main():
     check_terms(body, terms)
     check_credentials(body)
     check_invisible(body)
+    check_table_headers(body)
+    check_subsystem_badge(body)
     check_subsystem(body)
     check_diagrams(body)
 

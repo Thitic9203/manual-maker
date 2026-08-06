@@ -1,6 +1,6 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.25.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.26.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 **A Claude Code plugin that documents the web systems your team builds.** It ships **two skills** that turn a running system into finished documentation — a step-by-step user handbook, or a fully populated Confluence space.
 
@@ -262,10 +262,11 @@ Preflight สิทธิ์เขียน → Intake → ยืนยัน (g
 
 - **Source-map per doc-type** — each doc-type maps to a **mandatory** authoritative source (PRD ← Jira filter, API Doc ← OpenAPI/repo, Data Dictionary ← DB schema, Meeting notes ← real minutes…). **No source → the run stops.** A placeholder is never guessed.
 - **Structure-preserving** — reads and writes with `contentFormat: html`, changing only the *values*; every column, panel, and macro stays. A `Subsystem` column plus labels (`ols` / `elms` / `cbms` / `evms`) are the one convention across the space.
+- **Table house style (v0.26.0+)** — every table's **column headers are always English + bold** (a Thai scaffold header is translated to its English equivalent; column count and order stay put), and the redundant page-level **`SUBSYSTEM: <X>` badge is dropped** (the page title, labels, and `Subsystem` column already say it). Both are enforced by `verify-confluence.py` (exit 1); whether a header's English translation is the *right* word stays a human review call.
 - **Two mandatory gates** — confirm the intake before any work, then **reconfirm before the first write** (showing the diff, the child pages to create, and the review result — then waits for "go").
 - **Write is capability-gated** — the connector must expose `updateConfluencePage` / `createConfluencePage` and hold `write:page:confluence`. A preflight checks this; a read-only connector **stops with instructions** instead of faking a write.
 - **Diagrams** — Atlassian MCP cannot upload images, so diagrams go in as **Confluence-rendered Mermaid** generated from the real source (ER from the schema, sequence from the flow) and are proven to render at review layer 5. Diagrams are never invented.
-- **5-card review** (`references/review.md`) — (1) matches confirmation · (2) every value sourced + no mock left · (3) structure preserved · (4) text/numbers/terms · (5) renders on the live page. **ตรวจไม่ได้ = ไม่ผ่าน · needs 5/5 · one FAIL re-reviews all five.** `scripts/verify-confluence.py` is the mechanical gate (no mock leftover, locked terms not split, structure preserved, no credential leak) — exit 1 blocks the write. **Passing the script is not passing the review.**
+- **5-card review** (`references/review.md`) — (1) matches confirmation · (2) every value sourced + no mock left · (3) structure preserved · (4) text/numbers/terms · (5) renders on the live page. **ตรวจไม่ได้ = ไม่ผ่าน · needs 5/5 · one FAIL re-reviews all five.** `scripts/verify-confluence.py` is the mechanical gate (no mock leftover, locked terms not split, structure preserved, headers English + bold, no page-level `SUBSYSTEM:` badge, no credential leak) — exit 1 blocks the write. **Passing the script is not passing the review.**
 
 > ℹ️ **Status:** v0.22.0 ships the full skill and a tested mechanical verifier. A real **end-to-end run against Confluence** (write, publish, diagram render) must happen in a session where the connector has `write:page:confluence` — it is not yet proven under a read-only grant.
 
