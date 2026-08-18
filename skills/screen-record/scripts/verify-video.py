@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """verify-video.py — measure a recording against the spec instead of eyeballing it.
 
-    verify-video.py <file.mp4> [more.mp4 ...] [--min-seconds 5] [--width 1920] [--height 1080]
+    verify-video.py <file.mp4> [...] [--min-seconds 5] [--width 1920] [--height 1080] [--expect-audio]
 
 Covers the machine-checkable half of the 7-layer gate (references/quality-gate.md):
 
@@ -100,7 +100,7 @@ def faststart(path):
     return mdat == -1 or moov < mdat
 
 
-def check(path, min_seconds, want_w, want_h):
+def check(path, min_seconds, want_w, want_h, expect_audio=False):
     fails, warns = [], []
 
     if not os.path.isfile(path):
@@ -152,6 +152,25 @@ def check(path, min_seconds, want_w, want_h):
     if not faststart(path):
         fails.append('not +faststart (moov after mdat) — may not stream/preview in the browser')
 
+    # Narration was asked for, so a silent file is a failure, not a variant.
+    astream = next((s for s in info.get('streams', []) if s.get('codec_type') == 'audio'), None)
+    if expect_audio:
+        if astream is None:
+            fails.append('narration was requested but the file has no audio stream — '
+                         'run narrate.py, then re-check')
+        else:
+            adur = astream.get('duration')
+            try:
+                adur = float(adur)
+            except (TypeError, ValueError):
+                adur = None
+            if adur is not None and adur < 1.0:
+                fails.append(f'audio stream is only {adur:.1f}s — narration did not land')
+            if dur and adur and adur > dur + 0.5:
+                warns.append(f'narration ({adur:.1f}s) outlasts the video ({dur:.1f}s) — the tail is cut off')
+    elif astream is not None:
+        warns.append('file has an audio track but narration was not expected for this run')
+
     if not re.match(r'^[A-Za-z0-9._-]+\.mp4$', os.path.basename(path)):
         warns.append('file name has spaces or unusual characters — rename before attaching')
 
@@ -165,10 +184,13 @@ def main():
         return 2
 
     min_seconds, want_w, want_h, files = MIN_SECONDS, WANT_W, WANT_H, []
+    expect_audio = False
     i = 0
     while i < len(args):
         a = args[i]
-        if a == '--min-seconds':
+        if a == '--expect-audio':
+            expect_audio = True
+        elif a == '--min-seconds':
             i += 1; min_seconds = float(args[i])
         elif a == '--width':
             i += 1; want_w = int(args[i])
@@ -189,7 +211,7 @@ def main():
 
     bad = 0
     for f in files:
-        fails, warns = check(f, min_seconds, want_w, want_h)
+        fails, warns = check(f, min_seconds, want_w, want_h, expect_audio)
         name = os.path.basename(f)
         if fails:
             bad += 1

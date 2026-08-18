@@ -28,6 +28,7 @@ case "${1:-}" in
 esac
 
 RUNTIME="$HOME/.manual-maker/runtime"
+PY_BIN="$(command -v python3 || echo /usr/bin/python3)"
 NODE_MODULES="$RUNTIME/node_modules"
 
 REPORT=()
@@ -133,6 +134,31 @@ else
   else
     row "ffmpeg" "blocked" "ไม่พบ Homebrew — ติดตั้ง ffmpeg เองจาก https://ffmpeg.org/download.html"
     BLOCKED=1
+  fi
+fi
+
+# --------------------------------------------------- 5. edge-tts (narration voice)
+# Only needed when a run asks for narration, but checked always so the confirmation summary can
+# say whether it is ready. Installed into its own venv under the skill sandbox — never the user's
+# system python. Free, no account, no key; it reaches Microsoft's public voice endpoint at synth
+# time. macOS `say` is NOT a fallback: its only Thai voice is female and audibly synthetic, which
+# fails the brief for a natural male narrator.
+TTS_VENV="$RUNTIME/tts"
+TTS_BIN="$TTS_VENV/bin/edge-tts"
+
+if [ -x "$TTS_BIN" ] || command -v edge-tts >/dev/null 2>&1; then
+  row "edge-tts (เสียงบรรยาย)" "ok" "พร้อม"
+elif [ "$MODE" = "check" ]; then
+  row "edge-tts (เสียงบรรยาย)" "missing" "จะติดตั้งให้ (~10 MB) — ใช้เฉพาะงานที่ขอเสียงบรรยาย"
+else
+  note "ติดตั้ง edge-tts (เสียงบรรยาย) ลง $TTS_VENV"
+  if "$PY_BIN" -m venv "$TTS_VENV" >&2 && "$TTS_VENV/bin/pip" install --quiet --upgrade pip >&2 \
+     && "$TTS_VENV/bin/pip" install --quiet edge-tts >&2 && [ -x "$TTS_BIN" ]; then
+    row "edge-tts (เสียงบรรยาย)" "installed" "พร้อม"
+    INSTALLED=1
+  else
+    # Not fatal: only narrated runs need it, and the failure is reported rather than hidden.
+    row "edge-tts (เสียงบรรยาย)" "blocked" "ติดตั้งไม่สำเร็จ — งานที่ขอเสียงบรรยายจะทำไม่ได้ (อัดเงียบยังได้)"
   fi
 fi
 

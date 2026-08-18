@@ -15,11 +15,12 @@ gets filed as proof of something. Re-record; never wave it through.
 | **4** | **The result is on screen** | The exact state that decides each expected result is **visible in the video** — the resulting screen, toast, or value is shown, not implied by a click. One provable moment each. | `expect` in the play file |
 | **5** | **Legible / text-backed** | The wording, labels, counts, and values under review are **readable in frame**. If the video cannot render them legibly, the still screenshot supplements it. | `expect` stills + your eyes |
 | **6** | **File integrity + match** | Plays start to end, **non-blank, non-truncated**, sane duration, correct name, and is the clip for **that exact item** — not another one's. | `verify-video.py` |
+| **6b** | **Narration, when it was asked for** | An audio track exists and is audible; every line is spoken over the step it describes, **finishes before the next action starts**, and says what the source says — no invented sentence. Voice and language match what was confirmed. | `verify-video.py --expect-audio` + listening |
 | **7** | **Delivered + link verified** | Landed where it was meant to (folder / Drive / ticket / embedded in the document) and the reference **actually resolves and plays** from there — opened and confirmed, not assumed. | you, by opening it |
 
 ## What the script can and cannot decide
 
-`scripts/verify-video.py` measures layers **1 and 6** — resolution, codec, pixel format,
+`scripts/verify-video.py` measures layers **1 and 6** (add `--expect-audio` on a narrated run) — resolution, codec, pixel format,
 faststart, duration, truncation, blank frames, file naming. It is mechanical and it is honest:
 
 - **Exit 0** = those two layers pass.

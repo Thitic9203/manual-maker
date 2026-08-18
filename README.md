@@ -1,6 +1,6 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.28.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.29.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 **A Claude Code plugin that documents the web systems your team builds.** It ships **three skills** that turn a running system into finished documentation — a step-by-step user handbook, a fully populated Confluence space, or a recorded video walkthrough.
 
@@ -310,11 +310,12 @@ profile → intake (env · URL · account · source) → preflight → CONFIRM �
 - **One spec for every clip:** 1920×1080, `deviceScaleFactor` 2, H.264 CRF 20 `preset slow`, `yuv420p`, `+faststart`. A clip recorded today matches one recorded months ago.
 - **The login is never in the clip.** Auth runs in a non-recorded context and hands its session to the recording one, so no credential is ever on screen.
 - **Looks like a person recording their own screen.** A mouse pointer glides to each control and flashes on click — it tracks the *real* pointer through the page's own mouse events, so it can never show a click that did not happen. Text is typed character by character, scrolling is paced. Nothing else is drawn into the page: no banner, no URL strip, no watermark. Stills hide the pointer.
+- **Optional narration, in Thai or English.** Intake asks; if you want it, a **male neural voice** (`th-TH-NiwatNeural` / `en-US-GuyNeural`) reads the script — phrased into breath-sized lines with real pauses, not one flat run. Each line is **measured before recording**, and the flow holds that step open until the sentence finishes, so narration never talks over the next click. Free, no account.
 - **It fails closed.** A step that never reaches its target aborts with a non-zero exit and keeps the partial video for diagnosis. A short clip is a **blocked** item with a reason — never a smaller success.
 
 **The 7-layer quality gate** decides when a recording is done: max quality · whole flow · reached the target · result on screen · legible · file integrity · delivered-and-plays. `scripts/verify-video.py` measures layers 1 and 6 for real — resolution, codec, pixel format, faststart, blank frames (per-frame luma range), and a full decode that catches truncation. It exits **2** when a check could not run, because a check that could not run is not a pass. The remaining layers are judged by watching the clip against the source.
 
-**Requirements:** Node + Playwright + Chromium (installed into `~/.manual-maker/runtime/`, shared with `manual-maker`) and **ffmpeg** as a real system install. `scripts/preflight.sh --check` reports; `--install` fixes. Without ffmpeg there is no MP4 — that is a blocked run, never a silent `.webm`.
+**Requirements:** Node + Playwright + Chromium (installed into `~/.manual-maker/runtime/`, shared with `manual-maker`), **ffmpeg** as a real system install, and — only for narrated runs — **edge-tts**, installed into the skill's own venv. `scripts/preflight.sh --check` reports; `--install` fixes. Without ffmpeg there is no MP4 — that is a blocked run, never a silent `.webm`.
 
 **Where the rules live:**
 

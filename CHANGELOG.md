@@ -2,6 +2,36 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.29.0] - 2026-08-18
+### Added
+- **`screen-record`: optional narration, asked for at intake — none / Thai / English.** Spoken by a
+  **male neural voice** (`th-TH-NiwatNeural`, `en-US-GuyNeural`) via edge-tts (free, no account),
+  installed into the skill's own venv by `preflight.sh --install`. macOS `say` is deliberately not
+  used as a fallback: its only Thai voice is female and audibly synthetic.
+- **Phrasing, not a wall of speech.** Lines are split into breath-sized phrases at real boundaries
+  and joined with pauses — 0.22 s inside a clause, 0.40 s at a sentence end — then the whole track
+  is normalized to broadcast loudness so no line is louder than another. Break points are words
+  that genuinely *start* a clause: splitting before `แล้ว` cut `เรียบร้อยแล้ว` in half, which a
+  listener hears as a stumble, so that word and `ให้` were removed from the break list.
+- **Two-pass timing, measured rather than estimated.** `narrate.py --prepare <play.json>` speaks
+  each line and records how long it takes; `record.js` reads that and **holds each narrated step
+  open until its sentence finishes**. Before this, three of four lines on a real run ran 5–6 s into
+  the following step. Takes are cached by voice+rate+text, so the second pass reuses pass one's
+  audio instead of re-synthesizing it.
+- `narrate.py` — speaks a finished clip's timeline onto it at the measured offsets, video stream
+  copied untouched, and warns when a line overruns its step or the end of the video.
+- `verify-video.py --expect-audio` — on a narrated run, a silent file is a failure, not a variant.
+  New gate row **6b** covers narration.
+
+### Fixed
+- **The muxer no longer truncates the video.** `-shortest` matched the picture to a shorter audio
+  track and cut a 19.1 s clip down to 17.3 s. The video is the deliverable; audio fits around it.
+
+### Changed
+- Intake asks the narration question, and the narration script must come from the **same source as
+  the steps** — a spoken sentence that is not in the source is an invented claim about the product,
+  read aloud, in a deliverable.
+
 ## [0.28.0] - 2026-08-18
 ### Added
 - **`screen-record`: a mouse pointer, so a clip reads as human.** Playwright's video has no pointer,

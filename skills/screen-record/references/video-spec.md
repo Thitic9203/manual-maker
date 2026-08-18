@@ -88,6 +88,60 @@ that stopped before reaching its target is not a shorter success — it is a fai
 the honest outcome is "blocked, with the reason". The video is still finalized so the failure can be
 diagnosed, but the command exits non-zero and says what was never reached.
 
+## Narration (optional)
+
+Asked for at intake — none, Thai, or English — and produced in two passes, because the voice has to
+be measured *before* the recording so the flow can be paced to it.
+
+| Setting | Value | Why |
+|---|---|---|
+| Voice (th) | **`th-TH-NiwatNeural`** | Male, neural, natural. macOS `say` is not an alternative: its only Thai voice is female and audibly synthetic |
+| Voice (en) | **`en-US-GuyNeural`** | Male, neural |
+| Rate | **`+4%`** | A touch above default reads as engaged rather than sleepy |
+| Pause inside a clause | **0.22 s** | |
+| Pause at a sentence end | **0.40 s** | A listener needs longer to close a sentence than a clause |
+| Phrase ceiling | **62 chars (th) / 95 (en)** | Thai has no inter-word spaces, so a long line hits the ear as one breathless run |
+| Loudness | **`loudnorm I=-16 TP=-1.5 LRA=11`** | Every line at the same level — the difference between narration and a voice memo |
+| Audio codec | **AAC 160 kbps** | Video stream is copied, never re-encoded |
+
+**Phrasing is where narration stops sounding synthetic.** Lines are split at real boundaries — the
+author's punctuation first, then Thai/English connectives that actually *start* a clause. Words that
+usually *end* one are deliberately not break points: cutting before `แล้ว` splits `เรียบร้อยแล้ว`
+in half, and a listener hears that as a stumble. Same for `ให้`, which lives inside `ทำให้` far more
+often than it opens a clause.
+
+**The two passes:**
+
+```bash
+narrate.py --prepare play-TC_01.json      # speak each line, measure it, write play-TC_01.saydur.json
+node record.js play-TC_01.json            # record — each narrated step is held open until its line ends
+narrate.py out/TC_01.mp4                  # speak it onto the clip at the measured offsets
+```
+
+Pass one is what keeps the voice off the next action: without it, measured on a real run, three of
+four lines ran 5–6 s into the following step. Synthesized phrases are cached by voice+rate+text, so
+the second pass re-uses pass one's takes instead of paying for them twice — and cannot end up with
+two slightly different readings of the same sentence.
+
+**Two things the muxer will not do.** It never re-encodes the video (`-c:v copy`), and it never
+trims it: `-shortest` was removed after it cut a 19.1 s clip down to 17.3 s to match a shorter
+narration track. The picture is the deliverable; the audio fits around it.
+
+Play-file shape:
+
+```json
+{
+  "narration": { "lang": "th" },
+  "steps": [
+    { "do": "click", "selector": "text=สร้างคอร์ส", "waitFor": "text=สร้างคอร์สใหม่",
+      "say": "คลิกปุ่มสร้างคอร์ส ระบบจะเปิดหน้าฟอร์มสำหรับกรอกรายละเอียด" }
+  ]
+}
+```
+
+Every `say` line comes from the **same source as the steps**. A narrated sentence that is not in
+the source is an invented claim about the product, spoken aloud, in a deliverable.
+
 ## The play file
 
 One JSON file per clip. It holds **no credentials** — those come from the environment.
@@ -134,6 +188,8 @@ One JSON file per clip. It holds **no credentials** — those come from the envi
 | `cursor` | `true` | Draw the mouse pointer and glide it to each target before acting |
 | `glideSteps` | `28` | Pointer travel resolution — higher is slower and smoother |
 | `typeDelay` | `55` ms | Per character for `fill`. `0` = set the value instantly |
+| `narration` | — | `{ "lang": "th" \| "en", "voice"?: "..." }` — see Narration above |
+| `sayDurations` | auto | Path to the `--prepare` output; defaults to `<play>.saydur.json` |
 | `tail` | `1500` ms | Hold on the last frame so it lands in the video |
 | `login` | — | Omit for a public flow |
 | `storageState` | — | Path to a saved session — used instead of logging in (the SSO/MFA route) |

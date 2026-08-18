@@ -85,6 +85,9 @@ user confirmed unchanged. The four that are always asked, every run:
 - **Where the finished files go** — the output folder, and whether anything is uploaded afterwards.
   Never assume a location; offer `~/Downloads/recordings/` and let the user confirm or redirect.
   With a profile, show the saved folder and reconfirm rather than asking again.
+- **Narration — wanted or not, and in Thai or English.** If wanted, write one `say` line per step
+  **from the same source as the steps** (never invented) and read the whole script back for
+  confirmation before recording.
 
 ### Step 3 — Preflight
 
@@ -131,6 +134,21 @@ this run", because it lands in every frame of the deliverable. Diagnostics go to
 Derive the steps and the wording from the **source**, and name each clip after the source's own id
 (`TC_01` → `TC_01.mp4`). Credentials never go in a play file.
 
+### Step 5b — Measure the narration first (narrated runs only)
+
+```bash
+"$SR/scripts/narrate.py" --prepare play-TC_01.json
+```
+
+This speaks each line with the real voice and writes `play-TC_01.saydur.json`. `record.js` picks it
+up automatically and **holds each narrated step open until its sentence finishes**, so the voice
+never talks over the next click. Skipping this does not break the run — it just records unpaced,
+and the first narrated run without it had three lines running 5–6 s into the following step.
+
+Review the phrasing it prints (`--dry-run` on a finished video shows the same split). Lines are cut
+into breath-sized phrases at natural boundaries, with a longer pause at a sentence end than inside
+a clause.
+
 ### Step 6 — Record
 
 ```bash
@@ -149,10 +167,20 @@ A non-zero exit is a real failure. Read what it says (a `waitFor` that never app
 never reached `readySelector`) and fix that cause — the flow, the selector, or the account. Do not
 retry the same command hoping for a different result, and do not weaken the play file.
 
+### Step 6b — Speak the narration onto the clip (narrated runs only)
+
+```bash
+"$SR/scripts/narrate.py" ~/Downloads/recordings/TC_01.mp4
+```
+
+Reads the timeline `record.js` wrote during the run — offsets are **measured, never estimated** —
+speaks each line, places it at its moment, normalizes the track to broadcast loudness, and muxes it
+in with the video stream copied untouched. It warns if a line overruns its step or the video's end.
+
 ### Step 7 — Verify (fail-closed)
 
 ```bash
-"$SR/scripts/verify-video.py" ~/Downloads/recordings/*.mp4
+"$SR/scripts/verify-video.py" ~/Downloads/recordings/*.mp4        # add --expect-audio if narrated
 ```
 
 That covers layers 1 and 6. Then judge layers 2–5 and 7 **by watching each clip against the source

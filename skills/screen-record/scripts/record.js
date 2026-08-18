@@ -72,6 +72,32 @@ const STEP_TIMEOUT = play.stepTimeout == null ? 30000 : play.stepTimeout;
 const CURSOR = play.cursor !== false;                        // the drawn pointer (see header note 3)
 const GLIDE_STEPS = play.glideSteps == null ? 28 : play.glideSteps;   // higher = slower, smoother travel
 const TYPE_DELAY = play.typeDelay == null ? 55 : play.typeDelay;      // ms per character, 0 = instant
+const NARRATION = play.narration || null;   // { lang: 'th' | 'en', voice?: '...' } — see narrate.py
+
+// When a step carries `say`, the line and the moment it started are recorded here. Timing has to be
+// measured during the run — a narration track built from guessed offsets drifts out of sync with
+// the very thing it is describing.
+const narration = [];
+let recStart = null;
+
+// Pass one (`narrate.py --prepare play.json`) speaks each line and writes how long it takes.
+// Without it the flow moves on while the narrator is still mid-sentence — measured on the first
+// narrated run: three lines each ran 5-6 s into the following step. Optional: a run with no
+// durations file still records, it just is not paced to the voice.
+const SAYDUR = (() => {
+  const guess = play.sayDurations || playPath.replace(/\.json$/, '') + '.saydur.json';
+  try {
+    if (fs.existsSync(guess)) {
+      const d = JSON.parse(fs.readFileSync(guess, 'utf8'));
+      console.log(`NARRATION TIMING: ${guess} (${Object.keys(d.steps || {}).length} lines)`);
+      return d.steps || {};
+    }
+  } catch (e) { console.log('NARRATION TIMING: unreadable, recording unpaced —', e.message); }
+  if (play.narration) {
+    console.log('NARRATION TIMING: none — run `narrate.py --prepare` first so steps are paced to the voice');
+  }
+  return {};
+})();
 const steps = Array.isArray(play.steps) ? play.steps : die('play.steps must be an array');
 if (!steps.length) die('play.steps is empty — there is no flow to record');
 
@@ -237,6 +263,10 @@ async function login(context, cfg) {
 // ------------------------------------------------------------------- one step
 async function runStep(page, s, i) {
   const tag = `step ${i + 1}${s.label ? ' — ' + s.label : ''}`;
+  const stepStart = Date.now();
+  if (s.say && recStart != null) {
+    narration.push({ step: i + 1, atMs: stepStart - recStart, text: String(s.say) });
+  }
   const to = s.timeout || STEP_TIMEOUT;
   const act = s.do || 'goto';
 
@@ -316,6 +346,18 @@ async function runStep(page, s, i) {
         + 'Do not ship this clip; fix the selector/flow or report the case as blocked.'));
   }
   await sleep(s.settle == null ? SETTLE : s.settle);
+
+  // Let the narrator finish before the next action starts. The line began when the step began, so
+  // what is left is its measured length minus the time the step already took, plus a short beat.
+  const spoken = SAYDUR[String(i + 1)];
+  if (s.say && spoken) {
+    const elapsed = (Date.now() - stepStart) / 1000;
+    const left = spoken + 0.35 - elapsed;
+    if (left > 0) {
+      console.log(`        …holding ${left.toFixed(1)}s for the narration to finish`);
+      await sleep(Math.round(left * 1000));
+    }
+  }
 }
 
 // Gate layer 4/5: the state that decides the expected result is shown, and a still is captured.
@@ -379,6 +421,7 @@ function encode(webm, mp4) {
       recordVideo: { dir: OUT, size: { width: VIEW.width, height: VIEW.height } },
     });
     const page = await ctx.newPage();
+    recStart = Date.now();          // the video starts here, so narration offsets are measured from here
     if (CURSOR) {
       mouseAt = { x: Math.round(VIEW.width / 2), y: Math.round(VIEW.height / 3) };
       await page.addInitScript(installCursor);
@@ -412,6 +455,20 @@ function encode(webm, mp4) {
     }
     console.log(`WEBM: ${webm} ${fs.statSync(webm).size} bytes`);
     console.log(`SHOTS: ${shots.length}`);
+    if (narration.length) {
+      const nfile = path.join(OUT, `${NAME}.narration.json`);
+      fs.writeFileSync(nfile, JSON.stringify({
+        name: NAME,
+        video: path.basename(mp4),
+        lang: (NARRATION && NARRATION.lang) || null,
+        voice: (NARRATION && NARRATION.voice) || null,
+        lines: narration,
+      }, null, 2));
+      console.log(`NARRATION: ${nfile} ${narration.length} lines`
+        + ` — run narrate.py to speak it onto the video`);
+    } else if (NARRATION) {
+      console.log('NARRATION: requested but no step carried a `say` line — nothing to speak');
+    }
     if (failed) die(`run aborted mid-flow: ${failed.message}`);
     console.log('RESULT: recorded');
   } finally {
