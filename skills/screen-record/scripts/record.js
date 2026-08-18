@@ -16,12 +16,12 @@
  *  2. THE RUN FAILS CLOSED. A step whose `waitFor`/`expect` never appears aborts the run with
  *     a non-zero exit. A short clip that stopped before reaching its target must never be
  *     mistaken for a successful recording; the correct outcome is "blocked, with the reason".
- *  3. NOTHING OF OURS IS ON SCREEN. The clip must be indistinguishable from a person using the
- *     system and recording their own screen. This script draws NOTHING into the page — no
- *     overlay, no banner, no watermark, no debug strip. Playwright is already invisible to the
- *     page (no cursor, no "controlled by automated software" bar in page content). If you are
- *     ever tempted to inject a helper element "just for this run", don't: it lands in every
- *     frame and has to be edited out afterwards.
+ *  3. IT LOOKS LIKE A PERSON RECORDING THEIR OWN SCREEN. Exactly ONE thing is drawn into the
+ *     page — a mouse pointer, because a real screen recording has one and Playwright's video
+ *     does not. It is not an animation played over the top: it tracks the REAL pointer through
+ *     the page's own mousemove/mousedown events, so it can only ever show where the browser
+ *     actually clicked. Nothing else is injected: no banner, no URL strip, no watermark, no
+ *     step counter. Anything diagnostic goes to the run log, which no viewer ever sees.
  *
  * Credentials come from the environment only (`SR_USER` / `SR_PASS`, or the names given in
  * `login.userEnv` / `login.passEnv`). They are never read from the play file, never printed.
@@ -69,6 +69,9 @@ const CRF = play.crf == null ? 20 : play.crf;
 const PRESET = play.preset || 'slow';
 const SETTLE = play.settle == null ? 900 : play.settle;      // pause after each step
 const STEP_TIMEOUT = play.stepTimeout == null ? 30000 : play.stepTimeout;
+const CURSOR = play.cursor !== false;                        // the drawn pointer (see header note 3)
+const GLIDE_STEPS = play.glideSteps == null ? 28 : play.glideSteps;   // higher = slower, smoother travel
+const TYPE_DELAY = play.typeDelay == null ? 55 : play.typeDelay;      // ms per character, 0 = instant
 const steps = Array.isArray(play.steps) ? play.steps : die('play.steps must be an array');
 if (!steps.length) die('play.steps is empty — there is no flow to record');
 
@@ -79,6 +82,97 @@ const abs = (u) => (/^https?:\/\//i.test(u) ? u : BASE + '/' + String(u).replace
 
 // A locator from a play-file target: "text=..." / "//xpath" / any CSS selector.
 const loc = (page, sel) => (String(sel).startsWith('//') ? page.locator(`xpath=${sel}`) : page.locator(sel));
+
+// ---------------------------------------------------------------- mouse pointer
+// Playwright's video has no pointer, so a viewer sees controls activate with nothing touching
+// them — the one thing that gives away that a clip was not recorded by a person.
+//
+// This draws a pointer, but it does NOT animate one: it listens to the page's own mousemove /
+// mousedown / mouseup and follows the REAL pointer. So the arrow can only ever be where the
+// browser actually is, and the click flash can only fire on a real click. A drawn-on animation
+// could show a click that never happened; this cannot.
+//
+// Runs through addInitScript, so it survives every navigation. Hidden until the first move, so a
+// page that is never clicked shows no stray arrow.
+function installCursor() {
+  const draw = () => {
+    if (document.getElementById('__sr_cursor')) return;
+    const host = document.body || document.documentElement;
+    if (!host) return;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      #__sr_cursor{position:fixed;left:0;top:0;width:24px;height:24px;z-index:2147483647;
+        pointer-events:none;opacity:0;transition:opacity .12s linear;
+        will-change:transform;transform:translate(-2px,-2px)}
+      #__sr_cursor.__on{opacity:1}
+      #__sr_cursor.__press{transform:translate(-2px,-2px) scale(.82)}
+      #__sr_ring{position:fixed;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;
+        border-radius:50%;border:2px solid rgba(0,0,0,.45);z-index:2147483646;pointer-events:none;
+        opacity:0}
+      @keyframes __sr_pop{from{transform:scale(.35);opacity:.75}to{transform:scale(1.5);opacity:0}}
+      #__sr_ring.__go{animation:__sr_pop .42s ease-out forwards}
+    `;
+    (document.head || host).appendChild(style);
+
+    const cur = document.createElement('div');
+    cur.id = '__sr_cursor';
+    // Standard arrow: black fill, white outline so it stays visible on any background.
+    cur.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">'
+      + '<path d="M5 2.5 L5 18.2 L9.1 14.4 L11.7 20.6 L14.6 19.4 L12 13.3 L17.6 13.1 Z" '
+      + 'fill="#111" stroke="#fff" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+    const ring = document.createElement('div');
+    ring.id = '__sr_ring';
+    host.appendChild(cur);
+    host.appendChild(ring);
+
+    let x = -100, y = -100;
+    const place = () => { cur.style.transform = `translate(${x - 2}px, ${y - 2}px)`; };
+    addEventListener('mousemove', (e) => {
+      x = e.clientX; y = e.clientY;
+      cur.classList.add('__on');
+      cur.style.transform = `translate(${x - 2}px, ${y - 2}px)`
+        + (cur.classList.contains('__press') ? ' scale(.82)' : '');
+    }, true);
+    addEventListener('mousedown', () => {
+      cur.classList.add('__press'); place();
+      cur.style.transform = `translate(${x - 2}px, ${y - 2}px) scale(.82)`;
+      ring.style.left = x + 'px'; ring.style.top = y + 'px';
+      ring.classList.remove('__go'); void ring.offsetWidth; ring.classList.add('__go');
+    }, true);
+    addEventListener('mouseup', () => {
+      cur.classList.remove('__press');
+      cur.style.transform = `translate(${x - 2}px, ${y - 2}px)`;
+    }, true);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', draw);
+  else draw();
+  setTimeout(draw, 800);   // SPA shells that replace <body> after first paint
+}
+
+// Where the pointer is, kept on this side so it can be restored after a navigation.
+let mouseAt = { x: Math.round(1920 / 2), y: Math.round(1080 / 3) };
+
+// Travel to an element the way a hand does: a visible glide, then a beat before acting. The real
+// pointer moves, so genuine :hover states fire on the way in — which is also what a viewer expects.
+async function glideTo(page, locator) {
+  if (!CURSOR) return;
+  let box = null;
+  try { box = await locator.boundingBox({ timeout: 5000 }); } catch (_) {}
+  if (!box) return;                      // off-screen or detached — the action itself will report it
+  const x = Math.round(box.x + box.width / 2);
+  const y = Math.round(box.y + box.height / 2);
+  await page.mouse.move(x, y, { steps: GLIDE_STEPS });
+  mouseAt = { x, y };
+  await sleep(260);                      // the pause a person makes before clicking
+}
+
+// A fresh document starts with no pointer until something moves it. Nudge it back so the arrow
+// reappears where the viewer last saw it instead of blinking out for a whole page.
+async function restoreCursor(page) {
+  if (!CURSOR) return;
+  await page.mouse.move(mouseAt.x, mouseAt.y).catch(() => {});
+}
 
 // ---------------------------------------------------------------------- login
 async function login(context, cfg) {
@@ -149,19 +243,39 @@ async function runStep(page, s, i) {
   switch (act) {
     case 'goto':
       await page.goto(abs(s.url), { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await restoreCursor(page);          // a fresh document has no pointer until something moves it
       break;
-    case 'click':
-      await loc(page, s.selector).first().click({ timeout: to });
+    case 'click': {
+      const el = loc(page, s.selector).first();
+      await glideTo(page, el);
+      await el.click({ timeout: to });
       break;
-    case 'fill':
-      await loc(page, s.selector).first().fill(String(s.value == null ? '' : s.value), { timeout: to });
+    }
+    case 'fill': {
+      // A person clicks the field, then types into it. Setting .value in one frame next to a
+      // moving pointer is the tell that gives an automated clip away, so type it out.
+      const el = loc(page, s.selector).first();
+      const value = String(s.value == null ? '' : s.value);
+      await glideTo(page, el);
+      await el.click({ timeout: to });
+      await el.fill('', { timeout: to });                 // clear whatever was there
+      const delay = s.typeDelay == null ? TYPE_DELAY : s.typeDelay;
+      if (delay > 0) await el.pressSequentially(value, { delay, timeout: to });
+      else await el.fill(value, { timeout: to });
       break;
-    case 'select':
-      await loc(page, s.selector).first().selectOption(String(s.value), { timeout: to });
+    }
+    case 'select': {
+      const el = loc(page, s.selector).first();
+      await glideTo(page, el);
+      await el.selectOption(String(s.value), { timeout: to });
       break;
-    case 'hover':
-      await loc(page, s.selector).first().hover({ timeout: to });
+    }
+    case 'hover': {
+      const el = loc(page, s.selector).first();
+      await glideTo(page, el);
+      await el.hover({ timeout: to });
       break;
+    }
     case 'press':
       await page.keyboard.press(s.key || 'Enter');
       break;
@@ -178,9 +292,13 @@ async function runStep(page, s, i) {
         window.scrollTo(0, target);
       }, s.to == null ? null : s.to);
       break;
-    case 'scrollTo':
-      await loc(page, s.selector).first().scrollIntoViewIfNeeded({ timeout: to });
+    case 'scrollTo': {
+      const el = loc(page, s.selector).first();
+      await el.scrollIntoViewIfNeeded({ timeout: to });
+      await sleep(400);
+      await glideTo(page, el);            // land the pointer on what was just brought into view
       break;
+    }
     case 'wait':
       await sleep(s.ms || 1000);
       break;
@@ -200,8 +318,9 @@ async function runStep(page, s, i) {
   await sleep(s.settle == null ? SETTLE : s.settle);
 }
 
-// Gate layer 4/5: the state that decides the expected result is shown, and a still is captured
-// of the page exactly as it is — nothing is drawn on it before or after the shutter.
+// Gate layer 4/5: the state that decides the expected result is shown, and a still is captured.
+// The pointer belongs in the video — in a still it is just something parked on top of the words
+// someone needs to read — so it is hidden for the shutter and restored straight after.
 async function checkpoint(page, s, i, shots) {
   if (!s.expect) return;
   const tag = `step ${i + 1}${s.label ? ' — ' + s.label : ''}`;
@@ -210,7 +329,13 @@ async function checkpoint(page, s, i, shots) {
   await sleep(600);
   const n = String(shots.length + 1).padStart(2, '0');
   const file = path.join(OUT, `${NAME}-ER_${n}.png`);
+  const setCursor = (vis) => page.evaluate((v) => {
+    const c = document.getElementById('__sr_cursor');
+    if (c) c.style.visibility = v ? '' : 'hidden';
+  }, vis).catch(() => {});
+  if (CURSOR) { await setCursor(false); await sleep(150); }
   await page.screenshot({ path: file, fullPage: !!s.fullPage });
+  if (CURSOR) await setCursor(true);
   shots.push(file);
   console.log(`SHOT: ${file} ${fs.statSync(file).size} bytes`);
 }
@@ -254,6 +379,10 @@ function encode(webm, mp4) {
       recordVideo: { dir: OUT, size: { width: VIEW.width, height: VIEW.height } },
     });
     const page = await ctx.newPage();
+    if (CURSOR) {
+      mouseAt = { x: Math.round(VIEW.width / 2), y: Math.round(VIEW.height / 3) };
+      await page.addInitScript(installCursor);
+    }
 
     const shots = [];
     try {

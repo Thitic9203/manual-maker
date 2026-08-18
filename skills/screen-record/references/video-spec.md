@@ -49,26 +49,37 @@ If the app only hydrates its session after the shell has loaded once, set `login
 non-recorded context visits it, so the recorded one starts already logged in instead of opening on
 a "could not load" state.
 
-### 2. Nothing of ours appears on screen
+### 2. It looks like a person recording their own screen
 
-The clip must be **indistinguishable from a person using the system and recording their own
-screen**. A viewer should not be able to tell a script drove it.
+A viewer should not be able to tell a script drove it. Two things make the difference, and both
+are on by default:
 
-The recorder therefore **draws nothing into the page** — no overlay, no banner, no URL strip, no
-watermark, no debug text. There is no option to turn one on, because an option like that ends up
-on by accident and then every frame has to be edited.
+**A mouse pointer.** Playwright's video has none, so without one a viewer watches controls
+activate with nothing touching them. The recorder draws an arrow — but it does **not** animate
+one. The drawn arrow listens to the page's own `mousemove` / `mousedown` / `mouseup` and follows
+the **real** pointer, so it can only ever be where the browser actually is, and the click flash
+can only fire on a real click. A painted-on animation could show a click that never happened;
+this cannot. Before every click, hover, select or `scrollTo`, the real pointer **glides** to the
+target over ~28 steps and pauses ~260 ms — so genuine `:hover` states fire on the way in, the way
+they do for a person.
 
-The rest holds by construction:
+**Typing that is typed.** `fill` clicks the field, clears it, then enters the value one character
+at a time (`typeDelay`, default 55 ms). A value that appears in a single frame next to a moving
+pointer is the tell that gives an automated clip away.
 
-- Headless Chromium paints **no mouse cursor** and no *"controlled by automated test software"*
-  bar into page content.
-- Playwright records **page content only** — the browser's own chrome is never in the video.
-- Steps are paced (`settle`, and scrolling at ~250 px per 350 ms) so the motion reads like a
-  person working, not an instant jump between states.
+Everything else stays out of the frame:
 
-If a future change is tempted to inject a helper element "just for this run" — a URL readout, a
-step counter, a highlight — it lands in **every frame** of the deliverable. Put it in the run log
-instead.
+- The pointer is the **only** thing drawn into the page. No banner, no URL strip, no watermark,
+  no step counter. Anything diagnostic goes to the run log, which no viewer ever sees.
+- Headless Chromium adds no *"controlled by automated test software"* bar to page content, and
+  Playwright records page content only — the browser's own chrome is never in the video.
+- Scrolling is paced at ~250 px per 350 ms, so the page moves the way someone reading it would
+  move it rather than jumping between states.
+- **Stills hide the pointer.** In a video the arrow is the point; in a screenshot it is something
+  parked on top of words a reader needs. It is hidden for the shutter and restored right after.
+
+`"cursor": false` turns the pointer off (and with it the glide) for a clip that should look like
+pure navigation. `"typeDelay": 0` fills instantly. Both are the exception, not the default.
 
 ### 3. The run fails closed
 
@@ -120,6 +131,9 @@ One JSON file per clip. It holds **no credentials** — those come from the envi
 | `crf` / `preset` | `20` / `slow` | |
 | `settle` | `900` ms | Pause after each step, so the viewer can follow |
 | `stepTimeout` | `30000` ms | Per-step ceiling |
+| `cursor` | `true` | Draw the mouse pointer and glide it to each target before acting |
+| `glideSteps` | `28` | Pointer travel resolution — higher is slower and smoother |
+| `typeDelay` | `55` ms | Per character for `fill`. `0` = set the value instantly |
 | `tail` | `1500` ms | Hold on the last frame so it lands in the video |
 | `login` | — | Omit for a public flow |
 | `storageState` | — | Path to a saved session — used instead of logging in (the SSO/MFA route) |
@@ -131,13 +145,13 @@ One JSON file per clip. It holds **no credentials** — those come from the envi
 | `do` | Fields | Notes |
 |---|---|---|
 | `goto` | `url` | Relative resolves against `baseUrl` |
-| `click` | `selector` | |
-| `fill` | `selector`, `value` | Never put a credential here |
+| `click` | `selector` | The pointer glides to the element first |
+| `fill` | `selector`, `value` | Clicks the field, clears it, types it out. Per-step `typeDelay` overrides the default. Never put a credential here |
 | `select` | `selector`, `value` | `<select>` option |
-| `hover` | `selector` | |
+| `hover` | `selector` | The pointer glides there — real `:hover` fires |
 | `press` | `key` | e.g. `Enter`, `Escape` |
 | `scroll` | `to` (px, optional) | Paced ~250 px / 350 ms — an instant jump reads as a cut |
-| `scrollTo` | `selector` | Bring an element into view (this is how layer 3 "scroll to menu XX" is satisfied) |
+| `scrollTo` | `selector` | Bring an element into view, then land the pointer on it (this is how layer 3 "scroll to menu XX" is satisfied) |
 | `waitFor` | `selector` | Explicit wait as its own step |
 | `wait` | `ms` | Last resort — prefer waiting for something real |
 

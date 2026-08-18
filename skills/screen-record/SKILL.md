@@ -31,9 +31,12 @@ different. That spec, and the reasons behind each number, are in
 4. **ทุกขั้นตอนต้องมีที่มา.** Every step in a clip traces to the source the user gave (manual file,
    test-case list, spec) or to a step list they confirmed. Never add a step the source lacks; never
    skip one it has. Source contradicts the live screen → **stop and ask**, do not pick a winner.
-5. **จำไว้ ไม่ถามซ้ำ.** Environment, URL, account and login selectors are saved to the shared
-   profile after confirmation. Next run, show them back and **reconfirm** — do not re-interview.
-   **The password is never stored** and is always asked fresh.
+5. **จำไว้ ไม่ถามซ้ำ.** **Every question this user has already answered is remembered** —
+   environment, URL, account, login selectors, source, file naming, output folder, video settings,
+   destination. All of it is written to the shared profile once the user confirms. On any later
+   run, show the saved values back and **reconfirm before starting** — never re-interview. Two
+   exceptions only: the **password** (never stored) and **which flows to record this run** (it
+   changes every run by nature).
 6. **Delivery gate — ผ่านครบ 7 ชั้นเท่านั้น.** Never say "เสร็จแล้ว" / hand a file over / embed a clip
    until every item passes all seven layers of
    [`references/quality-gate.md`](references/quality-gate.md). **ตรวจไม่ได้ = ไม่ผ่าน** — there is no
@@ -79,6 +82,9 @@ user confirmed unchanged. The four that are always asked, every run:
 - **Account + role**, with the password fresh in-session and never stored.
 - **What to record this run** — from the **source** (manual file, test-case list link, spec). No
   source → have the user list the steps, then read them back for confirmation.
+- **Where the finished files go** — the output folder, and whether anything is uploaded afterwards.
+  Never assume a location; offer `~/Downloads/recordings/` and let the user confirm or redirect.
+  With a profile, show the saved folder and reconfirm rather than asking again.
 
 ### Step 3 — Preflight
 
@@ -115,9 +121,12 @@ A play file is JSON: where to go, what to click, what must appear. Schema and ev
 - **`expect`** wherever an outcome must be proven — asserted, then captured as a still (layers 4
   and 5).
 
-The clip must look like **a person using the system and recording their own screen** — the product
-and nothing else. The recorder draws nothing into the page and offers no way to; never add an
-overlay, a URL strip, or a step counter "just for this run", because it lands in every frame.
+The clip must look like **a person using the system and recording their own screen**. That is what
+the recorder already does by default: a mouse pointer glides to each control and flashes on click
+(tracking the *real* pointer through the page's own mouse events, so it can never show a click that
+did not happen), text is typed character by character, and scrolling is paced. The pointer is the
+**only** thing drawn into the page — never add a banner, a URL strip, or a step counter "just for
+this run", because it lands in every frame of the deliverable. Diagnostics go to the run log.
 
 Derive the steps and the wording from the **source**, and name each clip after the source's own id
 (`TC_01` → `TC_01.mp4`). Credentials never go in a play file.

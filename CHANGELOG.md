@@ -2,6 +2,29 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.28.0] - 2026-08-18
+### Added
+- **`screen-record`: a mouse pointer, so a clip reads as human.** Playwright's video has no pointer,
+  which left controls activating with nothing touching them. The recorder now draws an arrow that
+  **tracks the real pointer** through the page's own `mousemove`/`mousedown`/`mouseup` — it is not a
+  painted-on animation, so it can only ever show where the browser actually is and can only flash on
+  a click that really happened. Before every click, hover, select and `scrollTo`, the real pointer
+  glides to the target and pauses, so genuine `:hover` states fire on the way in.
+- **Typing that is typed.** `fill` now clicks the field, clears it, and enters the value one
+  character at a time (`typeDelay`, default 55 ms) — a value appearing in a single frame beside a
+  moving pointer was the remaining tell. `typeDelay: 0` restores the instant fill.
+- New play-file keys `cursor` (default `true`), `glideSteps` (28), `typeDelay` (55).
+- **Expected-result stills hide the pointer.** In a video the arrow is the point; in a screenshot it
+  is something parked on the words a reader needs.
+
+### Changed
+- **Intake now asks where the finished files go**, and whether anything is uploaded afterwards —
+  both are must-ask, no silent default. The output folder had been buried in the defaults block.
+- **Every answered question is remembered, not just access.** Source, file naming, output folder,
+  video settings and destination now save to the profile alongside environment/URL/account, so a
+  later run **reconfirms** instead of re-interviewing. Still never stored: the password, and which
+  flows to record this run.
+
 ## [0.27.1] - 2026-08-18
 ### Removed
 - **`screen-record`: the injected URL strip is gone entirely** — code, option, and docs. A recording
