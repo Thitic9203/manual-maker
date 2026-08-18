@@ -135,6 +135,47 @@ this run", because it lands in every frame of the deliverable. Diagnostics go to
 Derive the steps and the wording from the **source**, and name each clip after the source's own id
 (`TC_01` → `TC_01.mp4`). Credentials never go in a play file.
 
+### Step 5a — Write the narration script from the source (narrated runs only, mandatory)
+
+A test case is not a script. "1. คลิกปุ่มเพิ่มลงตะกร้า 2. ตรวจสอบว่ายอดรวมถูกต้อง" is written to be
+*executed*, and reading it aloud sounds like someone reading a checklist — which is exactly what it
+is. The narration has to be **written**, from that same source, before any voice touches it.
+
+**Delegate the writing to a copy skill — after telling the user, never silently.**
+
+1. **Say what is about to happen and why**, before touching anything:
+   > "ขั้นตอนต่อไปคือเขียนบทบรรยายจาก\[แหล่งข้อมูลที่ผู้ใช้ให้\] ผมจะใช้สกิลเขียนบท
+   > `/adspirer-ads-agent:write-ad-copy` มาช่วยปรุงให้เป็นบทที่เหมาะกับการอ่านออกเสียง"
+
+2. **If that skill is not installed, ask before installing it.** Installing a plugin changes the
+   user's setup, so it is their call — say which plugin, what it is for, and wait for a yes. A no is
+   a complete answer: fall back to step 4 below and the script is just as good.
+
+3. **If it is available, hand it the source material and the constraints below** and let it draft.
+   Skip the parts of that skill that pull ad campaign data — there is no campaign here, and its
+   ad-platform tools need an authenticated advertising account that a recording run has no reason to
+   have. What is being borrowed is the copywriting, not the ad machinery.
+
+4. **If there is no such skill (or the user declined), write the script directly** against
+   [`references/script-writing.md`](references/script-writing.md), which carries the same rules.
+
+**Every path ends the same way: the script is read back to the user and confirmed before Step 4b**,
+because the voice sample is built from these very lines.
+
+Non-negotiable, whoever writes it:
+
+- **Every line traces to the source.** Steps, field names and outcomes come from the test case /
+  manual / spec the user supplied. Nothing invented — an invented step becomes a clip showing
+  something the system does not do.
+- **One line per step**, and the line describes what that step *shows*, not what a tester should do.
+  "เลือกสินค้าที่ต้องการ ระบุจำนวน แล้วกดเพิ่มลงตะกร้า" — not "Step 2: คลิกปุ่ม Add to cart".
+- **Register follows the audience** (customer-facing = formal), and the polite particle follows the
+  **narrator's gender**: `ครับ` for a male voice, `ค่ะ` for a female one — never mixed, never absent
+  from the opening and closing lines.
+- **Length is a budget, not a guess.** Thai narration runs ≈ 700–760 characters per minute at the
+  default rates, so a 30-second clip is ≈ 320–350 characters of Thai across all lines.
+  `references/script-writing.md` has the table and the per-line ceilings.
+
 ### Step 4b — Play a voice sample and get approval (narrated runs only, mandatory)
 
 ```bash

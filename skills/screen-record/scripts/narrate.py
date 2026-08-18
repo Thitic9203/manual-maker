@@ -27,6 +27,7 @@ optional. It is free and needs no account; preflight.sh --install puts it in the
 Exit 0 = narrated. 1 = a real failure. 2 = could not run (no edge-tts, no ffmpeg, no timeline).
 """
 
+import hashlib
 import json
 import os
 import re
@@ -265,6 +266,66 @@ LINE_BREATH = BASE_BREATH
 ONE_SHOT_TH = 220
 ONE_SHOT_EN = 340
 
+# --- Human unevenness -------------------------------------------------------------------------
+#
+# A person does not speak level. One sentence is leaned into, the next eased off; a pause runs long
+# where the thought needed room and short where it did not. Held perfectly flat — one pitch, one
+# speed, one pause length repeated — the delivery reads as a machine no matter how good the voice
+# is, which is what "โมโนโทนไปเรื่อยๆ" describes.
+#
+# edge-tts 7.2.8 takes rate, pitch and volume per synthesis call and supports no SSML, so the
+# variation has to be applied per utterance rather than inside one. Every sentence therefore gets
+# its own small offsets, and every pause its own length.
+#
+# The offsets are DERIVED FROM THE TEXT, never random. The measuring pass and the muxing pass
+# synthesize the same lines independently; anything random would give them different durations, the
+# recording would be paced to one and the narration muxed at the other, and every line would drift
+# from the step it describes. Same words in, same voice out — always.
+VARIATION = {                       # (pitch Hz, rate %, volume %, pause fraction)
+    'podcast': (3.0, 3.0, 3.0, 0.30),
+    'narrator': (3.0, 2.5, 3.0, 0.28),
+    'documentary': (2.5, 2.0, 2.5, 0.25),
+    'conversational': (3.0, 3.0, 3.0, 0.28),
+    'warm': (2.5, 2.5, 2.5, 0.25),
+    'presenter': (2.0, 2.0, 2.0, 0.20),
+    'calm': (2.0, 2.0, 2.0, 0.22),
+    'soft': (2.0, 1.5, 2.0, 0.22),
+    'professional': (1.5, 1.5, 1.5, 0.18),
+    'lively': (2.5, 2.5, 2.5, 0.18),
+    'upbeat': (2.0, 2.0, 2.0, 0.15),
+    'energetic': (2.0, 2.0, 2.0, 0.15),
+}
+BASE_VARIATION = (2.0, 2.0, 2.0, 0.20)
+SPREAD = BASE_VARIATION
+
+
+def wobble(text, salt, spread):
+    """A repeatable offset in [-spread, +spread], decided by the words themselves."""
+    if spread <= 0:
+        return 0.0
+    h = int(hashlib.sha1(f'{salt}|{text}'.encode()).hexdigest()[:8], 16)
+    return ((h % 2001) / 1000.0 - 1.0) * spread
+
+
+def _num(setting):
+    """'-12Hz' -> -12, '+4%' -> 4. Only the number matters; the unit is fixed per field."""
+    m = re.search(r'-?\d+(?:\.\d+)?', str(setting or '0'))
+    return float(m.group()) if m else 0.0
+
+
+def voice_of(text, rate, pitch, volume):
+    """The prosody for ONE utterance: the tone's settings, nudged off level by this text."""
+    p_sp, r_sp, v_sp, _ = SPREAD
+    return (f'{_num(rate) + wobble(text, "rate", r_sp):+.0f}%',
+            f'{_num(pitch) + wobble(text, "pitch", p_sp):+.0f}Hz',
+            f'{_num(volume) + wobble(text, "vol", v_sp):+.0f}%')
+
+
+def uneven(seconds, text, salt):
+    """A pause of about `seconds`, never exactly `seconds` twice in a row."""
+    _p, _r, _v, frac = SPREAD
+    return max(0.05, seconds * (1.0 + wobble(text, salt, frac)))
+
 
 def apply_tone(tone):
     """Resolve a tone into prosody, and install the pause lengths that belong with it.
@@ -279,11 +340,12 @@ def apply_tone(tone):
     """
     if tone not in TONES:
         return None
-    global GAP_CLAUSE, GAP_SENTENCE, SENTENCE_SPLICE, LINE_BREATH
+    global GAP_CLAUSE, GAP_SENTENCE, SENTENCE_SPLICE, LINE_BREATH, SPREAD
     rate, pitch, volume = TONES[tone]
     GAP_CLAUSE, GAP_SENTENCE = TONE_GAPS.get(tone, (BASE_GAP_CLAUSE, BASE_GAP_SENTENCE))
     SENTENCE_SPLICE = TONE_SPLICE.get(tone, BASE_SPLICE)
     LINE_BREATH = TONE_BREATH.get(tone, BASE_BREATH)
+    SPREAD = VARIATION.get(tone, BASE_VARIATION)
     return rate, pitch, volume
 
 
@@ -301,10 +363,11 @@ def line_audio(edge, voice, rate, phrases, workdir, tag, pitch=DEFAULT_PITCH,
     joined = ' '.join(ph for ph, _gap in phrases).strip()
 
     if len(joined) <= limit:
-        ok, mp3, why = cached_phrase(edge, voice, rate, joined, pitch, volume)
+        u_rate, u_pitch, u_volume = voice_of(joined, rate, pitch, volume)
+        ok, mp3, why = cached_phrase(edge, voice, u_rate, joined, u_pitch, u_volume)
         if not ok:
             return None, 0.0, why
-        out = breathe(trim(mp3, os.path.join(workdir, f'{tag}_one.mp3')), workdir, tag)
+        out = breathe(trim(mp3, os.path.join(workdir, f'{tag}_one.mp3')), workdir, tag, joined)
         return out, (duration(out) or 0.0), None
 
     # Too long for one breath. Group phrases into sentence-sized chunks — a chunk ends where the
@@ -319,26 +382,33 @@ def line_audio(edge, voice, rate, phrases, workdir, tag, pitch=DEFAULT_PITCH,
 
     parts = []
     for k, chunk in enumerate(chunks):
-        ok, mp3, why = cached_phrase(edge, voice, rate, chunk, pitch, volume)
+        # Each sentence gets its own prosody. This is where an even delivery turns uneven: the
+        # engine already gives every separate call its own contour, so leaning one sentence lower
+        # and the next a shade faster costs nothing and is what a person actually does.
+        u_rate, u_pitch, u_volume = voice_of(chunk, rate, pitch, volume)
+        ok, mp3, why = cached_phrase(edge, voice, u_rate, chunk, u_pitch, u_volume)
         if not ok:
             return None, 0.0, why
         parts.append(trim(mp3, os.path.join(workdir, f'{tag}_{k}_t.mp3')))
         if k < len(chunks) - 1:
             # A chunk boundary IS a sentence boundary, so it takes a sentence-sized pause. The
             # per-tone gaps were tuned when this code spliced phrases; reusing the phrase gap here
-            # (180 ms on the lively preset) ran one sentence into the next.
+            # (180 ms on the lively preset) ran one sentence into the next. Its length varies with
+            # the sentence it follows — pauses of identical length are their own kind of robotic.
             sil = os.path.join(workdir, f'{tag}_{k}_gap.mp3')
-            if silence(max(GAP_SENTENCE, SENTENCE_SPLICE), sil):
+            if silence(uneven(max(GAP_SENTENCE, SENTENCE_SPLICE), chunk, 'splice'), sil):
                 parts.append(sil)
     joined_path = os.path.join(workdir, f'{tag}.mp3')
     if not concat(parts, joined_path, workdir):
         return None, 0.0, 'could not join sentences'
-    out = breathe(joined_path, workdir, tag)
+    out = breathe(joined_path, workdir, tag, joined)
     return out, (duration(out) or 0.0), None
 
 
-def breathe(body, workdir, tag):
+def breathe(body, workdir, tag, text=''):
     """Give the line its closing breath, in the audio itself.
+
+    Its length varies with the line it closes, for the same reason the sentence pauses do.
 
     Returns the lengthened file, or `body` untouched if the pause could not be built — a missing
     breath is a clip that sounds rushed, which is worth shipping over no clip at all."""
@@ -346,7 +416,7 @@ def breathe(body, workdir, tag):
         return body
     sil = os.path.join(workdir, f'{tag}_breath.mp3')
     out = os.path.join(workdir, f'{tag}_b.mp3')
-    if not silence(LINE_BREATH, sil) or not concat([body, sil], out, workdir):
+    if not silence(uneven(LINE_BREATH, text, 'breath'), sil) or not concat([body, sil], out, workdir):
         return body
     return out
 
