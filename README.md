@@ -1,6 +1,6 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.33.2-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.33.3-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 **A Claude Code plugin that documents the web systems your team builds.** It ships **three skills** that turn a running system into finished documentation — a step-by-step user handbook, a fully populated Confluence space, or a recorded video walkthrough.
 

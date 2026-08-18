@@ -87,8 +87,12 @@ user confirmed unchanged. The four that are always asked, every run:
 - **Environment** (dev / staging / pre-prod / production) — never chosen for the user.
 - **URL** — shown as a default from the profile, confirmed live.
 - **Account + role**, with the password fresh in-session and never stored.
-- **What to record this run** — from the **source** (manual file, test-case list link, spec). No
-  source → have the user list the steps, then read them back for confirmation.
+- **Where the material comes from** — a real file or link: a manual, a test-case list (sheet + TC
+  ids), a spec. Ask *where the material comes from*, never *what they feel like recording* — the
+  topic is something you read out of the source. **Never offer "no file, I'll tell you the steps"
+  as an option**: it invites a clip built from the agent's memory. No source = not startable; say so
+  and wait. If the user types the steps into chat themselves, that is a source — read it back and
+  confirm it before recording.
 - **Where the finished files go** — the output folder, and whether anything is uploaded afterwards.
   Never assume a location; offer `~/Downloads/recordings/` and let the user confirm or redirect.
   With a profile, show the saved folder and reconfirm rather than asking again.

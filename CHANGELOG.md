@@ -2,6 +2,17 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.33.3] - 2026-08-18
+### Changed
+- **The source question asks where the material comes from, not what the user feels like
+  recording.** The topic is something you read *out of* a manual, a test-case list or a spec — asking
+  for it directly puts the work back on the person who came here to hand over a file. Asked the old
+  way, the user rejected the question: *"อัดเรื่องอะไรไม่ต้องถาม ให้ถามว่า ข้อมูลสำหรับอัดหน้าจอ นำมาจากไหน"*.
+- **"No file — I'll tell you the steps" is gone as an offered option.** It invites a clip assembled
+  from the agent's memory, which is the one thing every rule in this skill exists to prevent. No
+  source now means *not startable*: say so and wait. A user who types the steps into chat has still
+  supplied a source — it just has to come from them, unprompted, and be read back before recording.
+
 ## [0.33.2] - 2026-08-18
 ### Changed
 - **The narration question now has three options and no jargon: เสียงผู้ชาย / เสียงผู้หญิง /
