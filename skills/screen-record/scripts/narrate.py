@@ -48,12 +48,49 @@ DEFAULT_GENDER = 'male'
 
 def pick_voice(lang, gender):
     return VOICES.get((lang, (gender or DEFAULT_GENDER).lower()))
-DEFAULT_RATE = '+4%'          # a touch above default reads as engaged rather than sleepy
+DEFAULT_RATE = '-4%'          # slightly under default: unhurried reads as human, hurried reads as machine
+DEFAULT_PITCH = '-6Hz'
+DEFAULT_VOLUME = '-10%'
 
-# Pause lengths, in seconds. These are what turn a wall of speech into narration: a listener needs
-# a beat to place the clause, and a longer one to close a sentence.
-GAP_CLAUSE = 0.22
-GAP_SENTENCE = 0.40
+# Tone presets — asked at intake, never assumed. Each is a (rate, pitch) pair; nothing else about
+# the voice changes, so a tone swap cannot alter which person is speaking.
+# (rate, pitch, volume). Thai has exactly two neural voices, so tone cannot mean "another actor" —
+# it is prosody. Raising pitch and rate is what makes a synthetic voice sound like it is SHOUTING;
+# the calmer presets lower all three, which is what reads as a person talking rather than announcing.
+TONES = {
+    'calm':         ('-4%', '-6Hz', '-10%'),  # สงบ นุ่ม — default: closest to someone explaining
+    'warm':         ('-1%', '-3Hz',  '-8%'),  # เป็นกันเอง อบอุ่น
+    'professional': ('+2%', '+0Hz',  '-5%'),  # ทางการ สุภาพ
+    'soft':         ('-7%', '-9Hz', '-15%'),  # เบา ช้า ชัด — training, complex steps
+    'energetic':    ('+8%', '+6Hz',  '+0%'),  # กระตือรือร้น — promo only; the loudest preset
+    'conversational': ('-1%', '-4Hz', '-8%'), # คุยกับคนดู — a host talking you through it, not reading
+    'lively':       ('+6%', '+2Hz',  '-4%'),  # กระฉับกระเฉง — the pace people actually talk at
+    'presenter':    ('+4%', '+0Hz',  '-5%'),  # สุภาพ เป็นทางการ แต่ไม่แข็ง — ส่งลูกค้านอกองค์กร (ค่าเริ่มต้นงานส่งมอบ)
+    'upbeat':       ('+11%', '+5Hz', '-2%'),  # เร็ว สดใส — short clips, product highlights
+    'narrator':     ('-8%', '-12Hz', '-12%'),  # เล่าเรื่อง ทุ้ม ช้า — walkthroughs someone watches end to end
+    'documentary':  ('-12%', '-16Hz', '-14%'), # ทุ้มลึก ช้าที่สุด — long-form, weighty subject
+}
+
+# A tone may also stretch the pauses: an unhurried delivery needs more room between phrases than a
+# brisk one, or it reads as slow speech rather than considered speech.
+TONE_GAPS = {
+    'presenter':      (0.10, 0.22),
+    'lively':         (0.08, 0.18),
+    'upbeat':         (0.06, 0.15),
+    'conversational': (0.11, 0.24),
+    'narrator':    (0.17, 0.34),
+    'documentary': (0.20, 0.40),
+    'soft':        (0.15, 0.30),
+}
+DEFAULT_TONE = 'calm'
+
+# Pause lengths, in seconds. Short on purpose: measured against the same line spoken as ONE
+# utterance, phrases spliced with 0.22 s / 0.40 s gaps ran 11.88 s against 8.42 s — because each
+# synthesized phrase arrives with its own head and tail silence, which stacks on top of the gap we
+# add. Trimming that silence (see `trim`) and keeping the gaps in the 90-260 ms band is what makes
+# the result read as a person speaking instead of a machine reading a list.
+GAP_CLAUSE = 0.13
+GAP_SENTENCE = 0.26
 
 # Phrase ceilings. Thai has no inter-word spaces, so a "long" line hits the ear as one breathless
 # run; these caps are in characters and are deliberately short.
@@ -163,38 +200,83 @@ def cache_dir():
     return d
 
 
-def cached_phrase(edge, voice, rate, text):
+def cached_phrase(edge, voice, rate, text, pitch=DEFAULT_PITCH, volume=DEFAULT_VOLUME):
     """Synthesize one phrase, or reuse the identical one from a previous pass.
 
     The two-pass flow (measure, then record, then speak) would otherwise pay for every line twice,
     and — worse — could get two subtly different takes of the same sentence."""
     import hashlib
-    key = hashlib.sha1(f'{voice}|{rate}|{text}'.encode()).hexdigest()[:20]
+    key = hashlib.sha1(f'{voice}|{rate}|{pitch}|{volume}|{text}'.encode()).hexdigest()[:20]
     path = os.path.join(cache_dir(), key + '.mp3')
     if os.path.isfile(path) and os.path.getsize(path) > 0:
         return True, path, None
-    ok, why = speak(edge, voice, rate, text, path)
+    ok, why = speak(edge, voice, rate, text, path, pitch, volume)
     if not ok:
         return False, None, why
     return True, path, None
 
 
-def line_audio(edge, voice, rate, phrases, workdir, tag):
-    """Build one narration line: phrases spoken, joined by their pauses. Returns (path, seconds)."""
-    parts = []
-    for k, (phrase, gap) in enumerate(phrases):
-        ok, mp3, why = cached_phrase(edge, voice, rate, phrase)
+# A line under this many characters is spoken in ONE breath — one synthesis call, no splicing.
+# This is the difference between speech and a read-aloud list. Every separate call gets its own
+# sentence intonation: it starts high and FALLS at the end. Measured on one Thai line whose median
+# pitch was 205 Hz, each spliced phrase ended at 145-151 Hz — a full terminal fall, three times,
+# inside what should be one continuous sentence. No amount of gap tuning fixes that; the fall is
+# baked into each fragment. Handing the whole line to the engine lets it carry the intonation
+# across the phrases, and the pauses come from the punctuation and spacing already in the text.
+# A pause between two spoken sentences, as opposed to between phrases inside one.
+SENTENCE_SPLICE = 0.38
+
+ONE_SHOT_TH = 220
+ONE_SHOT_EN = 340
+
+
+def line_audio(edge, voice, rate, phrases, workdir, tag, pitch=DEFAULT_PITCH,
+               volume=DEFAULT_VOLUME, lang='th'):
+    """Build one narration line. Returns (path, seconds, error).
+
+    Short line  → one utterance, no splice: the engine phrases it itself.
+    Long line   → split only at SENTENCE boundaries, where a falling contour is what a listener
+                  expects anyway, and join those with a real pause."""
+    limit = ONE_SHOT_TH if lang == 'th' else ONE_SHOT_EN
+
+    # Rebuild the spoken text from the phrases. A Thai space is itself a phrasing cue, so the
+    # boundaries we found are preserved as text rather than enforced with scissors.
+    joined = ' '.join(ph for ph, _gap in phrases).strip()
+
+    if len(joined) <= limit:
+        ok, mp3, why = cached_phrase(edge, voice, rate, joined, pitch, volume)
         if not ok:
             return None, 0.0, why
-        parts.append(mp3)
-        if gap > 0:
+        out = trim(mp3, os.path.join(workdir, f'{tag}_one.mp3'))
+        return out, (duration(out) or 0.0), None
+
+    # Too long for one breath. Group phrases into sentence-sized chunks — a chunk ends where the
+    # phrase list said a sentence ended (its gap is the sentence gap), never mid-clause.
+    chunks, cur = [], []
+    for ph, gap in phrases:
+        cur.append(ph)
+        if gap >= GAP_SENTENCE or sum(len(x) for x in cur) > limit:
+            chunks.append(' '.join(cur)); cur = []
+    if cur:
+        chunks.append(' '.join(cur))
+
+    parts = []
+    for k, chunk in enumerate(chunks):
+        ok, mp3, why = cached_phrase(edge, voice, rate, chunk, pitch, volume)
+        if not ok:
+            return None, 0.0, why
+        parts.append(trim(mp3, os.path.join(workdir, f'{tag}_{k}_t.mp3')))
+        if k < len(chunks) - 1:
+            # A chunk boundary IS a sentence boundary, so it takes a sentence-sized pause. The
+            # per-tone gaps were tuned when this code spliced phrases; reusing the phrase gap here
+            # (180 ms on the lively preset) ran one sentence into the next.
             sil = os.path.join(workdir, f'{tag}_{k}_gap.mp3')
-            if silence(gap, sil):
+            if silence(max(GAP_SENTENCE, SENTENCE_SPLICE), sil):
                 parts.append(sil)
-    joined = os.path.join(workdir, f'{tag}.mp3')
-    if not concat(parts, joined, workdir):
-        return None, 0.0, 'could not join phrases'
-    return joined, (duration(joined) or 0.0), None
+    joined_path = os.path.join(workdir, f'{tag}.mp3')
+    if not concat(parts, joined_path, workdir):
+        return None, 0.0, 'could not join sentences'
+    return joined_path, (duration(joined_path) or 0.0), None
 
 
 def prepare(play_path, lang_override, voice_override, rate, gender_override=None):
@@ -230,7 +312,8 @@ def prepare(play_path, lang_override, voice_override, rate, gender_override=None
             phrases = split_phrases(s['say'], lang)
             if not phrases:
                 continue
-            _f, dur, why = line_audio(edge, voice, rate, phrases, work, f'p{i}')
+            _f, dur, why = line_audio(edge, voice, rate, phrases, work, f'p{i}',
+                                       pitch, volume, lang)
             if why:
                 print(f'FAIL  step {i + 1}: {why}', file=sys.stderr)
                 return 1
@@ -252,12 +335,12 @@ SYNTH_TIMEOUT = 60          # one short phrase; a healthy call returns in 1-4 s
 SYNTH_TRIES = 3
 
 
-def speak(edge, voice, rate, text, out_mp3):
+def speak(edge, voice, rate, text, out_mp3, pitch=DEFAULT_PITCH, volume=DEFAULT_VOLUME):
     """Speak one phrase, retrying a stalled or failed request rather than hanging on it."""
     last = 'edge-tts produced nothing'
     for attempt in range(1, SYNTH_TRIES + 1):
-        r = run([edge, '--voice', voice, '--rate', rate, '--text', text, '--write-media', out_mp3],
-                timeout=SYNTH_TIMEOUT)
+        r = run([edge, '--voice', voice, '--rate', rate, '--pitch', pitch, '--volume', volume,
+                 '--text', text, '--write-media', out_mp3], timeout=SYNTH_TIMEOUT)
         if r.returncode == 0 and os.path.isfile(out_mp3) and os.path.getsize(out_mp3) > 0:
             return True, None
         last = (r.stderr or r.stdout or last).strip()[:200]
@@ -267,6 +350,30 @@ def speak(edge, voice, rate, text, out_mp3):
             print(f'    retry {attempt}/{SYNTH_TRIES - 1} — {last}')
             time.sleep(2 * attempt)
     return False, last
+
+
+def trim(in_mp3, out_mp3):
+    """Strip the dead air edge-tts wraps around every utterance — without clipping the voice.
+
+    Two settings matter, and both were wrong at first:
+
+    * **Threshold −55 dB, not −45 dB.** A sentence does not stop, it decays. Cutting at −45 dB
+      lands mid-release of the final syllable, so the clip ends on a chopped-off word. Measured:
+      1.00 s (male) and 1.07 s (female) removed from a 5.6 s / 5.2 s utterance, with the true
+      tail sitting at −91 dB — i.e. there was real silence to remove, but the knife started while
+      the voice was still sounding.
+    * **Keep 120 ms of silence.** A speaker releases a sentence and breathes; splicing the next one
+      onto a hard zero is what makes the join sound like the words collide.
+    """
+    f = ('silenceremove=start_periods=1:start_silence=0.05:start_threshold=-55dB:detection=peak,'
+         'areverse,'
+         'silenceremove=start_periods=1:start_silence=0.12:start_threshold=-55dB:detection=peak,'
+         'areverse')
+    r = run(['ffmpeg', '-y', '-v', 'error', '-i', in_mp3, '-af', f,
+             '-ar', '24000', '-ac', '1', '-c:a', 'libmp3lame', '-b:a', '48k', out_mp3], timeout=60)
+    if r.returncode != 0 or not os.path.isfile(out_mp3) or os.path.getsize(out_mp3) == 0:
+        return in_mp3          # trimming is an improvement, never a gate: fall back to the original
+    return out_mp3
 
 
 def silence(seconds, out_mp3):
@@ -406,7 +513,8 @@ def main():
     try:
         line_files = []
         for n, item in enumerate(plan):
-            joined, dur, why = line_audio(edge, voice, rate, item['phrases'], work, f'line{n}')
+            joined, dur, why = line_audio(edge, voice, rate, item['phrases'], work, f'line{n}',
+                                          pitch, volume, lang)
             if why:
                 print(f'FAIL  step {item["step"]}: {why}', file=sys.stderr)
                 return 1

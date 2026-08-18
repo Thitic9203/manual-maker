@@ -105,6 +105,17 @@ be measured *before* the recording so the flow can be paced to it.
 | Loudness | **`loudnorm I=-16 TP=-1.5 LRA=11`** | Every line at the same level — the difference between narration and a voice memo |
 | Audio codec | **AAC 160 kbps** | Video stream is copied, never re-encoded |
 
+**One line = one utterance.** A line under 220 Thai characters is synthesized in a **single call**,
+never spliced. Every separate call carries its own sentence intonation — it starts high and *falls*
+at the end — so splicing three phrases put three full terminal falls inside one sentence: measured,
+a line whose median pitch was 205 Hz ended each fragment at 145-151 Hz. No gap tuning fixes that.
+Longer lines split only at **sentence** boundaries, where a fall is what a listener expects, and
+those joins get a real 380 ms pause.
+
+**Trim keeps the decay.** edge-tts wraps every utterance in silence, which stacks at each join. It is
+removed at **−55 dB with 120 ms kept** — cutting at −45 dB landed mid-release of the final syllable
+(1.00 s / 1.07 s taken off a 5.6 s / 5.2 s utterance) and the next sentence then collided with it.
+
 **Phrasing is where narration stops sounding synthetic.** Lines are split at real boundaries — the
 author's punctuation first, then Thai/English connectives that actually *start* a clause. Words that
 usually *end* one are deliberately not break points: cutting before `แล้ว` splits `เรียบร้อยแล้ว`

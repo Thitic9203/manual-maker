@@ -2,6 +2,32 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.31.0] - 2026-08-18
+### Added
+- **Voice tone is chosen at intake**, alongside language and gender — ten presets, each a
+  (rate, pitch, volume) triple with its own pause lengths: `presenter` (the default for
+  customer-facing work), `lively`, `conversational`, `calm`, `warm`, `professional`, `soft`,
+  `upbeat`, `narrator`, `documentary`. Thai has exactly **two** neural voices, so a tone is
+  prosody, never a different speaker.
+- **A register rule for the script itself.** The narration that reaches an external customer must
+  be written in formal Thai — no colloquial fillers. This turned out to matter more than any voice
+  setting: a perfect voice reading written-register prose still sounds like a machine reading a
+  manual, and casual phrasing is unusable in a customer deliverable regardless of how natural it
+  sounds.
+
+### Fixed
+- **The narration no longer reads like a list of fragments.** A line is now spoken as **one
+  utterance** (under 220 Thai characters); only longer lines split, and only at sentence
+  boundaries. Every separate synthesis call carries its own falling sentence intonation, so
+  splicing three phrases put three terminal falls inside a single sentence — measured, a line
+  whose median pitch was 205 Hz ended each fragment at 145–151 Hz.
+- **Sentences no longer collide.** Trimming ran at −45 dB, which cut mid-release of the final
+  syllable — 1.00 s (male) and 1.07 s (female) removed from a 5.6 s / 5.2 s utterance while the
+  real silence sat at −91 dB. Now −55 dB with 120 ms of tail kept, and sentence joins take a
+  380 ms pause instead of the phrase-sized gap they were inheriting.
+- **Volume is part of a tone.** It was never passed to the synthesizer, so every preset played at
+  full level — the reason the first male samples were described as shouting.
+
 ## [0.30.2] - 2026-08-18
 ### Fixed
 - **Speaking rate could not reach the narration, the same way gender could not.** An audit of every
