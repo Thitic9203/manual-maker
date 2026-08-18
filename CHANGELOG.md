@@ -2,6 +2,25 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.34.0] - 2026-08-18
+### Added
+- **The user watches a real demo, then approves a written recap, before the batch starts**
+  (SKILL.md Step 5c). The skill announces the demo in a sentence written for the moment — not a bare
+  "ok" — records a short clip from the run's own flow through the full gate, hands over the playable
+  MP4, and waits. Only after the clip **and** a scope recap are both approved does the full run
+  begin. Everything this skill ever had rejected was rejected by ear or eye; thirty seconds of the
+  real thing settles what no settings table can.
+
+### Changed
+- **A missing narration-writing skill is installed for the user, not blocked on.** The standing
+  instruction is to keep moving toward a finished file: the skill names the plugin, says in one line
+  what it is for, installs it, and continues — falling back to writing the script directly only if
+  the install truly fails.
+- **README rewritten to the current spec.** The narration section now describes voices chosen by
+  ear and pinned by measurement (`ko-KR-HyunsuMultilingualNeural` / `fr-FR-VivienneMultilingualNeural`),
+  the 30-second demo gate, the two-yes confirmation, the Thai particle rule, quality-gate layer 6c,
+  and `check-narration.py` — replacing the stale `th-TH-*` voice list and the old no-source shortcut.
+
 ## [0.33.3] - 2026-08-18
 ### Changed
 - **The source question asks where the material comes from, not what the user feels like

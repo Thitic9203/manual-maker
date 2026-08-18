@@ -1,6 +1,6 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.33.3-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.34.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 **A Claude Code plugin that documents the web systems your team builds.** It ships **three skills** that turn a running system into finished documentation — a step-by-step user handbook, a fully populated Confluence space, or a recorded video walkthrough.
 
@@ -16,7 +16,7 @@ It is a thin **team wrapper** around Anthropic's first-party skills: it composes
 |-------|---------|-------|----------|---------|
 | **`manual-maker`** | End-user handbook a non-technical reader follows step by step | Live UI + your source (Confluence/spec) | `.docx` / PDF / Confluence page / web, with annotated screenshots | `/manual-maker` |
 | **`confluence-docs`** (v0.22.0+) | Replace the mock/placeholder content of a Confluence doc-space with the system's **real** data | Live Confluence page + authoritative source (Jira/repo/schema/spec) | Updated & new Confluence pages | `/confluence-docs` |
-| **`screen-record`** (v0.27.0+) | Record a web flow as a finished MP4 — a walkthrough for a manual, a demo, or video evidence | Live UI + your source (manual file / test-case list / spec) | `.mp4` at 1920×1080 H.264 + a still per expected result | `/screen-record` |
+| **`screen-record`** (v0.27.0+) | Record a web flow as a finished MP4 — a walkthrough for a manual, a demo, or video evidence — with optional narration in an approved, measured voice, shown to you as a 30-sec demo before the batch | Live UI + your source (manual file / test-case list / spec) | `.mp4` at 1920×1080 H.264 + a still per expected result | `/screen-record` |
 
 All three share one ethos: **ห้ามมโน (never invent) · confirm before starting · every value sourced · stay in scope · review before delivery.** They install together; use whichever the task needs.
 
@@ -301,19 +301,22 @@ Preflight สิทธิ์เขียน → Intake → ยืนยัน (g
 **How it runs:**
 
 ```
-profile → intake (env · URL · account · source) → preflight → CONFIRM → play files → record → verify → deliver
+profile → intake (env · URL · account · source · voice) → preflight → write script → sample the voice → CONFIRM → **30-sec demo → you approve** → record → verify (picture + voice) → deliver
 ```
 
 - **Intake asks what it must, then stops asking.** Environment, URL, account and login selectors are saved to the same `~/.manual-maker/profiles/<slug>.json` the handbook skill uses — so a system that already has a manual already has its access on file. Next run shows them back to **reconfirm**, not to re-interview. **The password is never stored** and is always asked fresh, in-session, from the environment.
-- **What gets recorded comes from a source** you name — a manual file, a test-case list, a spec — never from guesswork. No source? You list the steps and the skill reads them back for confirmation.
-- **Nothing records until you confirm.** The complete intake is summarized in chat — including the numbered list of clips — and waits for an explicit go.
+- **What gets recorded comes from a source** you name — a manual file, a test-case list, a spec — never from guesswork. Intake asks *where the material comes from*, never *what you feel like recording*; there is no "no file, I'll tell you the steps" shortcut, because that opens the door to a clip built from the model's memory. If you type the steps in yourself they become the source — read back and confirmed first.
+- **You watch a real 30-second demo before the batch starts.** Cut from the run's own flow — real environment, real account, real narration, in the real voice — and taken all the way through the gate, then handed to you as a playable file. Everything this skill ever had rejected was rejected by ear or eye, none of it visible in a settings table; thirty seconds of the real thing settles it. Rejection costs one short take, not a whole batch.
+- **Nothing records until you confirm — twice.** The demo clip proves the look and sound; a written recap proves the scope. The full run waits on a yes to both.
 - **One spec for every clip:** 1920×1080, `deviceScaleFactor` 2, H.264 CRF 20 `preset slow`, `yuv420p`, `+faststart`. A clip recorded today matches one recorded months ago.
 - **The login is never in the clip.** Auth runs in a non-recorded context and hands its session to the recording one, so no credential is ever on screen.
 - **Looks like a person recording their own screen.** A mouse pointer glides to each control and flashes on click — it tracks the *real* pointer through the page's own mouse events, so it can never show a click that did not happen. Text is typed character by character, scrolling is paced. Nothing else is drawn into the page: no banner, no URL strip, no watermark. Stills hide the pointer.
-- **Optional narration — Thai or English, male or female.** Intake asks for all three; none is chosen for you. A neural voice (`th-TH-NiwatNeural` / `th-TH-PremwadeeNeural` / `en-US-GuyNeural` / `en-US-AriaNeural`) reads the script — phrased into breath-sized lines with real pauses, not one flat run. Each line is **measured before recording**, and the flow holds that step open until the sentence finishes, so narration never talks over the next click. Free, no account.
+- **Optional narration — Thai or English, male or female.** Intake asks *who speaks*, not how to configure a synthesizer. A neural voice reads a script that is **written from your source first** — a test case read aloud sounds like a checklist, so the lines are composed for the ear before any voice touches them. Each line is measured before recording and the step is held open until the sentence ends, so narration never talks over the next click. Free, no account.
+- **An approved voice cannot quietly drift.** The two Thai voices the customer approved are stored as **measurements** — median pitch, the pause after the polite particle, peak level — in `references/voice-profile.md`, and `scripts/check-narration.py` re-measures every narrated clip against them. This exists because a clip once shipped 23 Hz below the approved timbre with every log line reading as correct; a name in a settings table proves nothing, a measurement does.
+- **Thai polite particles land right.** `ค่ะ` / `ครับ` close their phrase, so the voice puts a falling tone and a real pause on them — "สวัสดีค่ะ · วันนี้", never "สวัสดี · คะวันนี้".
 - **It fails closed.** A step that never reaches its target aborts with a non-zero exit and keeps the partial video for diagnosis. A short clip is a **blocked** item with a reason — never a smaller success.
 
-**The 7-layer quality gate** decides when a recording is done: max quality · whole flow · reached the target · result on screen · legible · file integrity · delivered-and-plays. `scripts/verify-video.py` measures layers 1 and 6 for real — resolution, codec, pixel format, faststart, blank frames (per-frame luma range), and a full decode that catches truncation. It exits **2** when a check could not run, because a check that could not run is not a pass. The remaining layers are judged by watching the clip against the source.
+**The quality gate** decides when a recording is done: max quality · whole flow · reached the target · result on screen · legible · file integrity · **narration present and in the approved voice (6c)** · delivered-and-plays. `scripts/verify-video.py` measures layers 1 and 6 for real — resolution, codec, pixel format, faststart, blank frames (per-frame luma range), and a full decode that catches truncation. It exits **2** when a check could not run, because a check that could not run is not a pass. The remaining layers are judged by watching the clip against the source.
 
 **Requirements:** Node + Playwright + Chromium (installed into `~/.manual-maker/runtime/`, shared with `manual-maker`), **ffmpeg** as a real system install, and — only for narrated runs — **edge-tts**, installed into the skill's own venv. `scripts/preflight.sh --check` reports; `--install` fixes. Without ffmpeg there is no MP4 — that is a blocked run, never a silent `.webm`.
 
@@ -340,7 +343,7 @@ that *looked* finished and was not.
 
 | Piece | What it does | Why this way |
 |---|---|---|
-| **edge-tts neural voices** | Speaks the script — `th-TH-NiwatNeural` / `th-TH-PremwadeeNeural` / `en-US-GuyNeural` / `en-US-AriaNeural` | Free, no account, no key. macOS `say` was tried and rejected: its only Thai voice is female and audibly synthetic, which fails a brief asking for a natural narrator of either gender |
+| **edge-tts neural voices, chosen by ear** | Speaks the script. The two Thai voices in service — male `ko-KR-HyunsuMultilingualNeural`, female `fr-FR-VivienneMultilingualNeural` — are multilingual voices picked by listening, not the on-paper `th-TH-*` pair | Free, no account, no key. macOS `say` was rejected (its one Thai voice is audibly synthetic); a `th-TH-*` voice that looked correct was rejected too — register and timbre are decided by ear, then **pinned by measurement** so they cannot drift back |
 | **Phrase splitting, then re-joined with real pauses** | Cuts each line into breath-sized phrases; 0.22 s inside a clause, 0.40 s at a sentence end | Thai has no inter-word spaces, so a long line arrives as one breathless run. Splits land on words that genuinely **start** a clause — cutting before `แล้ว` broke `เรียบร้อยแล้ว` in half and a listener hears that as a stumble |
 | **Two passes: measure → record → speak** | `narrate.py --prepare` speaks each line and records its length; `record.js` holds each narrated step open until the sentence ends | Guessing a duration from character count drifts. Measured on a real run *without* this pass: three of four lines spoke 5–6 s into the following step |
 | **A synthesis cache keyed by voice + rate + text** | Pass two reuses pass one's takes | Halves the synthesis, and makes two slightly different readings of the same sentence impossible |
@@ -353,8 +356,11 @@ that *looked* finished and was not.
 `scripts/verify-video.py` measures what a machine can actually decide — resolution, codec, pixel
 format, faststart, duration, a **full decode** that catches truncation a header would hide, and
 blankness via the per-frame luma range (`YMAX - YMIN`; a solid fill reads 0, any real screen reads
-past 200). With `--expect-audio`, a silent file on a narrated run is a failure, not a variant. It
-exits **2** when a check could not run, because a check that could not run has proven nothing. The
+past 200). With `--expect-audio`, a silent file on a narrated run is a failure, not a variant.
+`scripts/check-narration.py` then measures the **voice** — median pitch against the approved band,
+the pause after the greeting particle, clipping — so a clip that names the right voice but does not
+sound like it is caught. Both exit **2** when a check could not run, because a check that could not
+run has proven nothing. The
 content layers — whole flow, reached the target, result on screen, legible, delivered — are judged
 by watching the clip against the source, and the tool never claims otherwise.
 
@@ -362,7 +368,9 @@ by watching the clip against the source, and the tool never claims otherwise.
 
 - `skills/screen-record/references/intake.md` — environment / URL / account / source questions, the profile reuse, and the confirmation gate
 - `skills/screen-record/references/video-spec.md` — every encode setting and why, plus the play-file schema
-- `skills/screen-record/references/quality-gate.md` — the 7 layers and what to do when one fails
+- `skills/screen-record/references/quality-gate.md` — the layers and what to do when one fails
+- `skills/screen-record/references/script-writing.md` — how a narration script is written from the source, and the Thai particle rule
+- `skills/screen-record/references/voice-profile.md` — the approved voices as numbers, and how to approve a new one
 
 ---
 
