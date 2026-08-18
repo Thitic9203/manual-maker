@@ -1,8 +1,8 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.26.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.27.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
-**A Claude Code plugin that documents the web systems your team builds.** It ships **two skills** that turn a running system into finished documentation — a step-by-step user handbook, or a fully populated Confluence space.
+**A Claude Code plugin that documents the web systems your team builds.** It ships **three skills** that turn a running system into finished documentation — a step-by-step user handbook, a fully populated Confluence space, or a recorded video walkthrough.
 
 It is a thin **team wrapper** around Anthropic's first-party skills: it composes them (via the Skill tool) instead of copying their content, so the repo stays public and keeps benefiting from upstream updates.
 
@@ -10,20 +10,22 @@ It is a thin **team wrapper** around Anthropic's first-party skills: it composes
 
 ---
 
-## The two skills
+## The three skills
 
 | Skill | Purpose | Reads | Produces | Command |
 |-------|---------|-------|----------|---------|
 | **`manual-maker`** | End-user handbook a non-technical reader follows step by step | Live UI + your source (Confluence/spec) | `.docx` / PDF / Confluence page / web, with annotated screenshots | `/manual-maker` |
 | **`confluence-docs`** (v0.22.0+) | Replace the mock/placeholder content of a Confluence doc-space with the system's **real** data | Live Confluence page + authoritative source (Jira/repo/schema/spec) | Updated & new Confluence pages | `/confluence-docs` |
+| **`screen-record`** (v0.27.0+) | Record a web flow as a finished MP4 — a walkthrough for a manual, a demo, or video evidence | Live UI + your source (manual file / test-case list / spec) | `.mp4` at 1920×1080 H.264 + a still per expected result | `/screen-record` |
 
-Both skills share one ethos: **ห้ามมโน (never invent) · confirm before starting · every value sourced · stay in scope · review before delivery.** They install together; use whichever the task needs.
+All three share one ethos: **ห้ามมโน (never invent) · confirm before starting · every value sourced · stay in scope · review before delivery.** They install together; use whichever the task needs.
 
 ## Table of contents
 
 - [Install](#install) · [Verify](#verify-its-installed) · [Update](#update) · [Uninstall](#uninstall)
 - [Skill 1 — `manual-maker`](#skill-1--manual-maker)
 - [Skill 2 — `confluence-docs`](#skill-2--confluence-docs)
+- [Skill 3 — `screen-record`](#skill-3--screen-record)
 - [Bare commands & shims](#bare-commands--shims)
 - [Requirements](#requirements) · [Repository structure](#repository-structure) · [Troubleshooting](#troubleshooting) · [Safety](#safety) · [Design decisions](#design-decisions)
 
@@ -40,6 +42,7 @@ Skills work without the plugin system. In the mac Terminal, copy the skill you w
 ```bash
 cp -r skills/manual-maker    ~/.claude/skills/manual-maker
 cp -r skills/confluence-docs ~/.claude/skills/confluence-docs
+cp -r skills/screen-record   ~/.claude/skills/screen-record
 ```
 
 Restart Claude Code. A personal copy is a snapshot — it does **not** auto-sync, so re-copy after each update.
@@ -76,7 +79,7 @@ Press Enter and wait for Claude Code to open — when the screen becomes a UI wi
 
 ### Verify it's installed
 
-Start a new session and confirm `manual-maker` and `confluence-docs` appear in your available skills — or just ask *"ทำคู่มือระบบ …"* / *"อัปเดต confluence …"* and the intake should begin.
+Start a new session and confirm `manual-maker`, `confluence-docs` and `screen-record` appear in your available skills — or just ask *"ทำคู่มือระบบ …"* / *"อัปเดต confluence …"* / *"อัดวิดีโอ …"* and the intake should begin.
 
 ```bash
 claude plugin list | grep -A3 'manual-maker@'   # prints version + enabled status
@@ -140,8 +143,8 @@ Third-party native auto-update is **off by default** (only Anthropic's official 
 ### Uninstall
 
 - **Plugin:** inside Claude Code → `/plugin uninstall manual-maker@manual-maker-dev`.
-- **Personal skill:** `rm -rf ~/.claude/skills/manual-maker ~/.claude/skills/confluence-docs`.
-- **Shim commands:** `rm ~/.claude/commands/manual-maker.md ~/.claude/commands/confluence-docs.md` — these live outside the plugin system, so `/plugin uninstall` leaves them. See [Bare commands & shims](#bare-commands--shims).
+- **Personal skill:** `rm -rf ~/.claude/skills/manual-maker ~/.claude/skills/confluence-docs ~/.claude/skills/screen-record`.
+- **Shim commands:** `rm ~/.claude/commands/manual-maker.md ~/.claude/commands/confluence-docs.md ~/.claude/commands/screen-record.md` — these live outside the plugin system, so `/plugin uninstall` leaves them. See [Bare commands & shims](#bare-commands--shims).
 - **Self-update hook (v0.24.0+):** `rm ~/.manual-maker/self-update.sh` and delete the `# manual-maker-plugin managed self-update` entry from `~/.claude/settings.json` (or restore `~/.claude/settings.json.mm-bak`) — it is user-scope, so `/plugin uninstall` leaves it. See [Update](#update) / `RISK_REGISTER.md` MM-005.
 
 ---
@@ -278,9 +281,52 @@ Preflight สิทธิ์เขียน → Intake → ยืนยัน (g
 
 ---
 
+## Skill 3 — `screen-record`
+
+**Purpose:** record a live web flow as a **finished MP4** — a walkthrough clip for a manual, a feature demo, or video evidence of a test case. Headless: it drives its own Chromium, so your screen is never taken over, no cursor or capture glow lands in the frame, and a whole batch records unattended while you keep working.
+
+### Use it
+
+```
+/screen-record อัดวิดีโอการสร้างคอร์ส
+/manual-maker:screen-record record TC_01 to TC_05 from the test-case sheet
+```
+
+| Entry point | Example | Notes |
+|-------------|---------|-------|
+| **Natural language** | `อัดวิดีโอหน้าจอระบบ …` | The skill triggers itself |
+| **Short command** | `/screen-record อัดวิดีโอ <ฟีเจอร์>` | Installed automatically |
+| **Full command** | `/manual-maker:screen-record …` | Always works |
+
+**How it runs:**
+
+```
+profile → intake (env · URL · account · source) → preflight → CONFIRM → play files → record → verify → deliver
+```
+
+- **Intake asks what it must, then stops asking.** Environment, URL, account and login selectors are saved to the same `~/.manual-maker/profiles/<slug>.json` the handbook skill uses — so a system that already has a manual already has its access on file. Next run shows them back to **reconfirm**, not to re-interview. **The password is never stored** and is always asked fresh, in-session, from the environment.
+- **What gets recorded comes from a source** you name — a manual file, a test-case list, a spec — never from guesswork. No source? You list the steps and the skill reads them back for confirmation.
+- **Nothing records until you confirm.** The complete intake is summarized in chat — including the numbered list of clips — and waits for an explicit go.
+- **One spec for every clip:** 1920×1080, `deviceScaleFactor` 2, H.264 CRF 20 `preset slow`, `yuv420p`, `+faststart`. A clip recorded today matches one recorded months ago.
+- **The login is never in the clip.** Auth runs in a non-recorded context and hands its session to the recording one, so no credential is ever on screen.
+- **The live URL is in every frame** (a thin strip reading `location.href` — read from the page, never typed). Stills hide it, so a figure bound for a manual carries no overlay.
+- **It fails closed.** A step that never reaches its target aborts with a non-zero exit and keeps the partial video for diagnosis. A short clip is a **blocked** item with a reason — never a smaller success.
+
+**The 7-layer quality gate** decides when a recording is done: max quality · whole flow · reached the target · result on screen · legible · file integrity · delivered-and-plays. `scripts/verify-video.py` measures layers 1 and 6 for real — resolution, codec, pixel format, faststart, blank frames (per-frame luma range), and a full decode that catches truncation. It exits **2** when a check could not run, because a check that could not run is not a pass. The remaining layers are judged by watching the clip against the source.
+
+**Requirements:** Node + Playwright + Chromium (installed into `~/.manual-maker/runtime/`, shared with `manual-maker`) and **ffmpeg** as a real system install. `scripts/preflight.sh --check` reports; `--install` fixes. Without ffmpeg there is no MP4 — that is a blocked run, never a silent `.webm`.
+
+**Where the rules live:**
+
+- `skills/screen-record/references/intake.md` — environment / URL / account / source questions, the profile reuse, and the confirmation gate
+- `skills/screen-record/references/video-spec.md` — every encode setting and why, plus the play-file schema
+- `skills/screen-record/references/quality-gate.md` — the 7 layers and what to do when one fails
+
+---
+
 ## Bare commands & shims
 
-Both short commands — `/manual-maker` and `/confluence-docs` — are installed **automatically** (v0.14.0+). At session start the plugin copies each `shim/*.md` into `~/.claude/commands/`, where user-level commands are **not namespaced**, so the short form resolves.
+All three short commands — `/manual-maker`, `/confluence-docs` and `/screen-record` — are installed **automatically** (v0.14.0+). At session start the plugin copies each `shim/*.md` into `~/.claude/commands/`, where user-level commands are **not namespaced**, so the short form resolves.
 
 Why a shim is needed: Claude Code namespaces *every* plugin command as `/plugin-name:command-name` by design, and **no** frontmatter key, alias, or manifest field lets a plugin expose a bare name — only a file in `~/.claude/commands/` can.
 
@@ -290,7 +336,7 @@ Why a shim is needed: Claude Code namespaces *every* plugin command as `/plugin-
 
 - A shim is a **pure pointer** to the plugin skill — it holds no workflow logic, so it can't drift; the hook refreshes it when the source changes.
 - It **never overwrites your file** — a pre-existing `~/.claude/commands/manual-maker.md` without the `managed-by: manual-maker-plugin` marker is left untouched.
-- Shims live **outside** the plugin, so `/plugin uninstall` does not remove them: `rm ~/.claude/commands/manual-maker.md ~/.claude/commands/confluence-docs.md`.
+- Shims live **outside** the plugin, so `/plugin uninstall` does not remove them: `rm ~/.claude/commands/manual-maker.md ~/.claude/commands/confluence-docs.md ~/.claude/commands/screen-record.md`.
 - **Don't want the short commands?** Set `MANUAL_MAKER_NO_SHIM=1` and delete the files — the full `/manual-maker:…` forms still work, as does natural language.
 
 <details>
@@ -302,6 +348,8 @@ mkdir -p ~/.claude/commands
   -o ~/.claude/commands/manual-maker.md
 /usr/bin/curl -fsSL https://raw.githubusercontent.com/Thitic9203/manual-maker/main/shim/confluence-docs.md \
   -o ~/.claude/commands/confluence-docs.md
+/usr/bin/curl -fsSL https://raw.githubusercontent.com/Thitic9203/manual-maker/main/shim/screen-record.md \
+  -o ~/.claude/commands/screen-record.md
 ```
 
 Use `/usr/bin/curl` (macOS's own) by full path on purpose — a MacPorts/Homebrew curl earlier on PATH often fails TLS to `raw.githubusercontent.com` with `unable to establish a secure connection`. On Linux, plain `curl` is fine.

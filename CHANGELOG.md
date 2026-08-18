@@ -2,6 +2,33 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.27.0] - 2026-08-18
+### Added
+- **New skill `screen-record` + command `/screen-record`** — records a live web flow as a finished
+  MP4 (walkthrough for a manual, feature demo, or video evidence). Headless Playwright, so the
+  user's screen is never taken over: no window steals focus, no cursor, no capture glow.
+- **One encode spec for every clip**, ported from the recorder that produced the team's
+  System / Integration / Unit test recordings: 1920×1080, `deviceScaleFactor` 2, H.264 CRF 20
+  `preset slow`, `yuv420p`, `+faststart`. `references/video-spec.md` records why each value.
+- **Intake that remembers** — environment, URL, account and login selectors save into the same
+  `~/.manual-maker/profiles/<slug>.json` the handbook skill uses, so a system that already has a
+  manual already has its access on file. Later runs **reconfirm** instead of re-interviewing.
+  Passwords are never stored and are read only from the environment, in-session.
+- **Source-driven recording** — intake asks what dictates the flow (manual file, test-case list,
+  spec). No source, no guessing: the user lists the steps and they are read back for confirmation.
+- **Confirmation gate** — the complete intake, including the numbered list of clips, is summarized
+  in chat and waits for an explicit go before anything records.
+- **7-layer quality gate**, fail-closed, with `scripts/verify-video.py` measuring layers 1 and 6:
+  resolution, codec, pixel format, faststart, duration, blank frames (per-frame luma range), and a
+  full decode that catches truncation. Exit 2 when a check could not run — that is a failure, not
+  a pass.
+- `scripts/record.js` (the recorder, driven by a JSON play file), `scripts/preflight.sh`
+  (Node · Playwright · Chromium · ffmpeg), and `shim/screen-record.md` for the bare command.
+
+### Changed
+- `hooks/check-version.sh` installs a third shim so bare `/screen-record` resolves.
+- README documents three skills instead of two.
+
 ## [0.26.0] - 2026-08-06
 
 Two Confluence table/page house-style rules for the `confluence-docs` skill, each guarded by the repo's

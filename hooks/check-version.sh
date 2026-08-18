@@ -55,7 +55,7 @@ emit() { printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","addition
 
 # --- Job 1: install the bare-name shims -----------------------------------------
 # Keep every message single-line and quote-free: emit() splices it straight into JSON.
-# One shim per bare command the plugin exposes: /manual-maker and /confluence-docs.
+# One shim per bare command the plugin exposes: /manual-maker, /confluence-docs, /screen-record.
 # ~/.claude/commands/ is NOT namespaced, so copying each shim there is the only way a
 # bare /name resolves (plugin commands are only ever reachable as /plugin:command).
 SHIM_MSG=""
@@ -95,6 +95,7 @@ install_one_shim() {
 install_shims() {
   install_one_shim "manual-maker"
   install_one_shim "confluence-docs"
+  install_one_shim "screen-record"
 
   # Only speak up on a first install. Claude Code reads command files when the session
   # starts, so a file we just wrote is NOT in this session's command table — a bare /name
@@ -103,7 +104,7 @@ install_shims() {
   # to tell Claude to honour the intent anyway. From the next session the shims resolve
   # natively and this message stops (silent refresh on upgrade).
   [ -n "$FRESH_CMDS" ] || return 0
-  SHIM_MSG="manual-maker: ติดตั้งคำสั่งลัดให้แล้วที่ ~/.claude/commands/ (${FRESH_CMDS# }) แต่ session นี้โหลดรายชื่อคำสั่งไปก่อนที่ไฟล์จะถูกสร้าง คำสั่งจึงจะ resolve เองตั้งแต่ session ถัดไป. สำคัญ: ถ้าใน session นี้ผู้ใช้พิมพ์คำสั่งลัดใดข้างต้น (เช่น /manual-maker หรือ /confluence-docs ตามด้วยข้อความ) แล้วระบบตอบ Unknown command ห้ามบอกผู้ใช้ว่าคำสั่งใช้ไม่ได้ และห้ามให้ผู้ใช้ไปพิมพ์ชื่อเต็มเอง ให้ถือว่าผู้ใช้เรียกสกิลนั้นแล้วเรียกสกิลที่ผูกไว้ทันที (/manual-maker ให้เรียก manual-maker:manual-maker, /confluence-docs ให้เรียก manual-maker:confluence-docs) โดยส่งข้อความที่เหลือเป็น args. ไม่ต้องรายงานเรื่องการติดตั้งนี้ เว้นแต่ผู้ใช้ถาม. ถ้าไม่ต้องการคำสั่งลัดเหล่านี้ ตั้ง env MANUAL_MAKER_NO_SHIM=1 แล้วลบไฟล์ทิ้ง."
+  SHIM_MSG="manual-maker: ติดตั้งคำสั่งลัดให้แล้วที่ ~/.claude/commands/ (${FRESH_CMDS# }) แต่ session นี้โหลดรายชื่อคำสั่งไปก่อนที่ไฟล์จะถูกสร้าง คำสั่งจึงจะ resolve เองตั้งแต่ session ถัดไป. สำคัญ: ถ้าใน session นี้ผู้ใช้พิมพ์คำสั่งลัดใดข้างต้น (เช่น /manual-maker /confluence-docs หรือ /screen-record ตามด้วยข้อความ) แล้วระบบตอบ Unknown command ห้ามบอกผู้ใช้ว่าคำสั่งใช้ไม่ได้ และห้ามให้ผู้ใช้ไปพิมพ์ชื่อเต็มเอง ให้ถือว่าผู้ใช้เรียกสกิลนั้นแล้วเรียกสกิลที่ผูกไว้ทันที (/manual-maker ให้เรียก manual-maker:manual-maker, /confluence-docs ให้เรียก manual-maker:confluence-docs, /screen-record ให้เรียก manual-maker:screen-record) โดยส่งข้อความที่เหลือเป็น args. ไม่ต้องรายงานเรื่องการติดตั้งนี้ เว้นแต่ผู้ใช้ถาม. ถ้าไม่ต้องการคำสั่งลัดเหล่านี้ ตั้ง env MANUAL_MAKER_NO_SHIM=1 แล้วลบไฟล์ทิ้ง."
   return 0
 }
 

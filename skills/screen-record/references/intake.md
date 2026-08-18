@@ -1,0 +1,135 @@
+# Intake — what to record, where, and as whom
+
+Ask **one question at a time**, in order. Nothing here has a silent default: a recording made
+against a guessed URL, a guessed account, or a guessed list of steps is a clip of the wrong thing,
+and it costs a full re-run to discover that.
+
+**How to ask:** พูดกับผู้ใช้เป็น **ภาษาไทยที่เป็นทางการ สุภาพ มืออาชีพ** — สะกดถูกต้อง ถามทีละข้อ ไม่รวบหลายคำถาม
+หลีกเลี่ยงคำลงท้าย (ครับ/ค่ะ) และสรรพนามที่ไม่จำเป็น ข้อความกระชับ ชัดเจน เป็นธรรมชาติ
+
+## Golden rules
+
+- **ห้ามมโน.** Missing, vague, or unsure → STOP and ask again. Never invent a URL, an account, a
+  step, or what the video is supposed to show.
+- **ห้ามทำเกินขอบเขต.** Record only the flows that were asked for.
+- **ยืนยันก่อนเริ่มเสมอ.** Summarize everything and get an explicit "go" **before** the first
+  recording — see the Confirmation Gate at the end.
+
+## 0. Load the saved profile first — do not re-ask what this user already answered
+
+Recordings and manuals describe the **same systems**, so they share one memory:
+**`~/.manual-maker/profiles/<slug>.json`** — the store defined in
+[`../../manual-maker/references/profile.md`](../../manual-maker/references/profile.md). Follow that
+file for the load/save mechanics; this skill only adds its own block.
+
+1. Learn the **system name** (Q1) — or take it from the `/screen-record` argument.
+2. List `~/.manual-maker/profiles/`, **read each profile's JSON**, and match on the stored `system`
+   or a `urls` entry — match on **contents**, not the filename. More than one match → show the
+   candidates and ask which. Remember which file you loaded; Save overwrites that same file.
+3. **Profile found → show it back and reconfirm, do not re-interview.** Print the saved values as a
+   table and ask, verbatim:
+   **"พบข้อมูลระบบนี้ที่บันทึกไว้ ยังใช้ได้เหมือนเดิมหรือไม่ หรือมีส่วนใดเปลี่ยนแปลง"**
+   - Every field confirmed unchanged → **skip that question entirely.**
+   - Ask only for what is missing or changed.
+   - **Always ask fresh anyway:** the **password** (never stored), and **which flows to record this
+     run** (Q5) — that changes every run by nature.
+4. **No profile → run the full intake below.**
+
+This skill's block inside the shared profile:
+
+```json
+{
+  "recording": {
+    "env": "staging",
+    "base_url": "https://staging.example.com",
+    "vpn_required": true,
+    "accounts": [ { "role": "ผู้ดูแลระบบ", "user": "admin@example.com", "env_var": "SR_USER" } ],
+    "login": {
+      "url": "/login",
+      "userSelector": "#email",
+      "passSelector": "#password",
+      "submitSelector": "button[type=submit]",
+      "readySelector": ".avatar",
+      "dismiss": ["button[aria-label=Close]"]
+    },
+    "sources": ["https://…/testcases", "handbook-v2.docx"],
+    "out_dir": "~/Downloads/recordings",
+    "updated": "2026-08-18"
+  }
+}
+```
+
+**NEVER stored:** passwords, tokens, cookies, `storageState` contents, VPN secrets, or a URL
+carrying credentials (`https://user:pass@host`, `?token=`, `?access_token=`, `?apikey=`) — strip
+those to the bare `scheme://host/path` before writing. A **username** is stored (it identifies the
+role, and the user retypes nothing); the **password never is**.
+
+## A. Environment & access — *ต้องถามทุกข้อ · ยืนยันสดทุกครั้ง*
+
+1. **System name** — ระบบอะไร และคืออะไรในหนึ่งบรรทัด *(ต้องถาม)*
+2. **Environment** — จะอัดบน env ไหน: **dev / staging / pre-prod / production** *(ต้องถาม — ห้ามเลือกเอง
+   แม้ env หนึ่งจะเข้าง่ายกว่า)*. ถ้าเป็น **production** ให้แจ้งผู้ใช้ก่อนว่าการอัดจะเดินบนข้อมูลจริง แล้วยืนยันอีกครั้ง
+   ว่าให้อัดบน production จริง.
+3. **URL** ของ env นั้น *(ต้องถาม — มี profile ให้แสดงค่าที่บันทึกไว้เป็นค่าตั้งต้น แล้วขอให้ยืนยันว่ายังใช้ได้;
+   ห้ามใช้ซ้ำเงียบ ๆ เพราะการเข้าถึงจริงต้องตรวจทุกครั้ง)*
+4. **VPN** — ต้องต่อ VPN ไหม และตอนนี้ต่ออยู่หรือยัง *(ต้องถาม — ยืนยันก่อนลองเปิด URL)*
+5. **Account / role ที่จะใช้อัด** — บัญชีไหน บทบาทอะไร และถ้าหลายบทบาทต้องอัดกี่ชุด *(ต้องถาม)*
+   > 🔐 **รหัสผ่านถูกใช้ในรอบนี้เท่านั้น.** ตัวอัดอ่านจาก **environment variable** (`SR_USER` / `SR_PASS`)
+   > ไม่เคยอ่านจากไฟล์ play และ Claude ไม่พิมพ์รหัสผ่านลงฟอร์มเอง. รหัสผ่าน **ไม่ถูกบันทึก** ลง profile,
+   > ไม่ลงไฟล์ใด, ไม่ลง log, และ **ไม่ถูก echo กลับ** (สรุปให้เขียนว่า `password provided (not shown)`).
+   > **login ไม่อยู่ในคลิป** — ระบบล็อกอินใน context ที่ไม่อัด แล้วส่ง session ต่อ (ดู `video-spec.md`).
+   > ถ้าล็อกอินอัตโนมัติไม่ได้ (SSO/MFA/captcha) → ผู้ใช้ล็อกอินเอง แล้วส่ง `storageState.json` มาแทน.
+
+## B. Source — *อัดตามอะไร (ห้ามมโนขั้นตอนเอง)*
+
+6. **แหล่งที่บอกว่าจะอัดอะไรบ้าง** — ไฟล์คู่มือ, ลิงก์รายการ test case, สเปก, Confluence, หรือ flow ที่เขียนมาให้
+   *(ต้องถาม — ขอลิงก์/ไฟล์จริง หรือคำตอบชัดว่า "ไม่มี")*
+   - **มีแหล่ง** → เปิดอ่าน แล้ว **ดึงรายการสิ่งที่จะอัดออกมาเป็นข้อ ๆ พร้อมเลข/ชื่อจากแหล่งนั้น** เอาไปแสดงใน
+     Confirmation Gate ให้ผู้ใช้ตรวจ. ทุกขั้นตอนในคลิปต้องสืบกลับไปที่แหล่งนี้ได้ — **ห้ามเติมขั้นตอนที่แหล่งไม่มี**
+     และ**ห้ามข้ามขั้นตอนที่แหล่งมี**.
+   - **ไม่มีแหล่ง** → ให้ผู้ใช้ไล่ขั้นตอนที่ต้องการให้อัดมาเป็นข้อ ๆ แล้ว **อ่านกลับให้ยืนยัน** ก่อนอัด.
+     รายการที่ยืนยันแล้วนั้นคือแหล่ง — บันทึกไว้ในสรุปของรอบนี้.
+   - แหล่งขัดกับสิ่งที่เห็นบนหน้าจอจริง (ปุ่มไม่มี, ชื่อเมนูไม่ตรง) → **หยุด ถามผู้ใช้** ห้ามเดาว่าอันไหนถูก.
+7. **ขอบเขตรอบนี้** — จะอัดทั้งหมดในแหล่ง หรือเฉพาะบางรายการ *(ต้องถาม — ระบุเป็นรายการที่ชัดเจน)*
+
+## C. Output — *มี default ถามรวบได้*
+
+รวบเป็นชุดเดียว แสดง default ทั้งหมดในตารางเดียว แล้วถามครั้งเดียวว่า
+**"ค่าเริ่มต้นเหล่านี้ใช้ได้ไหม หรือต้องการแก้ข้อใด"**
+
+| ข้อ | คำถาม | Default |
+|---|---|---|
+| 8 | **ชื่อไฟล์** ต่อคลิป | ชื่อจากแหล่ง เช่น `TC_01` → `TC_01.mp4` (ASCII, ไม่มีช่องว่าง) |
+| 9 | **ที่เก็บไฟล์** | `~/Downloads/recordings/` |
+| 10 | **ความละเอียด / คุณภาพ** | 1920×1080 · deviceScaleFactor 2 · H.264 CRF 20 preset slow (ดู `video-spec.md`) |
+| 11 | **แถบ URL ในวิดีโอ** | เปิด — แสดง URL จริงทุกเฟรม (ภาพนิ่งไม่มีแถบนี้) |
+| 12 | **ภาพนิ่งประกอบ** | เก็บ 1 ภาพต่อจุดที่ต้องพิสูจน์ผลลัพธ์ (`expect`) |
+| 13 | **ปลายทางหลังอัด** | ไม่อัปโหลด — ส่งไฟล์ในเครื่อง (ถ้าต้องขึ้น Drive/Jira/Confluence ให้ระบุ) |
+
+## Confirmation Gate — สรุปให้ยืนยันก่อนลงมือ (บังคับ ห้ามข้าม)
+
+เมื่อข้อมูลครบแล้ว **ต้องสรุปในแชทให้ผู้ใช้ยืนยันอีกครั้งเสมอ** แล้วจึงเริ่มอัด — ไม่ว่าจะได้ข้อมูลมาจากการถามสด
+หรือจาก profile เดิม. ห้ามเริ่มอัดทันทีเพราะ "ข้อมูลครบแล้ว".
+
+พิมพ์ตารางสรุป **ทุกค่า**:
+
+| หัวข้อ | ค่า |
+|---|---|
+| ระบบ / Environment | … *(ระบุ env ให้ชัด)* |
+| URL | … |
+| VPN | ต้องใช้/ไม่ต้อง · ต่อแล้ว/ยัง |
+| บัญชี + บทบาท | … · `password provided (not shown)` |
+| แหล่งที่ใช้กำหนดสิ่งที่อัด | ลิงก์/ไฟล์ *(หรือ "ผู้ใช้ระบุขั้นตอนเอง — ยืนยันแล้ว")* |
+| **รายการที่จะอัดรอบนี้** | ไล่เป็นข้อ พร้อมเลข/ชื่อจากแหล่ง + จำนวนคลิปรวม |
+| ชื่อไฟล์ + ที่เก็บ | … |
+| คุณภาพวิดีโอ | 1920×1080 · DSF 2 · H.264 CRF 20 · แถบ URL เปิด/ปิด |
+| เครื่องมือที่ต้องใช้ | ผลจาก `scripts/preflight.sh --check` — พร้อม/จะติดตั้งให้ + ขนาดที่ต้องโหลด |
+| ปลายทางหลังอัด | … |
+
+แล้วถามด้วยข้อความนี้: **"ยืนยันข้อมูลทั้งหมดถูกต้อง และเริ่มอัดได้หรือไม่"**
+
+**ห้ามเริ่มอัดจนกว่าผู้ใช้จะยืนยันชัดเจน.** มีข้อไหน "ไม่แน่ใจ" ให้เคลียร์ก่อน.
+
+**หลังยืนยัน → บันทึก profile.** เขียนค่าที่ยืนยันแล้ว (**ตัดรหัสผ่านและความลับทุกตัวออก**) ลง
+`~/.manual-maker/profiles/<slug>.json` ใต้คีย์ `recording` ตาม `profile.md` แล้วบอกผู้ใช้สั้น ๆ:
+**"บันทึกข้อมูลระบบนี้ไว้แล้ว ครั้งถัดไปไม่ต้องกรอกใหม่ (ยกเว้นรหัสผ่านที่ต้องใส่สดทุกครั้ง)"**
