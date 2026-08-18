@@ -92,9 +92,12 @@ user confirmed unchanged. The four that are always asked, every run:
 - **Where the finished files go** — the output folder, and whether anything is uploaded afterwards.
   Never assume a location; offer `~/Downloads/recordings/` and let the user confirm or redirect.
   With a profile, show the saved folder and reconfirm rather than asking again.
-- **Narration — wanted or not, in Thai or English, male or female.** All three are the user's
-  choice; never pick a language or a voice gender for them. If wanted, write one `say` line per
-  step **from the same source as the steps** (never invented) and read the whole script back for
+- **Narration — exactly three options: เสียงผู้ชาย / เสียงผู้หญิง / ไม่ต้องมีเสียง.** Nothing else
+  is put in front of the user — not a voice id, not a tone name, not a rate or pitch number, not the
+  language. Those come from the approved profile in
+  [`references/voice-profile.md`](references/voice-profile.md) and appear in the summary table as
+  *information to check*, never as a decision to make. If narration is wanted, write one `say` line
+  per step **from the same source as the steps** (never invented) and read the whole script back for
   confirmation before recording.
 
 ### Step 3 — Preflight

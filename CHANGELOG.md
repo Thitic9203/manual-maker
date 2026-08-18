@@ -2,6 +2,16 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.33.2] - 2026-08-18
+### Changed
+- **The narration question now has three options and no jargon: เสียงผู้ชาย / เสียงผู้หญิง /
+  ไม่ต้องมีเสียง.** Voice ids, tone names and rate/pitch/volume numbers are no longer put in front
+  of the user as choices — they come from the approved profile and appear in the summary table as
+  information to check. Language is not asked either; the narration follows the language of the
+  source. Asked the old way, the user rejected the question itself on sight: *"option ตรงนี้มีแค่
+  เสียงผู้ชาย เสียงผู้หญิง ไม่ต้องมีเสียง"*. A person picking a voice is choosing who speaks, not
+  configuring a synthesizer.
+
 ## [0.33.1] - 2026-08-18
 ### Changed
 - **The approved male profile is now the one the user actually picked by ear.** `mellow`'s full
