@@ -16,9 +16,12 @@
  *  2. THE RUN FAILS CLOSED. A step whose `waitFor`/`expect` never appears aborts the run with
  *     a non-zero exit. A short clip that stopped before reaching its target must never be
  *     mistaken for a successful recording; the correct outcome is "blocked, with the reason".
- *  3. THE URL IS IN EVERY FRAME. Playwright records page content, not the browser chrome, so a
- *     thin strip renders the LIVE `location.href`. It is read from the page, never typed —
- *     a truthful readout, not an edit of the evidence. Stills hide it (see `expect`).
+ *  3. NOTHING OF OURS IS ON SCREEN. The clip must be indistinguishable from a person using the
+ *     system and recording their own screen. This script draws NOTHING into the page — no
+ *     overlay, no banner, no watermark, no debug strip. Playwright is already invisible to the
+ *     page (no cursor, no "controlled by automated software" bar in page content). If you are
+ *     ever tempted to inject a helper element "just for this run", don't: it lands in every
+ *     frame and has to be edited out afterwards.
  *
  * Credentials come from the environment only (`SR_USER` / `SR_PASS`, or the names given in
  * `login.userEnv` / `login.passEnv`). They are never read from the play file, never printed.
@@ -66,7 +69,6 @@ const CRF = play.crf == null ? 20 : play.crf;
 const PRESET = play.preset || 'slow';
 const SETTLE = play.settle == null ? 900 : play.settle;      // pause after each step
 const STEP_TIMEOUT = play.stepTimeout == null ? 30000 : play.stepTimeout;
-const URLBAR = play.urlBar !== false;
 const steps = Array.isArray(play.steps) ? play.steps : die('play.steps must be an array');
 if (!steps.length) die('play.steps is empty — there is no flow to record');
 
@@ -74,34 +76,6 @@ fs.mkdirSync(OUT, { recursive: true });
 
 // Absolute URL from a play-file path: "/courses" → BASE + "/courses"; full URLs pass through.
 const abs = (u) => (/^https?:\/\//i.test(u) ? u : BASE + '/' + String(u).replace(/^\//, ''));
-
-// ------------------------------------------------------------- URL bar strip
-function installUrlBar() {
-  const install = () => {
-    if (document.getElementById('__sr_urlbar')) return;
-    const bar = document.createElement('div');
-    bar.id = '__sr_urlbar';
-    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;height:26px;'
-      + 'line-height:26px;background:#202124;color:#e8eaed;font:12px/26px monospace;padding:0 10px;'
-      + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;'
-      + 'box-shadow:0 1px 4px rgba(0,0,0,.4);';
-    // Built as nodes, and the URL written with textContent — never innerHTML. A URL fragment can
-    // carry raw markup, and this strip renders a URL we do not control on every recorded page.
-    const tag = document.createElement('span');
-    tag.style.color = '#8ab4f8';
-    tag.textContent = '\u{1F512} URL: ';
-    const val = document.createElement('span');
-    bar.appendChild(tag);
-    bar.appendChild(val);
-    const upd = () => { val.textContent = location.href; };
-    upd();
-    (document.body || document.documentElement).appendChild(bar);
-    setInterval(upd, 300);
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
-  else install();
-  setTimeout(install, 1000);
-}
 
 // A locator from a play-file target: "text=..." / "//xpath" / any CSS selector.
 const loc = (page, sel) => (String(sel).startsWith('//') ? page.locator(`xpath=${sel}`) : page.locator(sel));
@@ -227,7 +201,7 @@ async function runStep(page, s, i) {
 }
 
 // Gate layer 4/5: the state that decides the expected result is shown, and a still is captured
-// with the URL strip hidden so no overlay sits on the evidence.
+// of the page exactly as it is — nothing is drawn on it before or after the shutter.
 async function checkpoint(page, s, i, shots) {
   if (!s.expect) return;
   const tag = `step ${i + 1}${s.label ? ' — ' + s.label : ''}`;
@@ -236,10 +210,7 @@ async function checkpoint(page, s, i, shots) {
   await sleep(600);
   const n = String(shots.length + 1).padStart(2, '0');
   const file = path.join(OUT, `${NAME}-ER_${n}.png`);
-  await page.evaluate(() => { const b = document.getElementById('__sr_urlbar'); if (b) b.style.display = 'none'; });
-  await sleep(200);
   await page.screenshot({ path: file, fullPage: !!s.fullPage });
-  await page.evaluate(() => { const b = document.getElementById('__sr_urlbar'); if (b) b.style.display = ''; });
   shots.push(file);
   console.log(`SHOT: ${file} ${fs.statSync(file).size} bytes`);
 }
@@ -283,7 +254,6 @@ function encode(webm, mp4) {
       recordVideo: { dir: OUT, size: { width: VIEW.width, height: VIEW.height } },
     });
     const page = await ctx.newPage();
-    if (URLBAR) await page.addInitScript(installUrlBar);
 
     const shots = [];
     try {

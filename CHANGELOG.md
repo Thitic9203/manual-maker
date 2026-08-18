@@ -2,6 +2,15 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.27.1] - 2026-08-18
+### Removed
+- **`screen-record`: the injected URL strip is gone entirely** — code, option, and docs. A recording
+  must be indistinguishable from a person using the system and recording their own screen, and the
+  dark `URL:` bar the recorder painted at the top of every frame read as automation output. The
+  recorder now draws **nothing** into the page, and there is no flag to turn an overlay back on —
+  an option like that ends up enabled by accident and then every frame needs editing.
+  Verified by extracting a frame from a fresh recording: the strip is gone and the rest is untouched.
+
 ## [0.27.0] - 2026-08-18
 ### Added
 - **New skill `screen-record` + command `/screen-record`** — records a live web flow as a finished

@@ -49,20 +49,26 @@ If the app only hydrates its session after the shell has loaded once, set `login
 non-recorded context visits it, so the recorded one starts already logged in instead of opening on
 a "could not load" state.
 
-### 2. The URL is visible in every frame
+### 2. Nothing of ours appears on screen
 
-Playwright records **page content**, not browser chrome — so a recorded clip has no address bar and
-cannot show where it is. The recorder injects a 26 px strip that renders the **live**
-`location.href`, updated on an interval.
+The clip must be **indistinguishable from a person using the system and recording their own
+screen**. A viewer should not be able to tell a script drove it.
 
-It is **read from the page, never typed**: it reports where the browser actually is. That is what
-makes it evidence rather than an edit. (It is written with `textContent`, never `innerHTML` — a URL
-fragment can carry markup, and this strip renders a URL nobody controls.)
+The recorder therefore **draws nothing into the page** — no overlay, no banner, no URL strip, no
+watermark, no debug text. There is no option to turn one on, because an option like that ends up
+on by accident and then every frame has to be edited.
 
-**Stills hide it.** The strip is display-hidden immediately before every screenshot and restored
-after, so a figure destined for a manual carries no overlay.
+The rest holds by construction:
 
-Turn it off with `"urlBar": false` when the clip is for a manual and the strip would be noise.
+- Headless Chromium paints **no mouse cursor** and no *"controlled by automated test software"*
+  bar into page content.
+- Playwright records **page content only** — the browser's own chrome is never in the video.
+- Steps are paced (`settle`, and scrolling at ~250 px per 350 ms) so the motion reads like a
+  person working, not an instant jump between states.
+
+If a future change is tempted to inject a helper element "just for this run" — a URL readout, a
+step counter, a highlight — it lands in **every frame** of the deliverable. Put it in the run log
+instead.
 
 ### 3. The run fails closed
 
@@ -114,7 +120,6 @@ One JSON file per clip. It holds **no credentials** — those come from the envi
 | `crf` / `preset` | `20` / `slow` | |
 | `settle` | `900` ms | Pause after each step, so the viewer can follow |
 | `stepTimeout` | `30000` ms | Per-step ceiling |
-| `urlBar` | `true` | The live-URL strip |
 | `tail` | `1500` ms | Hold on the last frame so it lands in the video |
 | `login` | — | Omit for a public flow |
 | `storageState` | — | Path to a saved session — used instead of logging in (the SSO/MFA route) |
@@ -143,7 +148,7 @@ Every step also accepts:
 - **`waitFor`** — what must be visible *after* the action. **Fail-closed** (see above). Put one on
   every step that navigates or changes state.
 - **`expect`** — the state that proves an expected result. Asserted, then captured as
-  `<name>-ER_NN.png` with the URL strip hidden. This is quality-gate layers 4 and 5.
+  `<name>-ER_NN.png`. This is quality-gate layers 4 and 5.
 - **`settle`**, **`timeout`**, **`fullPage`** (for `expect` stills).
 
 Selectors accept **CSS**, **`text=…`**, or an **XPath starting with `//`**.

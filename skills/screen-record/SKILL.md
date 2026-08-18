@@ -112,8 +112,12 @@ A play file is JSON: where to go, what to click, what must appear. Schema and ev
 
 - **`waitFor`** on every step that navigates or changes state — what must be visible afterwards.
   The run **fails closed** if it never appears (layer 3). Never remove one to make a run go green.
-- **`expect`** wherever an outcome must be proven — asserted, then captured as a still with the URL
-  strip hidden (layers 4 and 5).
+- **`expect`** wherever an outcome must be proven — asserted, then captured as a still (layers 4
+  and 5).
+
+The clip must look like **a person using the system and recording their own screen** — the product
+and nothing else. The recorder draws nothing into the page and offers no way to; never add an
+overlay, a URL strip, or a step counter "just for this run", because it lands in every frame.
 
 Derive the steps and the wording from the **source**, and name each clip after the source's own id
 (`TC_01` → `TC_01.mp4`). Credentials never go in a play file.

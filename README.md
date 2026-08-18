@@ -1,6 +1,6 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.27.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.27.1-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 **A Claude Code plugin that documents the web systems your team builds.** It ships **three skills** that turn a running system into finished documentation — a step-by-step user handbook, a fully populated Confluence space, or a recorded video walkthrough.
 
@@ -309,7 +309,7 @@ profile → intake (env · URL · account · source) → preflight → CONFIRM �
 - **Nothing records until you confirm.** The complete intake is summarized in chat — including the numbered list of clips — and waits for an explicit go.
 - **One spec for every clip:** 1920×1080, `deviceScaleFactor` 2, H.264 CRF 20 `preset slow`, `yuv420p`, `+faststart`. A clip recorded today matches one recorded months ago.
 - **The login is never in the clip.** Auth runs in a non-recorded context and hands its session to the recording one, so no credential is ever on screen.
-- **The live URL is in every frame** (a thin strip reading `location.href` — read from the page, never typed). Stills hide it, so a figure bound for a manual carries no overlay.
+- **Looks like a person recording their own screen.** No cursor, no automation banner, no overlay, no URL strip — the recorder draws nothing into the page, and steps are paced so the motion reads like someone working.
 - **It fails closed.** A step that never reaches its target aborts with a non-zero exit and keeps the partial video for diagnosis. A short clip is a **blocked** item with a reason — never a smaller success.
 
 **The 7-layer quality gate** decides when a recording is done: max quality · whole flow · reached the target · result on screen · legible · file integrity · delivered-and-plays. `scripts/verify-video.py` measures layers 1 and 6 for real — resolution, codec, pixel format, faststart, blank frames (per-frame luma range), and a full decode that catches truncation. It exits **2** when a check could not run, because a check that could not run is not a pass. The remaining layers are judged by watching the clip against the source.
