@@ -153,7 +153,7 @@ elif [ "$MODE" = "check" ]; then
 else
   note "ติดตั้ง edge-tts (เสียงบรรยาย) ลง $TTS_VENV"
   if "$PY_BIN" -m venv "$TTS_VENV" >&2 && "$TTS_VENV/bin/pip" install --quiet --upgrade pip >&2 \
-     && "$TTS_VENV/bin/pip" install --quiet edge-tts >&2 && [ -x "$TTS_BIN" ]; then
+     && "$TTS_VENV/bin/pip" install --quiet edge-tts numpy >&2 && [ -x "$TTS_BIN" ]; then
     row "edge-tts (เสียงบรรยาย)" "installed" "พร้อม"
     INSTALLED=1
   else

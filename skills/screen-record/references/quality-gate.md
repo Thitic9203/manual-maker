@@ -16,6 +16,7 @@ gets filed as proof of something. Re-record; never wave it through.
 | **5** | **Legible / text-backed** | The wording, labels, counts, and values under review are **readable in frame**. If the video cannot render them legibly, the still screenshot supplements it. | `expect` stills + your eyes |
 | **6** | **File integrity + match** | Plays start to end, **non-blank, non-truncated**, sane duration, correct name, and is the clip for **that exact item** — not another one's. | `verify-video.py` |
 | **6b** | **Narration, when it was asked for** | An audio track exists and is audible; every line is spoken over the step it describes, **finishes before the next action starts**, and says what the source says — no invented sentence. Voice and language match what was confirmed. | `verify-video.py --expect-audio` + listening |
+| **6c** | **The voice is the one that was approved** | Measured, not read off a setting: median speaking pitch inside the profile's band, the greeting closing on its Thai particle (`ค่ะ` / `ครับ`) with a real pause after it, no clipping. A clip can name the right voice in every log and still be 23 Hz off the timbre the user approved — that is what this catches. | `check-narration.py --profile male\|female` |
 | **7** | **Delivered + link verified** | Landed where it was meant to (folder / Drive / ticket / embedded in the document) and the reference **actually resolves and plays** from there — opened and confirmed, not assumed. | you, by opening it |
 
 ## What the script can and cannot decide
@@ -42,6 +43,18 @@ SR=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/screen-record 2>/dev/
 
 Options: `--min-seconds N` (default 5), `--width` / `--height` (default 1920 × 1080) when the user
 approved a different frame size at intake.
+
+Narrated clips take a second, separate pass — the picture being to spec says nothing about the
+voice:
+
+```bash
+"$SR/scripts/check-narration.py" --profile female ~/Downloads/recordings/*.mp4
+```
+
+`--profile` picks the approved voice from [`voice-profile.md`](voice-profile.md). Add
+`--no-greeting-pause` only when the opening line genuinely has no sentence-final particle;
+`--print-only` reports the numbers without judging, which is how a new profile gets measured in the
+first place. **Exit 2 means the check could not run — that is a failure, not a pass.**
 
 ## When a layer fails
 

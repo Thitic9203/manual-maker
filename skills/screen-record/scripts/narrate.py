@@ -162,6 +162,51 @@ TH_BREAKS = ['จากนั้น', 'หลังจากนั้น', 'ต�
 EN_BREAKS = [' and ', ' then ', ' so that ', ' which ', ' before ', ' after ', ' when ', ' if ',
              ' to ', ' with ']
 
+# Thai sentence-final politeness particles — the mirror image of TH_BREAKS. Those words START a
+# clause; these END one, and a phrase may never begin with one.
+#
+# It matters more here than anywhere else in this file, because a particle carries its meaning in
+# its TONE: ค่ะ falls, คะ is high. The engine gives every synthesis chunk the same shape — it opens
+# at the top of the range and falls at the end (measured in the note above ONE_SHOT_TH) — so where
+# the particle sits inside a chunk decides WHICH WORD is heard.
+#
+# Measured on fr-FR-VivienneMultilingualNeural, rate -12% / pitch -12Hz, reading
+# "สวัสดีค่ะ วันนี้จะพาชม…" the way this file used to hand it over — one utterance, no split point,
+# because Thai narration carries no full stop for `sentences` to find:
+#
+#     …สวัสดี ends 0.62 s at 184 Hz · 60 ms of silence · ค่ะ at 0.72-0.90 s peaking at 247 Hz
+#     the same line with the particle deleted has no such peak — it runs on at 183-196 Hz
+#
+# i.e. the break landed BEFORE the particle and the particle was spoken at the top of the range:
+# "สวัสดี · คะ วันนี้", which is exactly what the listener reported. The same particle closing its
+# own chunk falls 164 → 137 Hz — ค่ะ, with the pause after it where it belongs.
+#
+# Three rules follow, all keyed off this one list:
+#   1. a particle with more line behind it ENDS a sentence, so it closes a chunk and takes the fall;
+#   2. a space written in front of a particle is closed up before synthesis;
+#   3. no phrase may START with a particle — whatever produced the cut, it is folded back.
+# Longest first, so 'นะคะ' matches before 'คะ'.
+TH_PARTICLES = ('นะครับ', 'ครับผม', 'นะคะ', 'ครับ', 'ค่ะ', 'ค่า', 'คะ', 'จ๊ะ', 'จ้ะ', 'จ้า', 'ฮะ')
+
+# The subset that can never begin a Thai word, so it is safe to recognise mid-run — with no space
+# after it to prove it is a particle. The others are excluded on purpose: 'คะ' opens คะแนน, 'ค่า'
+# opens ค่าใช้จ่าย, 'จ้า' opens จ้าง. Treating those as particles wherever they appear would tear a
+# real word in half, which is the same class of mistake as breaking on 'แล้ว' (see TH_BREAKS).
+TH_PARTICLES_GLUED = ('นะครับ', 'ครับผม', 'นะคะ', 'ครับ', 'ค่ะ')
+
+_P_ANY = '|'.join(TH_PARTICLES)
+_P_SAFE = '|'.join(TH_PARTICLES_GLUED)
+# a particle standing as its own token: a space, or the end of the line, behind it
+PARTICLE_TOKEN = re.compile(rf'(?:{_P_ANY})(?=\s|$)')
+# whitespace that has detached a particle from the phrase it closes — "ขอบคุณ ค่ะ"
+PARTICLE_ORPHAN = re.compile(rf'\s+(?=(?:{_P_ANY})(?:\s|$))')
+# a phrase that OPENS with a particle, either as a token or glued to the next word
+PARTICLE_LEADS = re.compile(rf'^(?:(?:{_P_ANY})(?=\s|$)|(?:{_P_SAFE}))')
+
+# The shortest head worth speaking as its own chunk. A greeting ("สวัสดีค่ะ" — 9) clears it; a bare
+# particle left over from an earlier cut does not, and must not become a chunk of its own.
+MIN_CHUNK_TH = 6
+
 
 # Every external call gets a deadline. A synth request that stalls with no timeout does not fail —
 # it hangs the whole pass forever, which is exactly what happened: two `--prepare` runs sat on one
@@ -223,6 +268,56 @@ def spell_acronyms(text, lang):
     return ACRONYM.sub(one, text)
 
 
+def glue_particles(text, lang):
+    """Close up a space written in FRONT of a closing particle — for the voice only.
+
+    "ขอบคุณ ค่ะ" is written all the time and reads fine on the page, but a Thai space is a phrase
+    break: the voice stops, opens a new phrase on the particle, and opens it at the top of its
+    range — which is the other word. Removing the space is never visible to anyone; like
+    spell_acronyms this touches only what is handed to the engine, never the script or the subtitles."""
+    if lang != 'th':
+        return text
+    return PARTICLE_ORPHAN.sub('', text)
+
+
+def _th_sentences(text):
+    """Cut AFTER a closing particle that still has line behind it. That is a sentence end.
+
+    Thai narration rarely carries a full stop, so `sentences` below finds nothing and the whole
+    line goes to the engine in one piece — which is how the particle ends up mid-utterance, spoken
+    high, with the pause landing in front of it instead of after it. Cutting here is what gives the
+    particle the terminal fall AND puts the breath where a person leaves it."""
+    out, start = [], 0
+    for m in PARTICLE_TOKEN.finditer(text):
+        head, tail = text[start:m.end()].strip(), text[m.end():].strip()
+        if tail and len(head) >= MIN_CHUNK_TH:
+            out.append(head)
+            start = m.end()
+    rest = text[start:].strip()
+    if rest:
+        out.append(rest)
+    return out or [text]
+
+
+def _keep_particles_attached(pieces):
+    """Last line of defence: no phrase may START with a particle.
+
+    _split_long takes its cut from a connective, from a space, or — when the clause offers neither —
+    from a bare character index, and none of the three knows what a particle is. Wherever the cut
+    came from, a piece that opens with one is folded back onto the piece it closes."""
+    fixed = []
+    for piece in pieces:
+        m = PARTICLE_LEADS.match(piece)
+        if m and fixed:
+            fixed[-1] = (fixed[-1] + piece[:m.end()]).strip()
+            rest = piece[m.end():].strip()
+            if rest:
+                fixed.append(rest)
+        else:
+            fixed.append(piece)
+    return [p for p in fixed if p]
+
+
 def split_phrases(text, lang):
     """Break one narration line into breath-sized phrases.
 
@@ -232,9 +327,14 @@ def split_phrases(text, lang):
     if not text:
         return []
     text = spell_acronyms(text, lang)
+    text = glue_particles(text, lang)
 
     # Sentence level first: real punctuation is the strongest signal a writer gives us.
     sentences = [s for s in re.split(r'(?<=[.!?。])\s+|\n+', text) if s.strip()]
+    # Thai writes almost none of that punctuation, but it does mark the end of a sentence — with a
+    # closing particle. Read it as the full stop it is, or the line has no split point at all.
+    if lang == 'th':
+        sentences = [part for s in sentences for part in _th_sentences(s.strip())]
 
     out = []
     for si, sentence in enumerate(sentences):
@@ -244,6 +344,8 @@ def split_phrases(text, lang):
         pieces = []
         for clause in clauses:
             pieces.extend(_split_long(clause.strip(), lang))
+        if lang == 'th':
+            pieces = _keep_particles_attached(pieces)
         for pi, piece in enumerate(pieces):
             last_of_sentence = pi == len(pieces) - 1
             last_overall = last_of_sentence and si == len(sentences) - 1
@@ -440,7 +542,14 @@ def line_audio(edge, voice, rate, phrases, workdir, tag, pitch=DEFAULT_PITCH,
     # boundaries we found are preserved as text rather than enforced with scissors.
     joined = ' '.join(ph for ph, _gap in phrases).strip()
 
-    if len(joined) <= limit:
+    # A sentence boundary inside the line is not a formatting detail: it is the one place the voice
+    # MUST land a falling contour and leave a breath — and in Thai a closing particle creates one.
+    # Handed over as a single utterance the engine phrases the line wherever it likes, which is
+    # exactly how ค่ะ ended up spoken at the top of the range with the pause in front of it. So the
+    # one-shot shortcut applies only when the line has no boundary to honour.
+    ends_a_sentence = any(gap >= GAP_SENTENCE for _ph, gap in phrases[:-1])
+
+    if len(joined) <= limit and not ends_a_sentence:
         u_rate, u_pitch, u_volume = voice_of(joined, rate, pitch, volume)
         ok, mp3, why = cached_phrase(edge, voice, u_rate, joined, u_pitch, u_volume)
         if not ok:
@@ -523,7 +632,13 @@ def sample(play_path, lang_override, voice_override, rate, gender_override, tone
         return 2
 
     t_rate, t_pitch, t_volume = apply_tone(tone)
+    # The play file wins over the tone preset, the same way the muxing pass already lets a stored
+    # timeline override it. Without this, `"pitch"`/`"volume"` in a play file were silently ignored
+    # here while `"rate"` was honoured — so a voice asked for at its own natural timbre still came
+    # out damped, and the sample the user approved was not the sample the run would speak.
     rate = rate or narr.get('rate') or t_rate
+    t_pitch = narr.get('pitch') or t_pitch
+    t_volume = narr.get('volume') or t_volume
     edge = find_edge_tts()
     if not edge or not shutil.which('ffmpeg'):
         print('error: edge-tts or ffmpeg missing — run preflight.sh --install', file=sys.stderr)
@@ -596,6 +711,8 @@ def prepare(play_path, lang_override, voice_override, rate, gender_override=None
         return 2
     t_rate, pitch, volume = prosody
     rate = rate or narr.get('rate') or t_rate
+    pitch = narr.get('pitch') or pitch          # play file overrides the tone preset — see above
+    volume = narr.get('volume') or volume
     voice = voice_override or narr.get('voice') or pick_voice(lang, gender)
     if not voice:
         print(f'error: no voice for language "{lang}" / gender "{gender}" — pass --voice',

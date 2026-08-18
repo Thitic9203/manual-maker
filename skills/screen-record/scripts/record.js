@@ -133,7 +133,10 @@ async function ctxOf(page, s) {
     if (f) return f;
     await sleep(300);
   }
-  die(`step "${s.label || s.do}" wants the frame matching "${s.frame}", and no frame on the page `
+  // fail(), not die(): every caller runs inside the live step loop, so throwing lets main() finalize
+  // and encode the frames captured up to the abort — which are exactly the frames needed to see why
+  // the frame never appeared. process.exit() here left the raw page@*.webm orphaned instead.
+  fail(`step "${s.label || s.do}" wants the frame matching "${s.frame}", and no frame on the page `
     + `has that in its URL. Frames present: ${page.frames().map((f) => f.url()).join(', ') || 'none'}`);
 }
 
@@ -417,7 +420,14 @@ async function runStep(page, s, i) {
 async function checkpoint(page, s, i, shots) {
   if (!s.expect) return;
   const tag = `step ${i + 1}${s.label ? ' — ' + s.label : ''}`;
-  const ctx = await ctxOf(page, s);
+  // The proof lives where the step ARRIVED, not where it acted — the same split `waitFor` already
+  // handles. Clicking submit inside an embedded sign-in frame lands on the host page and destroys
+  // that frame, so resolving `expect` against `s.frame` aborts a step that in fact succeeded, with
+  // a message blaming a missing frame. Order: an explicit `expectFrame`, else `waitForFrame`
+  // (including an explicit `null`, meaning the top document), else the frame the action ran in.
+  const scope = 'expectFrame' in s ? s.expectFrame
+    : ('waitForFrame' in s ? s.waitForFrame : s.frame);
+  const ctx = await ctxOf(page, { frame: scope, label: s.label, frameTimeout: s.frameTimeout });
   await loc(ctx, s.expect).first().waitFor({ state: 'visible', timeout: s.timeout || STEP_TIMEOUT })
     .catch(() => fail(`${tag}: expected result "${s.expect}" never became visible — the clip would not prove it.`));
   await sleep(600);

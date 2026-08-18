@@ -242,6 +242,25 @@ Every step also accepts:
 
 Selectors accept **CSS**, **`text=…`**, or an **XPath starting with `//`**.
 
+### Steps that cross a frame boundary
+
+An embedded sign-in form is the common case: you act inside the iframe, and the proof of success
+appears on the host page — after the iframe has been destroyed. Three fields say *where* to look,
+and they are independent on purpose:
+
+| field | scope |
+|---|---|
+| `frame` | where the **action** runs — substring of the frame's URL, e.g. `"sign-in/embed"`. Omit for the top document |
+| `waitForFrame` | where **`waitFor`** is checked. `null` means the top document even though the action ran in a frame |
+| `expectFrame` | where **`expect`** is asserted and the still is taken. Defaults to `waitForFrame` when that is set, else to `frame` |
+
+**The thing you act on and the thing that proves it worked are often not in the same document**, so
+a step that clicks submit inside the form carries `"frame": "sign-in/embed"` *and*
+`"waitForFrame": null`. Before this defaulting existed, `expect` was resolved against `frame` alone,
+so a successful login aborted the run with a *missing frame* error naming the very iframe the login
+had just dismissed — the step had worked, and the message pointed at the wrong thing entirely.
+`frameTimeout` (default 20 s) bounds the wait for a frame to appear.
+
 ## Running it
 
 ```bash

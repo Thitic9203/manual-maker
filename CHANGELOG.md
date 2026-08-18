@@ -2,6 +2,52 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.33.0] - 2026-08-18
+### Added
+- **The user watches a real 30-second demo before the batch starts** (SKILL.md Step 5c, mandatory
+  every run). Cut from the run's own flow — real environment, real account, real narration — taken
+  through record → narrate → verify → gate, then handed over as a playable file. Everything this
+  skill has ever had rejected was rejected by ear or by eye: a voice that read as correct in every
+  log, a pause that landed after the wrong word, a login whose selectors were fine and whose account
+  was not. None of that is visible in a settings table; all of it is obvious in thirty seconds of
+  the real thing. Rejection costs one short take instead of a whole batch.
+- **`check-narration.py` — quality-gate layer 6c, the voice measured rather than assumed.** Median
+  speaking pitch against the approved band, the Thai sentence-final particle closing the greeting
+  with a real pause after it, no clipping, audio actually present. Exit 2 (could not measure) is a
+  failure, not a pass.
+- **`references/voice-profile.md` — an approved voice stored as numbers**, with the two profiles the
+  customer approved (male `ko-KR-HyunsuMultilingualNeural` at 115 Hz, female
+  `fr-FR-VivienneMultilingualNeural` at 195 Hz), how each number was measured, and how to approve a
+  new voice. `check-narration.py` is that file in executable form.
+- `preflight.sh --install` now puts `numpy` in the narration venv, since the pitch check needs it.
+
+### Fixed
+- **A successful login could abort the run, blaming a frame it had just dismissed.** `checkpoint()`
+  re-resolved the step's *action* frame (`sign-in/embed`) to assert `expect`, but a successful submit
+  destroys that frame — so a step that worked died with a missing-frame FATAL. `expect` now resolves
+  where the step *arrived*: `expectFrame` → `waitForFrame` (including an explicit `null`) → `frame`,
+  the same split `waitFor` already made. The three frame fields are documented in `video-spec.md`.
+- **An abort mid-recording threw away the video it had just captured.** `ctxOf()` called `die()`
+  (`process.exit`) while the file's own contract reserves that for before recording starts; every
+  call site runs inside the live step loop. It now `fail()`s, so `main()` finalizes and encodes the
+  frames leading up to the abort — the exact frames needed to diagnose it. Verified: the run still
+  exits 1, and now leaves an MP4 instead of an orphaned `page@*.webm`.
+- **A play file's `pitch` and `volume` were silently ignored** by `--prepare` and `--sample` — only
+  `rate` was honoured, while the muxing pass already respected all three. So a voice asked for at its
+  own natural timbre was damped by the tone preset anyway, and shipped **23 Hz below** the sound the
+  user had approved, with every log line reading as correct. The play file now wins over the preset
+  in all three paths.
+- **Thai sentence-final particles no longer run into the next word.** `ค่ะ` / `ครับ` / `นะคะ` close
+  their phrase, so the voice lands a falling contour and a real pause follows — "สวัสดีค่ะ · วันนี้",
+  not "สวัสดี · คะวันนี้". Measured: the particle peaked at 247 Hz mid-utterance before, falls
+  164 → 137 Hz after. `คะแนน`, `ค่าใช้จ่าย` and `จ้าง` are deliberately not matched.
+
+### Changed
+- SKILL.md carries two more non-negotiable rules — show the user a real 30-second demo first, and
+  never let an approved voice drift — plus the troubleshooting rule the login failure taught: a
+  `waitFor` that never appears is far more often a step that never happened (a silently failing
+  account) than a wrong selector, and a selector in doubt is **timed**, not guessed.
+
 ## [0.31.1] - 2026-08-18
 ### Added
 - **`narrate.py --sample` — hear the voice before anything is recorded.** Speaks the run's own

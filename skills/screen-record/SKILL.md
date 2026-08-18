@@ -43,9 +43,16 @@ different. That spec, and the reasons behind each number, are in
    "น่าจะผ่าน". A check that could not run is a failure, not a pass.
 7. **A short clip is never a small success.** A run that stopped before reaching its target is
    **blocked with a reason**, never a shorter deliverable.
+8. **ให้ user ดูของจริง 30 วินาทีก่อนเสมอ.** Every run shows the user a real ≈30-second demo clip —
+   recorded, narrated, gated — and waits for an explicit yes before the full batch starts (Step 5c).
+   Settings approve nothing; a person watching the actual file does.
+9. **เสียงที่อนุมัติแล้วห้ามเพี้ยน.** An approved voice is stored as measurements in
+   [`references/voice-profile.md`](references/voice-profile.md) and enforced by
+   `check-narration.py`, not by anyone remembering which preset was chosen.
 
 **Running this skill's scripts — always resolve the path first.** `scripts/preflight.sh`,
-`scripts/record.js`, `scripts/narrate.py`, and `scripts/verify-video.py` live **next to this file**, never in the user's
+`scripts/record.js`, `scripts/narrate.py`, `scripts/verify-video.py`, and `scripts/check-narration.py`
+live **next to this file**, never in the user's
 project. The run's cwd *is* the user's project, so a bare `scripts/record.js` resolves there, is not
 found, and looks like it does not exist — do **not** conclude it is missing and hand-improvise the
 step. Neither shortcut works either: `CLAUDE_PLUGIN_ROOT` is **unset** in Bash tool calls (hooks get
@@ -224,6 +231,37 @@ Review the phrasing it prints (`--dry-run` on a finished video shows the same sp
 into breath-sized phrases at natural boundaries, with a longer pause at a sentence end than inside
 a clause.
 
+### Step 5c — Record a 30-second demo and have the user watch it (mandatory, every run)
+
+**Never start the full batch on settings alone.** Cut one **≈30-second** play file from the run's
+own flow — its real environment, real account, real steps, real narration, in the real voice — and
+take it all the way through: record → narrate → verify → **hand the finished MP4 to the user** and
+wait for an explicit yes.
+
+Not a sample, not a still, not a description: **the actual deliverable in miniature**, played by the
+person who has to accept it. Everything that got rejected on this skill was rejected by ear or by
+eye — a voice that read as correct in every log, a pause that fell after the wrong word, a login
+whose selectors were fine and whose account was not. None of that is visible in a settings table,
+and all of it is obvious in thirty seconds of the real thing.
+
+- **Cut it from the run, don't write a new one.** Take the opening steps until the budget is spent —
+  the greeting line, the first navigation, the first real outcome. It must include the run's opening
+  narration line, because that is where register and the sentence-final particle are heard.
+- **30 seconds is the ceiling, not the target.** A 45-second "demo" is just the batch with fewer
+  clips; if the flow cannot show anything meaningful in 30 s, say so and record the shortest
+  meaningful piece instead of quietly widening it.
+- **It goes through the full gate too** — including `check-narration.py`. A demo that skips the gate
+  proves the wrong thing.
+- **Deliver the file, not a claim.** Put it where the user can play it (their Desktop unless they
+  said otherwise) and say what to listen for.
+- **Rejected → change one thing, re-cut, ask again.** Never proceed on a maybe, and never bank a
+  rejection ("I'll fix it in the full run"). The whole point is that the expensive half has not
+  started yet.
+
+Only after that yes does the full run begin. Then it must reproduce the approved demo **exactly** —
+same voice, same prosody, same tone, same phrasing rules — which is what
+[`references/voice-profile.md`](references/voice-profile.md) and layer 6c exist to enforce.
+
 ### Step 6 — Record
 
 ```bash
@@ -242,6 +280,23 @@ A non-zero exit is a real failure. Read what it says (a `waitFor` that never app
 never reached `readySelector`) and fix that cause — the flow, the selector, or the account. Do not
 retry the same command hoping for a different result, and do not weaken the play file.
 
+**A `waitFor` that never appears is far more often a step that never happened than a selector that
+is wrong.** The two look identical from the log — the element is not there either way — and the
+selector is the tempting thing to edit, because it is the thing you can see. Prove the state change
+first: log in once outside the recorder and print what the page actually became (`page.url()` and
+the header's `innerText()`). If the app never left the sign-in screen, no post-login selector on
+earth would have matched, and rewriting them wastes the run.
+
+**The account is part of that proof.** A wrong or unprovisioned account fails *silently* on an SSO
+form — no error line, no redirect, the form simply stays — which reads downstream as "the selector
+is broken". Confirm the exact account being recorded can reach the target screen before blaming
+anything else; a second account from the same pool is not evidence for the first.
+
+**When a selector genuinely is in doubt, time it rather than guess it.** Drive the flow to the point
+of doubt, then poll each candidate once a second and print the second at which each becomes visible.
+That answers both questions at once — whether it resolves at all, and whether the step needs a
+longer `timeout` because it renders late — and it replaces a series of re-recordings with one probe.
+
 ### Step 6b — Speak the narration onto the clip (narrated runs only)
 
 ```bash
@@ -257,6 +312,18 @@ in with the video stream copied untouched. It warns if a line overruns its step 
 ```bash
 "$SR/scripts/verify-video.py" ~/Downloads/recordings/*.mp4        # add --expect-audio if narrated
 ```
+
+Narrated runs take a second pass — the picture being to spec proves nothing about the voice:
+
+```bash
+"$SR/scripts/check-narration.py" --profile female ~/Downloads/recordings/*.mp4
+```
+
+It measures the clip against the approved profile in
+[`references/voice-profile.md`](references/voice-profile.md): median speaking pitch inside the
+band, the greeting closing on its Thai particle with a real pause after it, no clipping. This is
+layer 6c, and it exists because a clip once shipped 23 Hz below the approved timbre with every
+setting in the run reading as correct. **Exit 2 = could not measure = not a pass.**
 
 If the user approved a frame size other than 1920×1080 at intake, pass `--width` / `--height` to
 match it — the checker defaults to the spec size and will otherwise fail a clip for being the size
