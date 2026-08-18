@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """narrate.py — speak a recorded clip's narration onto it, at the moments it belongs.
 
+    narrate.py --sample <play.json> [--tone presenter] [--out s.mp3]   # hear the voice BEFORE recording
     narrate.py --prepare <play.json>     # pass 1 — measure each line, so recording can pace to it
     narrate.py <video.mp4> [--lang th|en] [--gender male|female] [--voice NAME] [--rate +4%] [--dry-run]
 
@@ -279,6 +280,82 @@ def line_audio(edge, voice, rate, phrases, workdir, tag, pitch=DEFAULT_PITCH,
     return joined_path, (duration(joined_path) or 0.0), None
 
 
+def sample(play_path, lang_override, voice_override, rate, gender_override, tone_override, out_path):
+    """Speak a short sample in the exact voice a run would use, for approval BEFORE recording.
+
+    Recording is the expensive half: a 90-second clip takes 90 seconds to make and every retake
+    costs that again. Judging the voice from a name (`th-TH-NiwatNeural`, tone `presenter`) is not
+    judging it at all — the first four presets were each rejected by ear after being described as
+    correct on paper. So the workflow plays a sample first and records only once someone has heard
+    what they are getting."""
+    with open(play_path) as fh:
+        play = json.load(fh)
+    narr = play.get('narration') or {}
+    lang = lang_override or narr.get('lang') or 'th'
+    gender = gender_override or narr.get('gender') or DEFAULT_GENDER
+    tone = tone_override or narr.get('tone') or DEFAULT_TONE
+    voice = voice_override or narr.get('voice') or pick_voice(lang, gender)
+    if not voice:
+        print(f'error: no voice for "{lang}" / "{gender}" — pass --voice', file=sys.stderr)
+        return 2
+    if tone not in TONES:
+        print(f'error: unknown tone "{tone}". Choose one of: {", ".join(sorted(TONES))}',
+              file=sys.stderr)
+        return 2
+
+    t_rate, t_pitch, t_volume = TONES[tone]
+    rate = rate or narr.get('rate') or t_rate
+    edge = find_edge_tts()
+    if not edge or not shutil.which('ffmpeg'):
+        print('error: edge-tts or ffmpeg missing — run preflight.sh --install', file=sys.stderr)
+        return 2
+
+    # The sample is the run's OWN opening lines, not a stock sentence: register is what decides
+    # whether narration sounds human, so a generic sample would approve the wrong thing.
+    lines = [s['say'] for s in (play.get('steps') or []) if s.get('say')][:2]
+    if not lines:
+        print('error: no step carries a `say` line — nothing to sample', file=sys.stderr)
+        return 2
+
+    global GAP_CLAUSE, GAP_SENTENCE
+    GAP_CLAUSE, GAP_SENTENCE = TONE_GAPS.get(tone, (GAP_CLAUSE, GAP_SENTENCE))
+
+    out_path = out_path or os.path.join(os.path.dirname(os.path.abspath(play_path)),
+                                        f'sample-{lang}-{gender}-{tone}.mp3')
+    work = tempfile.mkdtemp(prefix='sr-sample-')
+    try:
+        parts = []
+        for i, line in enumerate(lines):
+            f, _d, why = line_audio(edge, voice, rate, split_phrases(line, lang), work,
+                                    f's{i}', t_pitch, t_volume, lang)
+            if why:
+                print(f'FAIL {why}', file=sys.stderr)
+                return 1
+            parts.append(f)
+            if i < len(lines) - 1:
+                sil = os.path.join(work, f's{i}_gap.mp3')
+                if silence(SENTENCE_SPLICE, sil):
+                    parts.append(sil)
+        joined = os.path.join(work, 'sample.mp3')
+        if not concat(parts, joined, work):
+            print('FAIL could not join the sample', file=sys.stderr)
+            return 1
+        r = run(['ffmpeg', '-y', '-v', 'error', '-i', joined,
+                 '-af', 'loudnorm=I=-17:TP=-2:LRA=12',
+                 '-c:a', 'libmp3lame', '-b:a', '160k', out_path], timeout=120)
+        if r.returncode != 0 or not os.path.isfile(out_path):
+            print('FAIL could not write the sample', file=sys.stderr)
+            return 1
+        print(f'voice   {voice}   tone {tone}   rate {rate}  pitch {t_pitch}  volume {t_volume}')
+        print(f'lines   {len(lines)} (the run\'s own opening narration)')
+        print(f'sample  {out_path}  {duration(out_path) or 0:.1f}s')
+        print()
+        print('Play it for the user and get an explicit approval before recording anything.')
+        return 0
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def prepare(play_path, lang_override, voice_override, rate, gender_override=None):
     """Pass one. `rate` may be None here — the play file's `narration.rate` fills it in."""
     """Pass one: measure how long each narrated step will take to say.
@@ -409,12 +486,18 @@ def main():
         return 2
 
     video, lang, voice, rate, dry = None, None, None, None, False
-    gender, prep = None, None
+    gender, prep, samp, tone, out_path = None, None, None, None, None
     i = 0
     while i < len(args):
         a = args[i]
         if a == '--prepare':
             i += 1; prep = args[i]
+        elif a == '--sample':
+            i += 1; samp = args[i]
+        elif a == '--tone':
+            i += 1; tone = args[i]
+        elif a == '--out':
+            i += 1; out_path = args[i]
         elif a == '--lang':
             i += 1; lang = args[i]
         elif a == '--gender':
@@ -428,6 +511,12 @@ def main():
         else:
             video = a
         i += 1
+
+    if samp:
+        if not os.path.isfile(samp):
+            print(f'error: play file not found: {samp}', file=sys.stderr)
+            return 2
+        return sample(samp, lang, voice, rate, gender, tone, out_path)
 
     if prep:
         if not os.path.isfile(prep):

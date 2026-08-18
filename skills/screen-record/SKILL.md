@@ -135,6 +135,28 @@ this run", because it lands in every frame of the deliverable. Diagnostics go to
 Derive the steps and the wording from the **source**, and name each clip after the source's own id
 (`TC_01` → `TC_01.mp4`). Credentials never go in a play file.
 
+### Step 4b — Play a voice sample and get approval (narrated runs only, mandatory)
+
+```bash
+"$SR/scripts/narrate.py" --sample play-TC_01.json --out /tmp/sample.mp3
+```
+
+Speaks the run's **own opening lines** in the exact voice, gender and tone the run would use, then
+hand the file to the user and **wait for an explicit approval before recording anything**.
+
+Two reasons this gate exists rather than trusting the settings:
+
+- Recording is the expensive half — a 90-second clip costs 90 seconds per take, and a voice
+  rejected afterwards means re-recording every clip in the batch.
+- A voice cannot be judged from its name. `th-TH-NiwatNeural` at tone `presenter` reads as correct
+  on paper; four presets were each approved on paper and then rejected by ear ("shouting",
+  "fragmented", "colliding", "too casual for a customer").
+
+The sample uses the run's real script, never a stock sentence — **register is the biggest single
+factor** in whether narration sounds human, so a generic sample would approve the wrong thing.
+
+Rejected → change tone / gender / wording, re-sample, ask again. Never record on a maybe.
+
 ### Step 5b — Measure the narration first (narrated runs only)
 
 ```bash

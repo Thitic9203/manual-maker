@@ -2,6 +2,15 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.31.1] - 2026-08-18
+### Added
+- **`narrate.py --sample` — hear the voice before anything is recorded.** Speaks the run's own
+  opening lines in the exact voice, gender and tone the run would use, and the workflow now stops
+  there for an explicit approval (SKILL.md Step 4b). Recording is the expensive half — 90 seconds
+  per take, times every clip in the batch — and a voice cannot be judged from its name: four
+  presets read as correct on paper and were each rejected by ear. The sample uses the real script,
+  never a stock sentence, because register decides whether narration sounds human.
+
 ## [0.31.0] - 2026-08-18
 ### Added
 - **Voice tone is chosen at intake**, alongside language and gender — ten presets, each a
