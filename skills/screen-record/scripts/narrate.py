@@ -345,8 +345,19 @@ def main():
         return 2
 
     lang = lang or tl.get('lang') or 'th'
-    gender = gender or tl.get('gender') or DEFAULT_GENDER
-    voice = voice or tl.get('voice') or pick_voice(lang, gender)
+
+    # Fail closed rather than pick a voice. A silent default is what shipped four demo clips with
+    # the wrong narrator: the timeline carried no gender, the default was male, and every clip
+    # requested as female was read by a man. Nothing about the file looked wrong.
+    gender = gender or tl.get('gender')
+    voice = voice or tl.get('voice')
+    if not voice and not gender:
+        print('error: the timeline says nothing about which voice to use (no `gender`, no `voice`), '
+              'and guessing one is how a clip ends up narrated by the wrong person. '
+              'Pass --gender male|female (or --voice NAME), or re-record with '
+              '`narration: {lang, gender}` in the play file.', file=sys.stderr)
+        return 2
+    voice = voice or pick_voice(lang, gender)
     if not voice:
         print(f'error: no voice for language "{lang}" / gender "{gender}" — pass --voice',
               file=sys.stderr)
@@ -450,7 +461,7 @@ def main():
 
         os.replace(out, video)     # the deliverable keeps its name; the .webm remains the mute source
         print()
-        print(f'RESULT: narrated  {len(line_files)} lines  →  {video}')
+        print(f'RESULT: narrated  {len(line_files)} lines  in {voice}  →  {video}')
         print(f'        audio: {probe.stdout.strip()}')
         return 0
     finally:

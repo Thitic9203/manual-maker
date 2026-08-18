@@ -2,6 +2,19 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.30.1] - 2026-08-18
+### Fixed
+- **A clip asked for in a female voice was narrated by a man.** `record.js` wrote the narration
+  timeline with `lang` and `voice` but **dropped `gender`**; `narrate.py` then read that timeline,
+  found no gender, and fell back to its male default. The measuring pass had used the correct voice,
+  so the pacing was right and only the voice was wrong — nothing about the file looked broken. Three
+  layers now stand behind it:
+  1. `record.js` carries the **whole** narration config into the timeline (`lang`, `gender`, `voice`).
+  2. `narrate.py` **refuses to guess**: a timeline with neither `gender` nor `voice` is an error
+     (exit 2) naming the flags to pass, instead of silently choosing one.
+  3. The success line states the voice it used — `RESULT: narrated 7 lines in th-TH-PremwadeeNeural`
+     — so a wrong narrator is visible in any log, not buried in a line a filter can drop.
+
 ## [0.30.0] - 2026-08-18
 ### Added
 - **Narration voice gender is now the user's choice, asked at intake.** Four neural voices:

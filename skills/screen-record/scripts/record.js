@@ -457,10 +457,15 @@ function encode(webm, mp4) {
     console.log(`SHOTS: ${shots.length}`);
     if (narration.length) {
       const nfile = path.join(OUT, `${NAME}.narration.json`);
+      // Carry the WHOLE narration config, not a subset. Dropping `gender` here is what made every
+      // clip requested as female come back in the male voice: narrate.py reads this file, found no
+      // gender, and fell back to its default. The measuring pass had used the right voice, so the
+      // timing looked correct and only the voice was wrong — the hardest kind of bug to notice.
       fs.writeFileSync(nfile, JSON.stringify({
         name: NAME,
         video: path.basename(mp4),
         lang: (NARRATION && NARRATION.lang) || null,
+        gender: (NARRATION && NARRATION.gender) || null,
         voice: (NARRATION && NARRATION.voice) || null,
         lines: narration,
       }, null, 2));
