@@ -198,6 +198,7 @@ def line_audio(edge, voice, rate, phrases, workdir, tag):
 
 
 def prepare(play_path, lang_override, voice_override, rate, gender_override=None):
+    """Pass one. `rate` may be None here — the play file's `narration.rate` fills it in."""
     """Pass one: measure how long each narrated step will take to say.
 
     record.js reads the result and holds each step open until its line has finished, so the
@@ -207,6 +208,7 @@ def prepare(play_path, lang_override, voice_override, rate, gender_override=None
         play = json.load(fh)
     narr = play.get('narration') or {}
     lang = lang_override or narr.get('lang') or 'th'
+    rate = rate or narr.get('rate') or DEFAULT_RATE
     gender = gender_override or narr.get('gender') or DEFAULT_GENDER
     voice = voice_override or narr.get('voice') or pick_voice(lang, gender)
     if not voice:
@@ -299,7 +301,7 @@ def main():
         print(__doc__)
         return 2
 
-    video, lang, voice, rate, dry = None, None, None, DEFAULT_RATE, False
+    video, lang, voice, rate, dry = None, None, None, None, False
     gender, prep = None, None
     i = 0
     while i < len(args):
@@ -345,6 +347,11 @@ def main():
         return 2
 
     lang = lang or tl.get('lang') or 'th'
+    # Speed matters as much as the voice: the recording was paced to how long each line took at
+    # the rate the measuring pass used. Reading it back from the timeline keeps the two passes in
+    # step — a mux at a different rate makes every line the wrong length and the narration walks
+    # into the next action, the same silent drift that dropping `gender` caused.
+    rate = rate or tl.get('rate') or DEFAULT_RATE
 
     # Fail closed rather than pick a voice. A silent default is what shipped four demo clips with
     # the wrong narrator: the timeline carried no gender, the default was male, and every clip

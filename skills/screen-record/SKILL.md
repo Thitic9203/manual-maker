@@ -45,7 +45,7 @@ different. That spec, and the reasons behind each number, are in
    **blocked with a reason**, never a shorter deliverable.
 
 **Running this skill's scripts — always resolve the path first.** `scripts/preflight.sh`,
-`scripts/record.js`, and `scripts/verify-video.py` live **next to this file**, never in the user's
+`scripts/record.js`, `scripts/narrate.py`, and `scripts/verify-video.py` live **next to this file**, never in the user's
 project. The run's cwd *is* the user's project, so a bare `scripts/record.js` resolves there, is not
 found, and looks like it does not exist — do **not** conclude it is missing and hand-improvise the
 step. Neither shortcut works either: `CLAUDE_PLUGIN_ROOT` is **unset** in Bash tool calls (hooks get
@@ -183,6 +183,10 @@ in with the video stream copied untouched. It warns if a line overruns its step 
 ```bash
 "$SR/scripts/verify-video.py" ~/Downloads/recordings/*.mp4        # add --expect-audio if narrated
 ```
+
+If the user approved a frame size other than 1920×1080 at intake, pass `--width` / `--height` to
+match it — the checker defaults to the spec size and will otherwise fail a clip for being the size
+the user asked for.
 
 That covers layers 1 and 6. Then judge layers 2–5 and 7 **by watching each clip against the source
 list** — did it drive every step, arrive at each target, show each result legibly, and land where it

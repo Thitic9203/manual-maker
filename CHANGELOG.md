@@ -2,6 +2,24 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.30.2] - 2026-08-18
+### Fixed
+- **Speaking rate could not reach the narration, the same way gender could not.** An audit of every
+  config handoff — play file → recorder → timeline → muxer — found `rate` measured by the first
+  pass, stored in `*.saydur.json`, and then **dropped**: the timeline never carried it, so the
+  muxing pass always spoke at the `+4%` default. A run prepared at, say, `+20%` was paced to fast
+  speech and then narrated slowly, and every line walked into the following step — silent drift,
+  no error. `record.js` now writes `rate` into the timeline and `narrate.py` reads it back.
+- **`narration.rate` in the play file was never read at all**; only the CLI flag worked. The play
+  file now sets it for both passes.
+
+### Changed
+- `video-spec.md` states the contract plainly: language, gender and rate travel **with the clip**,
+  so narrating a finished recording needs no flags and cannot pick a voice or speed other than the
+  one the recording was paced to.
+- `SKILL.md` verification step notes `--width` / `--height` for a run the user approved at a frame
+  size other than 1920×1080, and lists `narrate.py` among the scripts whose path must be resolved.
+
 ## [0.30.1] - 2026-08-18
 ### Fixed
 - **A clip asked for in a female voice was narrated by a man.** `record.js` wrote the narration

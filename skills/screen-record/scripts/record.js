@@ -72,7 +72,7 @@ const STEP_TIMEOUT = play.stepTimeout == null ? 30000 : play.stepTimeout;
 const CURSOR = play.cursor !== false;                        // the drawn pointer (see header note 3)
 const GLIDE_STEPS = play.glideSteps == null ? 28 : play.glideSteps;   // higher = slower, smoother travel
 const TYPE_DELAY = play.typeDelay == null ? 55 : play.typeDelay;      // ms per character, 0 = instant
-const NARRATION = play.narration || null;   // { lang: 'th' | 'en', voice?: '...' } — see narrate.py
+const NARRATION = play.narration || null;   // { lang, gender, voice?, rate? } — see narrate.py
 
 // When a step carries `say`, the line and the moment it started are recorded here. Timing has to be
 // measured during the run — a narration track built from guessed offsets drifts out of sync with
@@ -467,6 +467,7 @@ function encode(webm, mp4) {
         lang: (NARRATION && NARRATION.lang) || null,
         gender: (NARRATION && NARRATION.gender) || null,
         voice: (NARRATION && NARRATION.voice) || null,
+        rate: (NARRATION && NARRATION.rate) || null,
         lines: narration,
       }, null, 2));
       console.log(`NARRATION: ${nfile} ${narration.length} lines`

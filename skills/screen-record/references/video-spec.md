@@ -98,7 +98,7 @@ be measured *before* the recording so the flow can be paced to it.
 | Voice (th) | **`th-TH-NiwatNeural`** (male) · **`th-TH-PremwadeeNeural`** (female) | Neural. macOS `say` is not an alternative: its only Thai voice is female and audibly synthetic |
 | Voice (en) | **`en-US-GuyNeural`** (male) · **`en-US-AriaNeural`** (female) | Neural |
 | Gender | **asked at intake** | Never chosen for the user; `male` only when they said so or a saved profile confirms it |
-| Rate | **`+4%`** | A touch above default reads as engaged rather than sleepy |
+| Rate | **`+4%`** | A touch above default reads as engaged rather than sleepy. Set `narration.rate` to change it — it then travels through **both** passes, so the pacing and the spoken track stay the same length |
 | Pause inside a clause | **0.22 s** | |
 | Pause at a sentence end | **0.40 s** | A listener needs longer to close a sentence than a clause |
 | Phrase ceiling | **62 chars (th) / 95 (en)** | Thai has no inter-word spaces, so a long line hits the ear as one breathless run |
@@ -140,6 +140,12 @@ Play-file shape:
   ]
 }
 ```
+
+**Language, gender and rate travel with the clip, not with the command.** `record.js` writes all
+three into `<name>.narration.json`, and the muxing pass reads them back — so narrating a finished
+clip needs no flags and cannot pick a different voice or speed than the one the recording was paced
+to. A timeline carrying neither `gender` nor `voice` is an **error**, never a default: guessing is
+how four delivered clips ended up read by the wrong narrator.
 
 Every `say` line comes from the **same source as the steps**. A narrated sentence that is not in
 the source is an invented claim about the product, spoken aloud, in a deliverable.
@@ -190,7 +196,7 @@ One JSON file per clip. It holds **no credentials** — those come from the envi
 | `cursor` | `true` | Draw the mouse pointer and glide it to each target before acting |
 | `glideSteps` | `28` | Pointer travel resolution — higher is slower and smoother |
 | `typeDelay` | `55` ms | Per character for `fill`. `0` = set the value instantly |
-| `narration` | — | `{ "lang": "th" \| "en", "gender": "male" \| "female", "voice"?: "..." }` — see Narration above |
+| `narration` | — | `{ "lang": "th" \| "en", "gender": "male" \| "female", "voice"?: "...", "rate"?: "+4%" }` — see Narration above |
 | `sayDurations` | auto | Path to the `--prepare` output; defaults to `<play>.saydur.json` |
 | `tail` | `1500` ms | Hold on the last frame so it lands in the video |
 | `login` | — | Omit for a public flow |
