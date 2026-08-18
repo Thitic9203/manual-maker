@@ -95,8 +95,9 @@ be measured *before* the recording so the flow can be paced to it.
 
 | Setting | Value | Why |
 |---|---|---|
-| Voice (th) | **`th-TH-NiwatNeural`** | Male, neural, natural. macOS `say` is not an alternative: its only Thai voice is female and audibly synthetic |
-| Voice (en) | **`en-US-GuyNeural`** | Male, neural |
+| Voice (th) | **`th-TH-NiwatNeural`** (male) · **`th-TH-PremwadeeNeural`** (female) | Neural. macOS `say` is not an alternative: its only Thai voice is female and audibly synthetic |
+| Voice (en) | **`en-US-GuyNeural`** (male) · **`en-US-AriaNeural`** (female) | Neural |
+| Gender | **asked at intake** | Never chosen for the user; `male` only when they said so or a saved profile confirms it |
 | Rate | **`+4%`** | A touch above default reads as engaged rather than sleepy |
 | Pause inside a clause | **0.22 s** | |
 | Pause at a sentence end | **0.40 s** | A listener needs longer to close a sentence than a clause |
@@ -114,6 +115,7 @@ often than it opens a clause.
 
 ```bash
 narrate.py --prepare play-TC_01.json      # speak each line, measure it, write play-TC_01.saydur.json
+                                          # (--lang / --gender / --voice override the play file)
 node record.js play-TC_01.json            # record — each narrated step is held open until its line ends
 narrate.py out/TC_01.mp4                  # speak it onto the clip at the measured offsets
 ```
@@ -131,7 +133,7 @@ Play-file shape:
 
 ```json
 {
-  "narration": { "lang": "th" },
+  "narration": { "lang": "th", "gender": "female" },
   "steps": [
     { "do": "click", "selector": "text=สร้างคอร์ส", "waitFor": "text=สร้างคอร์สใหม่",
       "say": "คลิกปุ่มสร้างคอร์ส ระบบจะเปิดหน้าฟอร์มสำหรับกรอกรายละเอียด" }
@@ -188,7 +190,7 @@ One JSON file per clip. It holds **no credentials** — those come from the envi
 | `cursor` | `true` | Draw the mouse pointer and glide it to each target before acting |
 | `glideSteps` | `28` | Pointer travel resolution — higher is slower and smoother |
 | `typeDelay` | `55` ms | Per character for `fill`. `0` = set the value instantly |
-| `narration` | — | `{ "lang": "th" \| "en", "voice"?: "..." }` — see Narration above |
+| `narration` | — | `{ "lang": "th" \| "en", "gender": "male" \| "female", "voice"?: "..." }` — see Narration above |
 | `sayDurations` | auto | Path to the `--prepare` output; defaults to `<play>.saydur.json` |
 | `tail` | `1500` ms | Hold on the last frame so it lands in the video |
 | `login` | — | Omit for a public flow |

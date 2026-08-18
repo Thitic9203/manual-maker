@@ -2,7 +2,7 @@
 """narrate.py — speak a recorded clip's narration onto it, at the moments it belongs.
 
     narrate.py --prepare <play.json>     # pass 1 — measure each line, so recording can pace to it
-    narrate.py <video.mp4> [--lang th|en] [--voice NAME] [--rate +4%] [--dry-run]
+    narrate.py <video.mp4> [--lang th|en] [--gender male|female] [--voice NAME] [--rate +4%] [--dry-run]
 
 Reads `<video>.narration.json`, which `record.js` writes during the run: one line per step that
 carried a `say`, each stamped with the millisecond it started. Timing is **measured, never
@@ -17,7 +17,8 @@ What it does per line:
   4. places each finished line at its measured offset in the video;
   5. normalizes the whole track to broadcast loudness and muxes it in, video stream untouched.
 
-Voices are **male and neural** by default (th-TH-NiwatNeural / en-US-GuyNeural). A robotic
+Voices are neural, in the language and gender chosen at intake — th-TH-NiwatNeural /
+th-TH-PremwadeeNeural / en-US-GuyNeural / en-US-AriaNeural. A robotic
 formant voice is what makes narration sound machine-made; macOS `say` cannot meet that bar for
 Thai — its only Thai voice is female and audibly synthetic — so edge-tts is required, not
 optional. It is free and needs no account; preflight.sh --install puts it in the skill's sandbox.
@@ -32,9 +33,21 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
-# Male, neural, and natural enough to pass for a person reading a script.
-VOICES = {'th': 'th-TH-NiwatNeural', 'en': 'en-US-GuyNeural'}
+# Neural voices, natural enough to pass for a person reading a script. Both genders in both
+# languages — the choice is the user's, asked at intake, never assumed.
+VOICES = {
+    ('th', 'male'): 'th-TH-NiwatNeural',
+    ('th', 'female'): 'th-TH-PremwadeeNeural',
+    ('en', 'male'): 'en-US-GuyNeural',
+    ('en', 'female'): 'en-US-AriaNeural',
+}
+DEFAULT_GENDER = 'male'
+
+
+def pick_voice(lang, gender):
+    return VOICES.get((lang, (gender or DEFAULT_GENDER).lower()))
 DEFAULT_RATE = '+4%'          # a touch above default reads as engaged rather than sleepy
 
 # Pause lengths, in seconds. These are what turn a wall of speech into narration: a listener needs
@@ -61,8 +74,19 @@ EN_BREAKS = [' and ', ' then ', ' so that ', ' which ', ' before ', ' after ', '
              ' to ', ' with ']
 
 
-def run(cmd, **kw):
-    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+# Every external call gets a deadline. A synth request that stalls with no timeout does not fail —
+# it hangs the whole pass forever, which is exactly what happened: two `--prepare` runs sat on one
+# voice until they were killed, while that same voice answered a single request in 3.9 s. A hang is
+# harder to diagnose than an error, so nothing here is allowed to wait indefinitely.
+def run(cmd, timeout=300, **kw):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **kw)
+    except subprocess.TimeoutExpired:
+        class _Timeout:
+            returncode = 124
+            stdout = ''
+            stderr = f'timed out after {timeout}s'
+        return _Timeout()
 
 
 def find_edge_tts():
@@ -173,7 +197,7 @@ def line_audio(edge, voice, rate, phrases, workdir, tag):
     return joined, (duration(joined) or 0.0), None
 
 
-def prepare(play_path, lang_override, voice_override, rate):
+def prepare(play_path, lang_override, voice_override, rate, gender_override=None):
     """Pass one: measure how long each narrated step will take to say.
 
     record.js reads the result and holds each step open until its line has finished, so the
@@ -183,9 +207,11 @@ def prepare(play_path, lang_override, voice_override, rate):
         play = json.load(fh)
     narr = play.get('narration') or {}
     lang = lang_override or narr.get('lang') or 'th'
-    voice = voice_override or narr.get('voice') or VOICES.get(lang)
+    gender = gender_override or narr.get('gender') or DEFAULT_GENDER
+    voice = voice_override or narr.get('voice') or pick_voice(lang, gender)
     if not voice:
-        print(f'error: no default voice for language "{lang}"', file=sys.stderr)
+        print(f'error: no voice for language "{lang}" / gender "{gender}" — pass --voice',
+              file=sys.stderr)
         return 2
     edge = find_edge_tts()
     if not edge:
@@ -193,7 +219,7 @@ def prepare(play_path, lang_override, voice_override, rate):
         return 2
 
     steps = play.get('steps') or []
-    out = {'lang': lang, 'voice': voice, 'rate': rate, 'steps': {}}
+    out = {'lang': lang, 'gender': gender, 'voice': voice, 'rate': rate, 'steps': {}}
     work = tempfile.mkdtemp(prefix='sr-prepare-')
     try:
         for i, s in enumerate(steps):
@@ -220,11 +246,25 @@ def prepare(play_path, lang_override, voice_override, rate):
     return 0
 
 
+SYNTH_TIMEOUT = 60          # one short phrase; a healthy call returns in 1-4 s
+SYNTH_TRIES = 3
+
+
 def speak(edge, voice, rate, text, out_mp3):
-    r = run([edge, '--voice', voice, '--rate', rate, '--text', text, '--write-media', out_mp3])
-    if r.returncode != 0 or not os.path.isfile(out_mp3) or os.path.getsize(out_mp3) == 0:
-        return False, (r.stderr or r.stdout or 'edge-tts produced nothing').strip()[:200]
-    return True, None
+    """Speak one phrase, retrying a stalled or failed request rather than hanging on it."""
+    last = 'edge-tts produced nothing'
+    for attempt in range(1, SYNTH_TRIES + 1):
+        r = run([edge, '--voice', voice, '--rate', rate, '--text', text, '--write-media', out_mp3],
+                timeout=SYNTH_TIMEOUT)
+        if r.returncode == 0 and os.path.isfile(out_mp3) and os.path.getsize(out_mp3) > 0:
+            return True, None
+        last = (r.stderr or r.stdout or last).strip()[:200]
+        if os.path.isfile(out_mp3) and os.path.getsize(out_mp3) == 0:
+            os.remove(out_mp3)          # never leave a zero-byte file for the cache to trust
+        if attempt < SYNTH_TRIES:
+            print(f'    retry {attempt}/{SYNTH_TRIES - 1} — {last}')
+            time.sleep(2 * attempt)
+    return False, last
 
 
 def silence(seconds, out_mp3):
@@ -260,7 +300,7 @@ def main():
         return 2
 
     video, lang, voice, rate, dry = None, None, None, DEFAULT_RATE, False
-    prep = None
+    gender, prep = None, None
     i = 0
     while i < len(args):
         a = args[i]
@@ -268,6 +308,8 @@ def main():
             i += 1; prep = args[i]
         elif a == '--lang':
             i += 1; lang = args[i]
+        elif a == '--gender':
+            i += 1; gender = args[i]
         elif a == '--voice':
             i += 1; voice = args[i]
         elif a == '--rate':
@@ -282,7 +324,7 @@ def main():
         if not os.path.isfile(prep):
             print(f'error: play file not found: {prep}', file=sys.stderr)
             return 2
-        return prepare(prep, lang, voice, rate)
+        return prepare(prep, lang, voice, rate, gender)
 
     if not video or not os.path.isfile(video):
         print(f'error: video not found: {video}', file=sys.stderr)
@@ -303,9 +345,11 @@ def main():
         return 2
 
     lang = lang or tl.get('lang') or 'th'
-    voice = voice or tl.get('voice') or VOICES.get(lang)
+    gender = gender or tl.get('gender') or DEFAULT_GENDER
+    voice = voice or tl.get('voice') or pick_voice(lang, gender)
     if not voice:
-        print(f'error: no default voice for language "{lang}" — pass --voice', file=sys.stderr)
+        print(f'error: no voice for language "{lang}" / gender "{gender}" — pass --voice',
+              file=sys.stderr)
         return 2
 
     for binary in ('ffmpeg', 'ffprobe'):
@@ -320,7 +364,7 @@ def main():
         return 2
 
     vdur = duration(video)
-    print(f'voice   {voice}   rate {rate}   lang {lang}')
+    print(f'voice   {voice}   rate {rate}   lang {lang}   gender {gender}')
     print(f'video   {os.path.basename(video)}  {vdur:.1f}s' if vdur else 'video   (duration unknown)')
     print()
 

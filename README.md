@@ -1,6 +1,6 @@
 # manual-maker
 
-![version](https://img.shields.io/badge/version-0.29.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
+![version](https://img.shields.io/badge/version-0.30.0-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2)
 
 **A Claude Code plugin that documents the web systems your team builds.** It ships **three skills** that turn a running system into finished documentation — a step-by-step user handbook, a fully populated Confluence space, or a recorded video walkthrough.
 
@@ -310,12 +310,53 @@ profile → intake (env · URL · account · source) → preflight → CONFIRM �
 - **One spec for every clip:** 1920×1080, `deviceScaleFactor` 2, H.264 CRF 20 `preset slow`, `yuv420p`, `+faststart`. A clip recorded today matches one recorded months ago.
 - **The login is never in the clip.** Auth runs in a non-recorded context and hands its session to the recording one, so no credential is ever on screen.
 - **Looks like a person recording their own screen.** A mouse pointer glides to each control and flashes on click — it tracks the *real* pointer through the page's own mouse events, so it can never show a click that did not happen. Text is typed character by character, scrolling is paced. Nothing else is drawn into the page: no banner, no URL strip, no watermark. Stills hide the pointer.
-- **Optional narration, in Thai or English.** Intake asks; if you want it, a **male neural voice** (`th-TH-NiwatNeural` / `en-US-GuyNeural`) reads the script — phrased into breath-sized lines with real pauses, not one flat run. Each line is **measured before recording**, and the flow holds that step open until the sentence finishes, so narration never talks over the next click. Free, no account.
+- **Optional narration — Thai or English, male or female.** Intake asks for all three; none is chosen for you. A neural voice (`th-TH-NiwatNeural` / `th-TH-PremwadeeNeural` / `en-US-GuyNeural` / `en-US-AriaNeural`) reads the script — phrased into breath-sized lines with real pauses, not one flat run. Each line is **measured before recording**, and the flow holds that step open until the sentence finishes, so narration never talks over the next click. Free, no account.
 - **It fails closed.** A step that never reaches its target aborts with a non-zero exit and keeps the partial video for diagnosis. A short clip is a **blocked** item with a reason — never a smaller success.
 
 **The 7-layer quality gate** decides when a recording is done: max quality · whole flow · reached the target · result on screen · legible · file integrity · delivered-and-plays. `scripts/verify-video.py` measures layers 1 and 6 for real — resolution, codec, pixel format, faststart, blank frames (per-frame luma range), and a full decode that catches truncation. It exits **2** when a check could not run, because a check that could not run is not a pass. The remaining layers are judged by watching the clip against the source.
 
 **Requirements:** Node + Playwright + Chromium (installed into `~/.manual-maker/runtime/`, shared with `manual-maker`), **ffmpeg** as a real system install, and — only for narrated runs — **edge-tts**, installed into the skill's own venv. `scripts/preflight.sh --check` reports; `--install` fixes. Without ffmpeg there is no MP4 — that is a blocked run, never a silent `.webm`.
+
+### How it is built — the techniques behind the picture and the sound
+
+Nothing here is a wrapper around a screen-capture app. Both halves are assembled from parts that
+can be inspected, and every choice below exists because the obvious alternative produced something
+that *looked* finished and was not.
+
+**The picture**
+
+| Piece | What it does | Why this way |
+|---|---|---|
+| **Playwright + headless Chromium** (`chromium.launch({headless:true})`) | Drives the flow and records it | It records the **page**, so no window steals focus, no cursor is painted, and no *"controlled by automated software"* bar can reach a frame. The machine stays usable while a batch records |
+| **Two browser contexts** | Login runs in one **without** `recordVideo`; its `storageState` (httpOnly cookies + localStorage) is handed to a second one that records | The clip starts at the first real step and **no credential is ever on screen** — no redaction pass, ever |
+| **`recordVideo` at 1920×1080 + `deviceScaleFactor: 2`** | Captures the frames | Recording below 1080p smears UI text once compressed. DSF 2 renders at 2× so glyphs stay sharp and the stills are crisp |
+| **A pointer drawn from real mouse events** | `addInitScript` injects an SVG arrow that listens to the page's own `mousemove` / `mousedown` / `mouseup` | It is **not an animation**. It can only ever be where the browser actually is, and can only flash on a click that really happened — an animation could show a click that never occurred, which would make the clip useless as evidence |
+| **`page.mouse.move(x, y, {steps: 28})` before each action** | Glides to the target, then pauses ~260 ms | Real `:hover` states fire on the way in, the way they do for a person |
+| **`pressSequentially` at 55 ms/char** | Types text out | A value that appears in one frame beside a moving pointer is the tell that gives an automated clip away |
+| **ffmpeg `libx264 -crf 20 -preset slow -pix_fmt yuv420p -movflags +faststart`** | WebM → MP4 | CRF 20 is visually near-lossless on UI; `preset slow` buys back the size; `yuv420p` plays where `yuv444p` is refused; `+faststart` lets it preview without a full download |
+| **`waitFor` / `expect` per step** | Assertions the run cannot skip | The run **fails closed**: a target that never appears aborts with a non-zero exit instead of yielding a short clip that looks like a success |
+
+**The sound**
+
+| Piece | What it does | Why this way |
+|---|---|---|
+| **edge-tts neural voices** | Speaks the script — `th-TH-NiwatNeural` / `th-TH-PremwadeeNeural` / `en-US-GuyNeural` / `en-US-AriaNeural` | Free, no account, no key. macOS `say` was tried and rejected: its only Thai voice is female and audibly synthetic, which fails a brief asking for a natural narrator of either gender |
+| **Phrase splitting, then re-joined with real pauses** | Cuts each line into breath-sized phrases; 0.22 s inside a clause, 0.40 s at a sentence end | Thai has no inter-word spaces, so a long line arrives as one breathless run. Splits land on words that genuinely **start** a clause — cutting before `แล้ว` broke `เรียบร้อยแล้ว` in half and a listener hears that as a stumble |
+| **Two passes: measure → record → speak** | `narrate.py --prepare` speaks each line and records its length; `record.js` holds each narrated step open until the sentence ends | Guessing a duration from character count drifts. Measured on a real run *without* this pass: three of four lines spoke 5–6 s into the following step |
+| **A synthesis cache keyed by voice + rate + text** | Pass two reuses pass one's takes | Halves the synthesis, and makes two slightly different readings of the same sentence impossible |
+| **`adelay` per line → `amix` → `loudnorm I=-16 TP=-1.5 LRA=11`** | Places each line at its **measured** offset and levels the whole track | Broadcast loudness is what separates narration from a voice memo — no line louder than another |
+| **`-c:v copy`, and no `-shortest`** | Muxes audio in without touching the picture | `-shortest` was removed after it matched the video to a shorter audio track and cut a 19.1 s clip to 17.3 s. The picture is the deliverable; the audio fits around it |
+| **Timeout + retry on every synth call** | 60 s ceiling, 3 attempts, zero-byte outputs deleted | A stalled request with no timeout does not fail — it hangs the whole pass. Two `--prepare` runs sat on one voice until they were killed, while that same voice answered a single request in 3.9 s |
+
+**How it is verified**
+
+`scripts/verify-video.py` measures what a machine can actually decide — resolution, codec, pixel
+format, faststart, duration, a **full decode** that catches truncation a header would hide, and
+blankness via the per-frame luma range (`YMAX - YMIN`; a solid fill reads 0, any real screen reads
+past 200). With `--expect-audio`, a silent file on a narrated run is a failure, not a variant. It
+exits **2** when a check could not run, because a check that could not run has proven nothing. The
+content layers — whole flow, reached the target, result on screen, legible, delivered — are judged
+by watching the clip against the source, and the tool never claims otherwise.
 
 **Where the rules live:**
 

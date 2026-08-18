@@ -2,6 +2,24 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.30.0] - 2026-08-18
+### Added
+- **Narration voice gender is now the user's choice, asked at intake.** Four neural voices:
+  `th-TH-NiwatNeural` / `th-TH-PremwadeeNeural` / `en-US-GuyNeural` / `en-US-AriaNeural`.
+  `narrate.py --gender male|female`, or `narration.gender` in the play file. Nothing is picked for
+  the user — language and gender are both asked, and both are remembered in the profile.
+- **README: "How it is built".** What the recorder and the narrator are actually made of — the
+  two-context Playwright setup, the real-event pointer, the glide and the typed input, the encode
+  flags, then the TTS phrasing, the two-pass timing, the cache, the loudness pass — each row saying
+  why the obvious alternative was rejected.
+
+### Fixed
+- **Synthesis can no longer hang the whole pass.** Every external call now has a deadline, and a
+  phrase gets 3 attempts at 60 s with zero-byte outputs deleted so the cache cannot trust one.
+  Measured: two `--prepare` runs sat on a single voice until they were killed, while that same
+  voice answered an identical request in 3.9 s. A hang is harder to diagnose than an error, so
+  nothing waits indefinitely any more.
+
 ## [0.29.0] - 2026-08-18
 ### Added
 - **`screen-record`: optional narration, asked for at intake — none / Thai / English.** Spoken by a
