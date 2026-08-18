@@ -40,8 +40,8 @@ import sys
 PROFILES = {
     'male': {
         'voice': 'ko-KR-HyunsuMultilingualNeural',
-        'tone': 'mellow', 'rate': '-12%', 'pitch': '-12Hz', 'volume': '-13%',
-        'f0': 115.0, 'f0_tol': 15.0,
+        'tone': 'mellow', 'rate': '+0%', 'pitch': '-6Hz', 'volume': '-13%',
+        'f0': 120.0, 'f0_tol': 15.0,
         'particle': 'ครับ',
     },
     'female': {

@@ -2,6 +2,15 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.33.1] - 2026-08-18
+### Changed
+- **The approved male profile is now the one the user actually picked by ear.** `mellow`'s full
+  damping (`-12%` rate, `-12Hz` pitch) was rejected as **ยาน** — drawled — so the rate returns to
+  natural and only a light `-6Hz` remains: `ko-KR-HyunsuMultilingualNeural` · `+0%` · `-6Hz` ·
+  `-13%`, measured **120 Hz** (band 105–135). Chosen from three candidates rendered at 113 / 119 /
+  124 Hz and compared by listening. `check-narration.py` and `voice-profile.md` both carry the new
+  numbers; the female profile is unchanged.
+
 ## [0.33.0] - 2026-08-18
 ### Added
 - **The user watches a real 30-second demo before the batch starts** (SKILL.md Step 5c, mandatory

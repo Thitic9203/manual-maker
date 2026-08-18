@@ -16,11 +16,11 @@ copy of this file; if you change one, change the other.
 |---|---|---|
 | voice | `ko-KR-HyunsuMultilingualNeural` | `fr-FR-VivienneMultilingualNeural` |
 | tone | `mellow` | `mellow` |
-| rate · pitch · volume | `-12%` · `-12Hz` · `-13%` | `+0%` · `+12Hz` · `+0%` |
-| median speaking pitch | **115 Hz** (band 100–130) | **195 Hz** (band 177–213) |
+| rate · pitch · volume | `+0%` · `-6Hz` · `-13%` | `+0%` · `+12Hz` · `+0%` |
+| median speaking pitch | **120 Hz** (band 105–135) | **195 Hz** (band 177–213) |
 | greeting particle | `ครับ` | `ค่ะ` |
 | measured pause after the greeting | 1.49 s | 0.96 s |
-| peak level | −1.4 dB | −1.5 dB |
+| peak level | −1.3 dB | −1.5 dB |
 
 Both are **multilingual** voices speaking Thai. They were chosen by ear from a comparison set; do
 not substitute a `th-TH-*` voice because it looks more correct on paper — the user picked these two
@@ -30,8 +30,11 @@ timbres.
 were being applied *on top of* the voice the user had approved at its natural settings, which is
 where the 23 Hz went. The row now says `+0% / +12Hz / +0%`: natural rate and volume, and `+12Hz`
 because that is what measurement said closed the remaining gap to the reference sample
-(188.2 Hz measured on both, exactly). The male row keeps `mellow`'s damping because the male voice
-was approved *with* it.
+(188.2 Hz measured on both, exactly). The male row has its own history: `mellow`'s full damping
+(`-12%` · `-12Hz`) was rejected by ear as **ยาน** — drawled — so the rate went back to natural and
+only a light `-6Hz` remains. It was picked from three candidates rendered at 113 / 119 / 124 Hz;
+the numbers are here because the user chose by listening, and a chosen-by-ear setting is exactly
+the kind that drifts back when nobody is measuring.
 
 ## How a number here was produced — and how to re-derive one
 
