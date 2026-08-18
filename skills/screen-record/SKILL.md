@@ -157,11 +157,22 @@ factor** in whether narration sounds human, so a generic sample would approve th
 
 Rejected → change tone / gender / wording, re-sample, ask again. Never record on a maybe.
 
+**"หนึ่งประโยคจบแล้วประโยคถัดไปสวนมาทันที" is a tone problem, not a script problem.** Each tone
+carries its own pauses — between clauses, between sentences, and the breath after each line
+(`podcast` 0.70 s · `presenter` 0.55 s · `upbeat` 0.30 s). That breath is part of the line's
+measured duration, so the recorder holds the picture for it too. A rejection for pacing moves to a
+slower tone; it is never fixed by shortening the words.
+
 ### Step 5b — Measure the narration first (narrated runs only)
 
 ```bash
 "$SR/scripts/narrate.py" --prepare play-TC_01.json
 ```
+
+It measures at the **same tone the sample was approved at** — the tone travels play file →
+`saydur.json` → `narration.json` → the muxing pass, so what was approved by ear is what lands in the
+clip. Measuring at one tone and speaking at another gives every line a length the recording was
+never paced to.
 
 This speaks each line with the real voice and writes `play-TC_01.saydur.json`. `record.js` picks it
 up automatically and **holds each narrated step open until its sentence finishes**, so the voice

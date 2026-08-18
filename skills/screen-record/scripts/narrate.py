@@ -2,8 +2,8 @@
 """narrate.py — speak a recorded clip's narration onto it, at the moments it belongs.
 
     narrate.py --sample <play.json> [--tone presenter] [--out s.mp3]   # hear the voice BEFORE recording
-    narrate.py --prepare <play.json>     # pass 1 — measure each line, so recording can pace to it
-    narrate.py <video.mp4> [--lang th|en] [--gender male|female] [--voice NAME] [--rate +4%] [--dry-run]
+    narrate.py --prepare <play.json> [--tone presenter]   # pass 1 — measure each line, so recording can pace to it
+    narrate.py <video.mp4> [--lang th|en] [--gender male|female] [--voice NAME] [--tone NAME] [--rate +4%] [--dry-run]
 
 Reads `<video>.narration.json`, which `record.js` writes during the run: one line per step that
 carried a `say`, each stamped with the millisecond it started. Timing is **measured, never
@@ -70,11 +70,18 @@ TONES = {
     'upbeat':       ('+11%', '+5Hz', '-2%'),  # เร็ว สดใส — short clips, product highlights
     'narrator':     ('-8%', '-12Hz', '-12%'),  # เล่าเรื่อง ทุ้ม ช้า — walkthroughs someone watches end to end
     'documentary':  ('-12%', '-16Hz', '-14%'), # ทุ้มลึก ช้าที่สุด — long-form, weighty subject
+    # จังหวะพอดแคสต์ — a host explaining something to one person, not announcing it to a room.
+    # Unhurried and level rather than bright: the character comes from the PAUSES (see TONE_GAPS /
+    # TONE_SPLICE / TONE_BREATH below), which are the longest of any preset. Reaching for a
+    # conversational feel by raising rate or pitch produces the opposite — that is the setting that
+    # reads as shouting. This is the preset for a demo someone watches all the way through.
+    'podcast':      ('-3%', '-3Hz',  '-8%'),   # คุยกับคนฟัง ไม่รีบ เว้นจังหวะให้คิดตาม
 }
 
 # A tone may also stretch the pauses: an unhurried delivery needs more room between phrases than a
 # brisk one, or it reads as slow speech rather than considered speech.
 TONE_GAPS = {
+    'podcast':        (0.16, 0.34),
     'presenter':      (0.10, 0.22),
     'lively':         (0.08, 0.18),
     'upbeat':         (0.06, 0.15),
@@ -90,8 +97,27 @@ DEFAULT_TONE = 'calm'
 # synthesized phrase arrives with its own head and tail silence, which stacks on top of the gap we
 # add. Trimming that silence (see `trim`) and keeping the gaps in the 90-260 ms band is what makes
 # the result read as a person speaking instead of a machine reading a list.
-GAP_CLAUSE = 0.13
-GAP_SENTENCE = 0.26
+BASE_GAP_CLAUSE = 0.13
+BASE_GAP_SENTENCE = 0.26
+GAP_CLAUSE = BASE_GAP_CLAUSE
+GAP_SENTENCE = BASE_GAP_SENTENCE
+
+# The breath a speaker takes AFTER finishing a line, before the next one starts.
+#
+# This is the pause that was missing. `trim` leaves 120 ms of tail on an utterance — enough that a
+# sentence does not end mid-release, nowhere near enough to read as a person finishing a thought.
+# Every line therefore ended 0.12 s after its last syllable and the next line began at its own
+# measured offset, which the recorder had already advanced to: sentence, sentence, sentence, with
+# no room between them. A presenter leaves half a second there; a narrator leaves more.
+#
+# It has to live in the AUDIO, not in the recorder, because the measured duration is what paces the
+# recording: a breath added here lengthens the step that holds for it, so the picture waits too.
+BASE_BREATH = 0.45
+TONE_BREATH = {
+    'podcast': 0.70, 'documentary': 0.75, 'narrator': 0.68, 'soft': 0.60, 'presenter': 0.55,
+    'calm': 0.50, 'professional': 0.50, 'warm': 0.48, 'conversational': 0.44,
+    'lively': 0.34, 'upbeat': 0.30, 'energetic': 0.28,
+}
 
 # Phrase ceilings. Thai has no inter-word spaces, so a "long" line hits the ear as one breathless
 # run; these caps are in characters and are deliberately short.
@@ -224,11 +250,41 @@ def cached_phrase(edge, voice, rate, text, pitch=DEFAULT_PITCH, volume=DEFAULT_V
 # inside what should be one continuous sentence. No amount of gap tuning fixes that; the fall is
 # baked into each fragment. Handing the whole line to the engine lets it carry the intonation
 # across the phrases, and the pauses come from the punctuation and spacing already in the text.
-# A pause between two spoken sentences, as opposed to between phrases inside one.
-SENTENCE_SPLICE = 0.38
+# A pause between two spoken sentences, as opposed to between phrases inside one. A presenter
+# holds this longer than the default: the pause is what tells a listener one point has landed
+# before the next one starts.
+BASE_SPLICE = 0.38
+TONE_SPLICE = {
+    'podcast': 0.64, 'documentary': 0.70, 'narrator': 0.62, 'soft': 0.56, 'presenter': 0.52,
+    'calm': 0.44, 'professional': 0.44, 'warm': 0.42, 'conversational': 0.40,
+    'lively': 0.34, 'upbeat': 0.32, 'energetic': 0.30,
+}
+SENTENCE_SPLICE = BASE_SPLICE
+LINE_BREATH = BASE_BREATH
 
 ONE_SHOT_TH = 220
 ONE_SHOT_EN = 340
+
+
+def apply_tone(tone):
+    """Resolve a tone into prosody, and install the pause lengths that belong with it.
+
+    Returns (rate, pitch, volume), or None if the tone is unknown.
+
+    Every entry point calls this — the sample, the measuring pass and the mux. That is the whole
+    point of it existing: `tone` used to be read only where the sample was built, so the voice a
+    user approved and the voice that reached the clip were resolved by different code. The
+    measuring pass never saw the tone at all and referred to `pitch`/`volume` that were never
+    assigned, which is a NameError, not a wrong sound — `--prepare` could not run.
+    """
+    if tone not in TONES:
+        return None
+    global GAP_CLAUSE, GAP_SENTENCE, SENTENCE_SPLICE, LINE_BREATH
+    rate, pitch, volume = TONES[tone]
+    GAP_CLAUSE, GAP_SENTENCE = TONE_GAPS.get(tone, (BASE_GAP_CLAUSE, BASE_GAP_SENTENCE))
+    SENTENCE_SPLICE = TONE_SPLICE.get(tone, BASE_SPLICE)
+    LINE_BREATH = TONE_BREATH.get(tone, BASE_BREATH)
+    return rate, pitch, volume
 
 
 def line_audio(edge, voice, rate, phrases, workdir, tag, pitch=DEFAULT_PITCH,
@@ -248,7 +304,7 @@ def line_audio(edge, voice, rate, phrases, workdir, tag, pitch=DEFAULT_PITCH,
         ok, mp3, why = cached_phrase(edge, voice, rate, joined, pitch, volume)
         if not ok:
             return None, 0.0, why
-        out = trim(mp3, os.path.join(workdir, f'{tag}_one.mp3'))
+        out = breathe(trim(mp3, os.path.join(workdir, f'{tag}_one.mp3')), workdir, tag)
         return out, (duration(out) or 0.0), None
 
     # Too long for one breath. Group phrases into sentence-sized chunks — a chunk ends where the
@@ -277,7 +333,22 @@ def line_audio(edge, voice, rate, phrases, workdir, tag, pitch=DEFAULT_PITCH,
     joined_path = os.path.join(workdir, f'{tag}.mp3')
     if not concat(parts, joined_path, workdir):
         return None, 0.0, 'could not join sentences'
-    return joined_path, (duration(joined_path) or 0.0), None
+    out = breathe(joined_path, workdir, tag)
+    return out, (duration(out) or 0.0), None
+
+
+def breathe(body, workdir, tag):
+    """Give the line its closing breath, in the audio itself.
+
+    Returns the lengthened file, or `body` untouched if the pause could not be built — a missing
+    breath is a clip that sounds rushed, which is worth shipping over no clip at all."""
+    if LINE_BREATH <= 0:
+        return body
+    sil = os.path.join(workdir, f'{tag}_breath.mp3')
+    out = os.path.join(workdir, f'{tag}_b.mp3')
+    if not silence(LINE_BREATH, sil) or not concat([body, sil], out, workdir):
+        return body
+    return out
 
 
 def sample(play_path, lang_override, voice_override, rate, gender_override, tone_override, out_path):
@@ -303,7 +374,7 @@ def sample(play_path, lang_override, voice_override, rate, gender_override, tone
               file=sys.stderr)
         return 2
 
-    t_rate, t_pitch, t_volume = TONES[tone]
+    t_rate, t_pitch, t_volume = apply_tone(tone)
     rate = rate or narr.get('rate') or t_rate
     edge = find_edge_tts()
     if not edge or not shutil.which('ffmpeg'):
@@ -316,9 +387,6 @@ def sample(play_path, lang_override, voice_override, rate, gender_override, tone
     if not lines:
         print('error: no step carries a `say` line — nothing to sample', file=sys.stderr)
         return 2
-
-    global GAP_CLAUSE, GAP_SENTENCE
-    GAP_CLAUSE, GAP_SENTENCE = TONE_GAPS.get(tone, (GAP_CLAUSE, GAP_SENTENCE))
 
     out_path = out_path or os.path.join(os.path.dirname(os.path.abspath(play_path)),
                                         f'sample-{lang}-{gender}-{tone}.mp3')
@@ -356,7 +424,8 @@ def sample(play_path, lang_override, voice_override, rate, gender_override, tone
         shutil.rmtree(work, ignore_errors=True)
 
 
-def prepare(play_path, lang_override, voice_override, rate, gender_override=None):
+def prepare(play_path, lang_override, voice_override, rate, gender_override=None,
+            tone_override=None):
     """Pass one. `rate` may be None here — the play file's `narration.rate` fills it in."""
     """Pass one: measure how long each narrated step will take to say.
 
@@ -367,8 +436,18 @@ def prepare(play_path, lang_override, voice_override, rate, gender_override=None
         play = json.load(fh)
     narr = play.get('narration') or {}
     lang = lang_override or narr.get('lang') or 'th'
-    rate = rate or narr.get('rate') or DEFAULT_RATE
     gender = gender_override or narr.get('gender') or DEFAULT_GENDER
+    # The tone decides prosody AND every pause length, so it has to be resolved here and not just
+    # where the sample is built: measuring at one tone and speaking at another gives every line a
+    # different length than the recording was paced to, and the narration walks into the next step.
+    tone = tone_override or narr.get('tone') or DEFAULT_TONE
+    prosody = apply_tone(tone)
+    if not prosody:
+        print(f'error: unknown tone "{tone}". Choose one of: {", ".join(sorted(TONES))}',
+              file=sys.stderr)
+        return 2
+    t_rate, pitch, volume = prosody
+    rate = rate or narr.get('rate') or t_rate
     voice = voice_override or narr.get('voice') or pick_voice(lang, gender)
     if not voice:
         print(f'error: no voice for language "{lang}" / gender "{gender}" — pass --voice',
@@ -380,7 +459,15 @@ def prepare(play_path, lang_override, voice_override, rate, gender_override=None
         return 2
 
     steps = play.get('steps') or []
-    out = {'lang': lang, 'gender': gender, 'voice': voice, 'rate': rate, 'steps': {}}
+    # Carry the tone into the durations file too. record.js copies it onto the timeline, so the
+    # muxing pass speaks at the tone the measuring pass measured — without it the two passes agree
+    # on the words and disagree on the delivery.
+    out = {'lang': lang, 'gender': gender, 'voice': voice, 'rate': rate, 'tone': tone,
+           'pitch': pitch, 'volume': volume, 'breath': LINE_BREATH, 'steps': {}}
+    print(f'voice   {voice}   tone {tone}   rate {rate}  pitch {pitch}  volume {volume}')
+    print(f'pauses  clause {GAP_CLAUSE:.2f}s   sentence {SENTENCE_SPLICE:.2f}s   '
+          f'breath after each line {LINE_BREATH:.2f}s')
+    print()
     work = tempfile.mkdtemp(prefix='sr-prepare-')
     try:
         for i, s in enumerate(steps):
@@ -522,7 +609,7 @@ def main():
         if not os.path.isfile(prep):
             print(f'error: play file not found: {prep}', file=sys.stderr)
             return 2
-        return prepare(prep, lang, voice, rate, gender)
+        return prepare(prep, lang, voice, rate, gender, tone)
 
     if not video or not os.path.isfile(video):
         print(f'error: video not found: {video}', file=sys.stderr)
@@ -543,11 +630,24 @@ def main():
         return 2
 
     lang = lang or tl.get('lang') or 'th'
+    # Tone before rate: it decides the pitch, the volume and every pause length, and the timeline
+    # carries the one the measuring pass actually used. Resolving it here is what keeps the clip
+    # identical to the sample that was approved — the same reason `gender` is read back, one step
+    # further along the same wire.
+    tone = tone or tl.get('tone') or DEFAULT_TONE
+    prosody = apply_tone(tone)
+    if not prosody:
+        print(f'error: unknown tone "{tone}". Choose one of: {", ".join(sorted(TONES))}',
+              file=sys.stderr)
+        return 2
+    t_rate, pitch, volume = prosody
+    pitch = tl.get('pitch') or pitch
+    volume = tl.get('volume') or volume
     # Speed matters as much as the voice: the recording was paced to how long each line took at
     # the rate the measuring pass used. Reading it back from the timeline keeps the two passes in
     # step — a mux at a different rate makes every line the wrong length and the narration walks
     # into the next action, the same silent drift that dropping `gender` caused.
-    rate = rate or tl.get('rate') or DEFAULT_RATE
+    rate = rate or tl.get('rate') or t_rate
 
     # Fail closed rather than pick a voice. A silent default is what shipped four demo clips with
     # the wrong narrator: the timeline carried no gender, the default was male, and every clip
@@ -578,7 +678,7 @@ def main():
         return 2
 
     vdur = duration(video)
-    print(f'voice   {voice}   rate {rate}   lang {lang}   gender {gender}')
+    print(f'voice   {voice}   tone {tone}   rate {rate}   lang {lang}   gender {gender}')
     print(f'video   {os.path.basename(video)}  {vdur:.1f}s' if vdur else 'video   (duration unknown)')
     print()
 

@@ -84,12 +84,18 @@ let recStart = null;
 // Without it the flow moves on while the narrator is still mid-sentence — measured on the first
 // narrated run: three lines each ran 5-6 s into the following step. Optional: a run with no
 // durations file still records, it just is not paced to the voice.
+// The durations file also records HOW the measuring pass spoke — tone, pitch, volume. That travels
+// onto the timeline so the muxing pass speaks the same way; measuring at one tone and speaking at
+// another gives every line a length the recording was not paced to.
+let SAYMETA = {};
 const SAYDUR = (() => {
   const guess = play.sayDurations || playPath.replace(/\.json$/, '') + '.saydur.json';
   try {
     if (fs.existsSync(guess)) {
       const d = JSON.parse(fs.readFileSync(guess, 'utf8'));
-      console.log(`NARRATION TIMING: ${guess} (${Object.keys(d.steps || {}).length} lines)`);
+      console.log(`NARRATION TIMING: ${guess} (${Object.keys(d.steps || {}).length} lines)`
+        + (d.tone ? ` tone ${d.tone}` : ''));
+      SAYMETA = d;
       return d.steps || {};
     }
   } catch (e) { console.log('NARRATION TIMING: unreadable, recording unpaced —', e.message); }
@@ -464,10 +470,16 @@ function encode(webm, mp4) {
       fs.writeFileSync(nfile, JSON.stringify({
         name: NAME,
         video: path.basename(mp4),
-        lang: (NARRATION && NARRATION.lang) || null,
-        gender: (NARRATION && NARRATION.gender) || null,
-        voice: (NARRATION && NARRATION.voice) || null,
-        rate: (NARRATION && NARRATION.rate) || null,
+        lang: (NARRATION && NARRATION.lang) || SAYMETA.lang || null,
+        gender: (NARRATION && NARRATION.gender) || SAYMETA.gender || null,
+        voice: (NARRATION && NARRATION.voice) || SAYMETA.voice || null,
+        rate: (NARRATION && NARRATION.rate) || SAYMETA.rate || null,
+        // Tone/pitch/volume come from whatever the measuring pass ACTUALLY used, falling back to
+        // the play file. Preferring the measurement is deliberate: the durations the recording was
+        // paced to were produced at that tone, so speaking at any other one re-lengthens every line.
+        tone: SAYMETA.tone || (NARRATION && NARRATION.tone) || null,
+        pitch: SAYMETA.pitch || null,
+        volume: SAYMETA.volume || null,
         lines: narration,
       }, null, 2));
       console.log(`NARRATION: ${nfile} ${narration.length} lines`
