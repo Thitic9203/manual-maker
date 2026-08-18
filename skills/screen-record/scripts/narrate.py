@@ -50,6 +50,11 @@ DEFAULT_GENDER = 'male'
 
 def pick_voice(lang, gender):
     return VOICES.get((lang, (gender or DEFAULT_GENDER).lower()))
+
+
+def resolve_voice(name):
+    """'hyunsu' -> the full voice id; a full id passes through untouched."""
+    return ALT_VOICES.get(str(name or '').strip().lower(), name)
 DEFAULT_RATE = '-4%'          # slightly under default: unhurried reads as human, hurried reads as machine
 DEFAULT_PITCH = '-6Hz'
 DEFAULT_VOLUME = '-10%'
@@ -77,11 +82,30 @@ TONES = {
     # conversational feel by raising rate or pitch produces the opposite — that is the setting that
     # reads as shouting. This is the preset for a demo someone watches all the way through.
     'podcast':      ('-3%', '-3Hz',  '-8%'),   # คุยกับคนฟัง ไม่รีบ เว้นจังหวะให้คิดตาม
+    # ทุ้ม ละมุน — the warmest preset, and the only one that also gets post-processing (see WARMTH).
+    # Chosen by ear over four candidates for a customer-facing walkthrough; pairs with a
+    # multilingual voice rather than th-TH-Niwat, which was the one judged "still sounds AI".
+    'mellow':       ('-12%', '-12Hz', '-13%'),  # ทุ้ม อุ่น ไม่รีบ — ส่งลูกค้า งานที่ต้องฟังยาว
+}
+
+# Voices outside the th-TH pair. The multilingual models speak Thai and are a generation newer;
+# side by side on the same sentence, Hyunsu was picked by ear where th-TH-NiwatNeural was rejected
+# as sounding synthetic. Set one explicitly with `narration.voice` in the play file — the gender
+# table above stays the default so existing runs keep the voice they were approved with.
+ALT_VOICES = {
+    'hyunsu': 'ko-KR-HyunsuMultilingualNeural',    # male, warm and low — the current pick for Thai
+    'andrew': 'en-US-AndrewMultilingualNeural',    # male, conversational
+    'brian': 'en-US-BrianMultilingualNeural',      # male, deep
+    'ava': 'en-US-AvaMultilingualNeural',          # female, bright
+    'emma': 'en-US-EmmaMultilingualNeural',        # female, soft
+    'vivienne': 'fr-FR-VivienneMultilingualNeural',  # female
+    'thalita': 'pt-BR-ThalitaMultilingualNeural',    # female
 }
 
 # A tone may also stretch the pauses: an unhurried delivery needs more room between phrases than a
 # brisk one, or it reads as slow speech rather than considered speech.
 TONE_GAPS = {
+    'mellow':         (0.24, 0.92),
     'podcast':        (0.16, 0.34),
     'presenter':      (0.10, 0.22),
     'lively':         (0.08, 0.18),
@@ -115,7 +139,7 @@ GAP_SENTENCE = BASE_GAP_SENTENCE
 # recording: a breath added here lengthens the step that holds for it, so the picture waits too.
 BASE_BREATH = 0.45
 TONE_BREATH = {
-    'podcast': 0.70, 'documentary': 0.75, 'narrator': 0.68, 'soft': 0.60, 'presenter': 0.55,
+    'mellow': 1.10, 'podcast': 0.70, 'documentary': 0.75, 'narrator': 0.68, 'soft': 0.60, 'presenter': 0.55,
     'calm': 0.50, 'professional': 0.50, 'warm': 0.48, 'conversational': 0.44,
     'lively': 0.34, 'upbeat': 0.30, 'energetic': 0.28,
 }
@@ -163,6 +187,42 @@ def find_edge_tts():
     return found
 
 
+# --- Latin acronyms in Thai narration ----------------------------------------------------------
+#
+# A Thai voice reading "OLS" does not spell it — it tries to say it as a Thai word, and what comes
+# out is "โอ๊ต". Every acronym in a Thai script has this problem: NDLP, PDF, QR, OTP. The engine is
+# not wrong to guess; there is nothing in the text telling it these are letters.
+#
+# So the letters are spelled out FOR the engine, at synthesis time only. The script, the subtitles
+# and everything the user reads keep "OLS" — this is a pronunciation fix, not a rewrite, exactly as
+# a mispronounced ค่ะ is fixed in what is fed to the voice and never in the written line.
+THAI_LETTER = {
+    'A': 'เอ', 'B': 'บี', 'C': 'ซี', 'D': 'ดี', 'E': 'อี', 'F': 'เอฟ', 'G': 'จี', 'H': 'เอช',
+    'I': 'ไอ', 'J': 'เจ', 'K': 'เค', 'L': 'แอล', 'M': 'เอ็ม', 'N': 'เอ็น', 'O': 'โอ', 'P': 'พี',
+    'Q': 'คิว', 'R': 'อาร์', 'S': 'เอส', 'T': 'ที', 'U': 'ยู', 'V': 'วี', 'W': 'ดับเบิลยู',
+    'X': 'เอ็กซ์', 'Y': 'วาย', 'Z': 'แซด',
+}
+
+# Words that are written in capitals but SAID as words, not spelled. Without this list the fix
+# would turn "EXCEL" into "อี เอ็กซ์ ซี อี แอล", which is worse than what it set out to repair.
+SAY_AS_WORD = {'EXCEL', 'WORD', 'LINE', 'ZOOM', 'TEAMS', 'GOOGLE', 'MICROSOFT', 'OK', 'FILE',
+               'EMAIL', 'LOGIN', 'MENU', 'ADMIN', 'USER'}
+
+ACRONYM = re.compile(r'(?<![A-Za-z])([A-Z]{2,6})(?![A-Za-z])')
+
+
+def spell_acronyms(text, lang):
+    """Spell Latin acronyms out in Thai letters, for the voice only."""
+    if lang != 'th':
+        return text
+    def one(m):
+        word = m.group(1)
+        if word in SAY_AS_WORD:
+            return word
+        return ' '.join(THAI_LETTER.get(ch, ch) for ch in word)
+    return ACRONYM.sub(one, text)
+
+
 def split_phrases(text, lang):
     """Break one narration line into breath-sized phrases.
 
@@ -171,6 +231,7 @@ def split_phrases(text, lang):
     text = re.sub(r'\s+', ' ', str(text)).strip()
     if not text:
         return []
+    text = spell_acronyms(text, lang)
 
     # Sentence level first: real punctuation is the strongest signal a writer gives us.
     sentences = [s for s in re.split(r'(?<=[.!?。])\s+|\n+', text) if s.strip()]
@@ -256,7 +317,7 @@ def cached_phrase(edge, voice, rate, text, pitch=DEFAULT_PITCH, volume=DEFAULT_V
 # before the next one starts.
 BASE_SPLICE = 0.38
 TONE_SPLICE = {
-    'podcast': 0.64, 'documentary': 0.70, 'narrator': 0.62, 'soft': 0.56, 'presenter': 0.52,
+    'mellow': 0.92, 'podcast': 0.64, 'documentary': 0.70, 'narrator': 0.62, 'soft': 0.56, 'presenter': 0.52,
     'calm': 0.44, 'professional': 0.44, 'warm': 0.42, 'conversational': 0.40,
     'lively': 0.34, 'upbeat': 0.32, 'energetic': 0.30,
 }
@@ -282,6 +343,7 @@ ONE_SHOT_EN = 340
 # recording would be paced to one and the narration muxed at the other, and every line would drift
 # from the step it describes. Same words in, same voice out — always.
 VARIATION = {                       # (pitch Hz, rate %, volume %, pause fraction)
+    'mellow': (5.0, 4.0, 4.0, 0.40),
     'podcast': (3.0, 3.0, 3.0, 0.30),
     'narrator': (3.0, 2.5, 3.0, 0.28),
     'documentary': (2.5, 2.0, 2.5, 0.25),
@@ -327,6 +389,21 @@ def uneven(seconds, text, salt):
     return max(0.05, seconds * (1.0 + wobble(text, salt, frac)))
 
 
+# Post-processing, applied to the finished track. A synthesized voice is dry, level and pushed hard
+# in the 3-7 kHz band where "clarity" lives — which is a large part of what a listener identifies as
+# AI. This chain lands closer to a person recorded through a microphone: chest weight back in,
+# that clarity band eased off, dynamics gently evened, and a room short enough to hear but not
+# notice. It runs before loudnorm so the normalizer works on the finished tone.
+WARMTH = ('highpass=f=65,'
+          'equalizer=f=220:t=q:w=1.2:g=2.5,'      # อก — body
+          'equalizer=f=3200:t=q:w=1.8:g=-3.5,'    # the band that reads as synthetic
+          'equalizer=f=6500:t=q:w=2:g=-2,'        # sibilance
+          'acompressor=threshold=-20dB:ratio=2.5:attack=20:release=260,'
+          'aecho=0.9:0.9:22:0.06,')               # a small room, not an effect
+WARM_TONES = {'mellow'}
+WARM = False
+
+
 def apply_tone(tone):
     """Resolve a tone into prosody, and install the pause lengths that belong with it.
 
@@ -340,12 +417,13 @@ def apply_tone(tone):
     """
     if tone not in TONES:
         return None
-    global GAP_CLAUSE, GAP_SENTENCE, SENTENCE_SPLICE, LINE_BREATH, SPREAD
+    global GAP_CLAUSE, GAP_SENTENCE, SENTENCE_SPLICE, LINE_BREATH, SPREAD, WARM
     rate, pitch, volume = TONES[tone]
     GAP_CLAUSE, GAP_SENTENCE = TONE_GAPS.get(tone, (BASE_GAP_CLAUSE, BASE_GAP_SENTENCE))
     SENTENCE_SPLICE = TONE_SPLICE.get(tone, BASE_SPLICE)
     LINE_BREATH = TONE_BREATH.get(tone, BASE_BREATH)
     SPREAD = VARIATION.get(tone, BASE_VARIATION)
+    WARM = tone in WARM_TONES
     return rate, pitch, volume
 
 
@@ -479,7 +557,7 @@ def sample(play_path, lang_override, voice_override, rate, gender_override, tone
             print('FAIL could not join the sample', file=sys.stderr)
             return 1
         r = run(['ffmpeg', '-y', '-v', 'error', '-i', joined,
-                 '-af', 'loudnorm=I=-17:TP=-2:LRA=12',
+                 '-af', (WARMTH if WARM else '') + 'loudnorm=I=-17:TP=-2:LRA=12',
                  '-c:a', 'libmp3lame', '-b:a', '160k', out_path], timeout=120)
         if r.returncode != 0 or not os.path.isfile(out_path):
             print('FAIL could not write the sample', file=sys.stderr)
@@ -810,7 +888,7 @@ def main():
             src = '[mix]'
         else:
             src = labels[0]
-        chains.append(f'{src}loudnorm=I=-16:TP=-1.5:LRA=11[a]')
+        chains.append(f'{src}{WARMTH if WARM else ""}loudnorm=I=-16:TP=-1.5:LRA=11[a]')
         out = os.path.splitext(video)[0] + '.narrated.mp4'
         cmd += ['-filter_complex', ';'.join(chains),
                 '-map', '0:v', '-map', '[a]',

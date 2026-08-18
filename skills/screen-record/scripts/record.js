@@ -62,7 +62,10 @@ catch (e) { die(`play file is not valid JSON: ${e.message}`); }
 
 const NAME = play.name || die('play.name is required (it becomes the file name)');
 const BASE = (play.baseUrl || '').replace(/\/$/, '');
-const OUT = path.resolve(play.out || 'recordings');
+// `~` is what a person writes, and the spec's own example uses it. path.resolve does not expand it,
+// so an unexpanded one silently produces a directory literally named "~" next to the home directory
+// — the run reports success and the files are somewhere nobody looks.
+const OUT = path.resolve((play.out || 'recordings').replace(/^~(?=$|[/\\])/, process.env.HOME || ''));
 const VIEW = Object.assign({ width: 1920, height: 1080 }, play.viewport || {});
 const DSF = play.deviceScaleFactor == null ? 2 : play.deviceScaleFactor;
 const CRF = play.crf == null ? 20 : play.crf;
@@ -114,6 +117,25 @@ const abs = (u) => (/^https?:\/\//i.test(u) ? u : BASE + '/' + String(u).replace
 
 // A locator from a play-file target: "text=..." / "//xpath" / any CSS selector.
 const loc = (page, sel) => (String(sel).startsWith('//') ? page.locator(`xpath=${sel}`) : page.locator(sel));
+
+// A step may live inside an iframe. OLS puts its whole sign-in form in one, served from another
+// host (`/sign-in/embed`), so every selector aimed at the login fields searched the top document
+// and found nothing — the run failed closed with "never reached", which was true and unhelpful.
+//
+// `"frame": "sign-in/embed"` matches a substring of the frame's URL and resolves the step there.
+// Waiting is deliberate: an embedded form is fetched after the host page settles, so the frame
+// often does not exist yet at the moment the step begins.
+async function ctxOf(page, s) {
+  if (!s || !s.frame) return page;
+  const deadline = Date.now() + (s.frameTimeout || 20000);
+  while (Date.now() < deadline) {
+    const f = page.frames().find((fr) => fr.url().includes(s.frame));
+    if (f) return f;
+    await sleep(300);
+  }
+  die(`step "${s.label || s.do}" wants the frame matching "${s.frame}", and no frame on the page `
+    + `has that in its URL. Frames present: ${page.frames().map((f) => f.url()).join(', ') || 'none'}`);
+}
 
 // ---------------------------------------------------------------- mouse pointer
 // Playwright's video has no pointer, so a viewer sees controls activate with nothing touching
@@ -275,6 +297,8 @@ async function runStep(page, s, i) {
   }
   const to = s.timeout || STEP_TIMEOUT;
   const act = s.do || 'goto';
+  // Selectors resolve inside `s.frame` when the step names one; otherwise in the top document.
+  const ctx = await ctxOf(page, s);
 
   switch (act) {
     case 'goto':
@@ -282,7 +306,7 @@ async function runStep(page, s, i) {
       await restoreCursor(page);          // a fresh document has no pointer until something moves it
       break;
     case 'click': {
-      const el = loc(page, s.selector).first();
+      const el = loc(ctx, s.selector).first();
       await glideTo(page, el);
       await el.click({ timeout: to });
       break;
@@ -290,8 +314,22 @@ async function runStep(page, s, i) {
     case 'fill': {
       // A person clicks the field, then types into it. Setting .value in one frame next to a
       // moving pointer is the tell that gives an automated clip away, so type it out.
-      const el = loc(page, s.selector).first();
-      const value = String(s.value == null ? '' : s.value);
+      const el = loc(ctx, s.selector).first();
+      // `"value": { "env": "SR_PASS" }` types what the environment holds, never what the file holds.
+      //
+      // Normally the login runs off-camera precisely so no credential is ever on screen. That does
+      // not work for the one clip whose SUBJECT is logging in: a manual page called "เข้าสู่ระบบ"
+      // has to show the fields being filled. This is the opt-in for that clip and nothing else —
+      // the play file still carries no secret, and a password field still renders as dots. Anything
+      // typed into a plain text field WILL be readable in the deliverable, so only put an account
+      // there that is meant to be seen.
+      let value;
+      if (s.value && typeof s.value === 'object' && s.value.env) {
+        value = process.env[s.value.env];
+        if (!value) die(`step "${s.label || s.do}" wants ${s.value.env} from the environment, and it is not set`);
+      } else {
+        value = String(s.value == null ? '' : s.value);
+      }
       await glideTo(page, el);
       await el.click({ timeout: to });
       await el.fill('', { timeout: to });                 // clear whatever was there
@@ -301,13 +339,13 @@ async function runStep(page, s, i) {
       break;
     }
     case 'select': {
-      const el = loc(page, s.selector).first();
+      const el = loc(ctx, s.selector).first();
       await glideTo(page, el);
       await el.selectOption(String(s.value), { timeout: to });
       break;
     }
     case 'hover': {
-      const el = loc(page, s.selector).first();
+      const el = loc(ctx, s.selector).first();
       await glideTo(page, el);
       await el.hover({ timeout: to });
       break;
@@ -329,7 +367,7 @@ async function runStep(page, s, i) {
       }, s.to == null ? null : s.to);
       break;
     case 'scrollTo': {
-      const el = loc(page, s.selector).first();
+      const el = loc(ctx, s.selector).first();
       await el.scrollIntoViewIfNeeded({ timeout: to });
       await sleep(400);
       await glideTo(page, el);            // land the pointer on what was just brought into view
@@ -339,7 +377,7 @@ async function runStep(page, s, i) {
       await sleep(s.ms || 1000);
       break;
     case 'waitFor':
-      await loc(page, s.selector).first().waitFor({ state: 'visible', timeout: to });
+      await loc(ctx, s.selector).first().waitFor({ state: 'visible', timeout: to });
       break;
     default:
       fail(`${tag}: unknown action "${act}"`);
@@ -347,7 +385,14 @@ async function runStep(page, s, i) {
 
   // Gate layer 3 in code: the step must land where it claimed it would. Fail closed.
   if (s.waitFor) {
-    await loc(page, s.waitFor).first().waitFor({ state: 'visible', timeout: to })
+    // The thing you act on and the thing that proves it worked are not always in the same document.
+    // Clicking the host page's login button must produce a field inside the embedded form; clicking
+    // submit INSIDE that form must produce the logged-in host page. `waitForFrame` names where to
+    // look — `null` means the top document even when the action itself happened in a frame.
+    const wctx = ('waitForFrame' in s)
+      ? await ctxOf(page, { frame: s.waitForFrame, label: s.label, frameTimeout: s.frameTimeout })
+      : ctx;
+    await loc(wctx, s.waitFor).first().waitFor({ state: 'visible', timeout: to })
       .catch(() => fail(`${tag}: never reached "${s.waitFor}" — the flow did not arrive at its target. `
         + 'Do not ship this clip; fix the selector/flow or report the case as blocked.'));
   }
@@ -372,7 +417,8 @@ async function runStep(page, s, i) {
 async function checkpoint(page, s, i, shots) {
   if (!s.expect) return;
   const tag = `step ${i + 1}${s.label ? ' — ' + s.label : ''}`;
-  await loc(page, s.expect).first().waitFor({ state: 'visible', timeout: s.timeout || STEP_TIMEOUT })
+  const ctx = await ctxOf(page, s);
+  await loc(ctx, s.expect).first().waitFor({ state: 'visible', timeout: s.timeout || STEP_TIMEOUT })
     .catch(() => fail(`${tag}: expected result "${s.expect}" never became visible — the clip would not prove it.`));
   await sleep(600);
   const n = String(shots.length + 1).padStart(2, '0');
