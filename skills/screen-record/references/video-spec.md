@@ -4,34 +4,87 @@ Every number here was taken from the recorder that produced the team's System / 
 test recordings. They are **a set**, not a menu: change one and the output stops being comparable
 with everything already delivered. Change them only when the user asks, and say what changed.
 
+## The capture — and why it is not Playwright's
+
+**Playwright's own `recordVideo` must never be used for a deliverable.** This is the hard rule of
+the whole spec and it is the fix for the flicker that shipped in ELMS-2.4.1 (2026-08-27). Two
+defects are compiled into that path and **neither is reachable from its API**:
+
+| Defect | Mechanism (read from `playwright-core`, not inferred) | Measured on the delivered clip |
+|---|---|---|
+| **The picture pumps** | It spawns ffmpeg with a hardcoded `-c:v vp8 -qmin 0 -qmax 50 -crf 8 -deadline realtime -speed 8 -b:v 1M -threads 1` — **1 Mbps for 1920×1080**. When the page moves, rate control raises the quantiser and the whole frame softens, then snaps back. | Edge energy of a region that never changes swung **6.6%** peak-to-trough, dipping **5.3% in a single frame** |
+| **The motion judders** | `writeFrame` computes `frameNumber = floor((t − t₀) × 25)` and fills every delivery gap by **repeating the previous frame** onto a 40 ms grid. | **21.2%** of the clip's *moving* frames were frozen repeats |
+
+The tempting explanation — "the machine cannot capture 1080p fast enough" — was tested and is
+**false**. Driving `Page.screencastFrame` directly on the same machine, same viewport,
+`deviceScaleFactor` 2, on a *heavier* page: **59.8 fps, median gap 17 ms**. At
+`deviceScaleFactor` 1 it was 58.9 fps — inside the noise, so **lowering it would fix nothing**
+while making every still blurrier. The browser was never the bottleneck; the single-threaded
+realtime VP8 encoder behind it was.
+
+So `record.js` owns the capture:
+
+1. Frames arrive over CDP (`Page.startScreencast`, JPEG q92) and are **acked first, written
+   second** — nothing downstream may throttle the browser. That coupling is precisely what
+   starves Playwright's path.
+2. Every frame is written to a scratch directory **with its real timestamp**.
+3. After the run, **one** encode places each frame at the moment it happened.
+
+That removes an entire lossy generation: **JPEG → x264**, instead of JPEG → VP8@1 Mbps → x264.
+There is no `.webm` any more, and its absence is the point — the WebM *was* the damage.
+
+**Nothing is thinned.** A first cut kept a frame only if `t − lastKept ≥ 1/30`. On a page
+delivering ~31 fps (median gap 22 ms) that dropped every second frame — 22 ms is under the 31 ms
+minimum, so the filter waits for the one after — giving **15.4 fps**, *worse* judder than the
+defect being fixed. Every decimator aliases that way when the source rate is near the target, and
+a phase accumulator does the same. The only rule that cannot alias is to keep every delivered
+frame and let the encoder do the rate conversion. **Bound the disk (`maxScratchMb`), never the
+frame rate.**
+
 ## The encode
 
 | Setting | Value | Why this value |
 |---|---|---|
 | Viewport | **1920 × 1080** | Layer 1 of the quality gate. Below this, UI text stops being legible once the video is compressed. |
-| `deviceScaleFactor` | **2** | Renders at 2× so glyphs are sharp. Playwright records at the requested `size` regardless, so this costs nothing in the video and makes the stills crisp. |
-| Record size | **1920 × 1080** | Match the viewport. A recorded size smaller than the viewport downscales — the one thing layer 1 forbids. |
+| `deviceScaleFactor` | **2** | Renders at 2× so glyphs are sharp. Measured to cost nothing in capture rate (59.8 vs 58.9 fps at dsf 1), and it makes the stills crisp. |
+| Capture | **CDP screencast, JPEG q92, every frame** | See above. The only lossy step before the final encode. |
+| Output rate | **25 fps** | The delivered file's rate. The capture runs far above it, so every output frame is a real one. |
 | Codec | **H.264 (`libx264`)** | Plays everywhere: browsers, Jira, Drive, QuickTime, Confluence preview. |
-| Quality | **CRF 20** | Visually near-lossless on UI content. CRF 23+ starts smearing small Thai glyphs; CRF < 18 inflates the file for no visible gain. |
+| Quality | **CRF 18** | Was CRF 20 while a VP8 generation sat in front of it. With that generation gone, 18 is visually lossless on UI content at a size that still uploads. CRF 23+ smears small Thai glyphs. |
 | Preset | **slow** | Better compression at the same CRF — a smaller file at identical quality. Encoding takes longer; the recording does not. |
+| Range | **full → limited** | Screencast frames are JPEG, i.e. **full-range**. A bare `-pix_fmt yuv420p` still emits `yuvj420p` (measured) — which fails layer 1 and crushes blacks in players that ignore the tag. The levels must be **converted**, not relabelled. |
 | Pixel format | **`yuv420p`** | Some players refuse `yuv444p`/`yuvj420p` outright. |
 | Container flag | **`+faststart`** | Moves `moov` ahead of `mdat` so the file streams/previews without downloading in full. |
 
 ```bash
-ffmpeg -y -i in.webm -c:v libx264 -crf 20 -preset slow \
-       -pix_fmt yuv420p -movflags +faststart out.mp4
+# frames.txt is a concat list carrying each captured frame's MEASURED duration
+ffmpeg -y -f concat -safe 0 -i frames.txt \
+       -fps_mode cfr -r 25 \
+       -vf scale=in_range=full:out_range=limited \
+       -c:v libx264 -crf 18 -preset slow \
+       -pix_fmt yuv420p -color_range tv -movflags +faststart out.mp4
 ```
 
-Playwright records **WebM**; the MP4 is the deliverable. Keep the `.webm` until the MP4 has passed
-`verify-video.py` — it is the only way to re-encode without re-running the whole flow.
+Every run also writes **`<name>.capture.json`** — the retained evidence for this layer. It records
+the pipeline name, the rate actually achieved, the gap distribution, the encoder arguments, and
+`holdSpans`: the still-hold windows in seconds on the video's own timeline. `verify-video.py`
+checks the delivered file **against** it, so a run cannot simply assert it went well. A missing
+manifest is a failure, not a shrug: **ตรวจไม่ได้ = ไม่ผ่าน.**
+
+`holdSpans` is not bookkeeping — layer 1b cannot work without it, and that was found by regression,
+not reasoning. A hold deliberately repeats one frame, and on a page with a background animation
+that is **indistinguishable** from the stall layer 1b exists to catch: a clip captured at 51.9 fps
+with an 18 ms p95 gap — objectively healthy — scored 5.3% and failed purely on its three holds. The
+verifier therefore excludes exactly the declared spans, and fails if they cover more than **25%** of
+the clip, so "everything was a hold" cannot become the way out.
 
 ## Three structural properties (not flags — the recorder is built around them)
 
 ### 1. The login is never in the clip
 
 Authentication runs in a **non-recorded** browser context. Its `storageState` — including httpOnly
-session cookies and localStorage — is handed to a **second** context that has `recordVideo` on. The
-clip therefore starts at the first real step.
+session cookies and localStorage — is handed to a **second** context, and only that one is
+captured. The clip therefore starts at the first real step.
 
 This is a safety property, not a tidiness one: **no credential is ever on screen**, so a recording
 can be attached to a ticket or shipped with a manual without a redaction pass.
@@ -41,8 +94,8 @@ const authCtx = await browser.newContext({ viewport });
 await login(authCtx, cfg);                    // reads SR_USER / SR_PASS from the environment
 const state = await authCtx.storageState();
 await authCtx.close();
-const recCtx = await browser.newContext({ viewport, deviceScaleFactor: 2, storageState: state,
-                                          recordVideo: { dir: out, size: viewport } });
+const recCtx = await browser.newContext({ viewport, deviceScaleFactor: 2, storageState: state });
+const cdp    = await recCtx.newCDPSession(page);      // NOT recordVideo — see "The capture" above
 ```
 
 If the app only hydrates its session after the shell has loaded once, set `login.warmUrl` — the
@@ -54,7 +107,7 @@ a "could not load" state.
 A viewer should not be able to tell a script drove it. Two things make the difference, and both
 are on by default:
 
-**A mouse pointer.** Playwright's video has none, so without one a viewer watches controls
+**A mouse pointer.** A screencast has none, so without one a viewer watches controls
 activate with nothing touching them. The recorder draws an arrow — but it does **not** animate
 one. The drawn arrow listens to the page's own `mousemove` / `mousedown` / `mouseup` and follows
 the **real** pointer, so it can only ever be where the browser actually is, and the click flash
@@ -66,6 +119,15 @@ they do for a person.
 **Typing that is typed.** `fill` clicks the field, clears it, then enters the value one character
 at a time (`typeDelay`, default 55 ms). A value that appears in a single frame next to a moving
 pointer is the tell that gives an automated clip away.
+
+**The pointer never blinks out.** Each `expect` checkpoint hides the arrow to take its still — the
+pointer belongs in the video, but in a still it is just something parked on top of the words
+someone has to read. Until v0.35.0 that hid it from the **video** too: measured on a two-checkpoint
+clip, the arrow vanished for **0.28 s, once per checkpoint**. The fix is not to stop hiding it but
+to **hold the picture** across the whole shutter window — capture pauses, the last frame stays up,
+and the blink cannot reach the file. Safe because a checkpoint is by definition a settled screen.
+The same clip re-recorded shows **zero** blink-outs, and each hold is counted in
+`<name>.capture.json`.
 
 Everything else stays out of the frame:
 
@@ -196,12 +258,16 @@ One JSON file per clip. It holds **no credentials** — those come from the envi
 
 | Key | Default | Meaning |
 |---|---|---|
-| `name` | *required* | File stem — produces `<name>.mp4`, `<name>.webm`, `<name>-ER_NN.png` |
+| `name` | *required* | File stem — produces `<name>.mp4`, `<name>.capture.json`, `<name>-ER_NN.png` |
 | `baseUrl` | `""` | Prefix for relative step URLs |
 | `out` | `recordings` | Output directory (created if missing) |
 | `viewport` | `1920×1080` | See the table above before changing |
 | `deviceScaleFactor` | `2` | |
-| `crf` / `preset` | `20` / `slow` | |
+| `crf` / `preset` | `18` / `slow` | |
+| `fps` | `25` | Output frame rate. The capture always runs well above it |
+| `jpegQuality` | `92` | Screencast frame quality — the only lossy step before the encode |
+| `minUniqueFps` | `fps × 0.8` | Fail-closed floor on the rate actually achieved. **Never raise it to make a starved run go green** |
+| `maxScratchMb` | `6144` | Ceiling on the captured-frame scratch directory. Hitting it fails the run rather than truncating quietly |
 | `settle` | `900` ms | Pause after each step, so the viewer can follow |
 | `stepTimeout` | `30000` ms | Per-step ceiling |
 | `cursor` | `true` | Draw the mouse pointer and glide it to each target before acting |

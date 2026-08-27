@@ -2,6 +2,55 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.35.0] - 2026-08-27
+### Fixed
+- **The recording no longer flickers — the clip is captured by this skill, not by Playwright.**
+  A delivered clip (ELMS-2.4.1) visibly flickered while passing every quality-gate check. Two
+  defects were compiled into Playwright's `recordVideo` and neither was reachable from its API:
+  it spawns ffmpeg with a hardcoded `-c:v vp8 -qmax 50 -deadline realtime -b:v 1M -threads 1`
+  — **1 Mbps for 1920×1080**, so the whole frame softens whenever the page moves (a region that
+  never changed swung **6.6%** in edge energy, dipping **5.3% in one frame**) — and its
+  `writeFrame` fills every delivery gap by **repeating the previous frame** onto a 40 ms grid
+  (**21.2%** of the clip's moving frames were frozen repeats). `record.js` now drives
+  `Page.startScreencast` itself, acks each frame **before** touching the disk, keeps every frame
+  with its real timestamp, and encodes **once** — deleting a whole lossy generation
+  (JPEG → x264 instead of JPEG → VP8@1 Mbps → x264). Measured after the change: 0 frozen frames,
+  static-region swing 0.5%, capture 59.3 fps with a 17.6 ms p95 gap.
+  The tempting explanation was tested and rejected: the browser delivers **59.8 fps at
+  `deviceScaleFactor` 2** on a heavier page, so lowering it would have fixed nothing.
+- **The mouse pointer no longer blinks out at every checkpoint.** Hiding the arrow for the `expect`
+  still also hid it from the video — measured at **0.28 s per checkpoint**. Capture now holds the
+  picture across the whole shutter window; the same clip re-recorded shows **zero** blink-outs.
+
+### Added
+- **Quality gate layers 1b (steady picture) and 1c (provenance)**, and a **10-layer defense** in
+  `quality-gate.md` so this defect family cannot return. `verify-video.py` now fails a clip whose
+  *moving* frames are more than **5%** frozen repeats — a threshold measured, not chosen: the
+  flickering clip scores 21.2% and six clips judged good score 0.00–1.44%. The metric is computed
+  entirely inside ffmpeg (`tblend` + `signalstats`), so it needs neither numpy nor Pillow.
+- **`<name>.capture.json`** — retained evidence written every run: pipeline name, achieved unique
+  fps, gap distribution, encoder arguments, still-holds, scratch usage. `verify-video.py` checks
+  the delivered file **against** it (name, resolution, fps, floors) and fails when it is missing:
+  ตรวจไม่ได้ = ไม่ผ่าน. `--no-manifest` exists only for clips this skill did not record.
+- **Fail-closed capture health.** The run now dies with the reason if the achieved rate falls under
+  `minUniqueFps` (default `fps × 0.8`), if `maxScratchMb` was hit, or if any frame failed to write.
+- **`holdSpans` in the manifest**, so layer 1b does not fail the still-hold that layer 5 requires.
+  A hold repeats one frame deliberately; on a page with a background animation that is
+  indistinguishable from a stall (a clip captured at 51.9 fps with an 18 ms p95 gap scored 5.3% and
+  failed purely on its three holds). The verifier excludes exactly the declared spans and fails if
+  they cover more than 25% of the clip.
+
+### Changed
+- **CRF 18 (was 20)** and an explicit full→limited range conversion. With the VP8 generation gone,
+  18 is visually lossless at a size that still uploads; the range conversion is required because
+  screencast frames are JPEG and a bare `-pix_fmt yuv420p` still emits `yuvj420p`, which fails
+  layer 1 and crushes blacks in players that ignore the tag.
+- **No more `.webm` sidecar** — the WebM *was* the damage; there is now a single encode.
+- New play-file keys: `fps`, `jpegQuality`, `minUniqueFps`, `maxScratchMb`. There is deliberately
+  **no** capture-fps setting: a rate filter was tried and made things worse (a page delivering
+  31 fps was decimated to 15.4 fps), because every decimator aliases when the source rate is near
+  the target. Bound the disk, never the frame rate.
+
 ## [0.34.0] - 2026-08-18
 ### Added
 - **The user watches a real demo, then approves a written recap, before the batch starts**

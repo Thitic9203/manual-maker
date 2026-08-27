@@ -9,7 +9,9 @@ gets filed as proof of something. Re-record; never wave it through.
 
 | # | Layer | Passes only when | Checked by |
 |:--:|---|---|---|
-| **1** | **Max quality** | Recorded at the full spec — viewport ≥ 1920×1080, `deviceScaleFactor` 2, H.264 CRF 20, `yuv420p`, no downscale that blurs text. On-screen labels are legible. | `verify-video.py` |
+| **1** | **Max quality** | Recorded at the full spec — viewport ≥ 1920×1080, `deviceScaleFactor` 2, H.264 CRF 18, `yuv420p` (limited range), no downscale that blurs text. On-screen labels are legible. | `verify-video.py` |
+| **1b** | **Steady picture** | No frozen frame inside a moving stretch, and no visible flicker, pumping, stutter or blink when watched at 100%. ≤ 5% of moving frames may be repeats. | `verify-video.py` + **your eyes** |
+| **1c** | **Provenance** | The clip came from this skill's own capture pipeline, at the rate it claims. `<name>.capture.json` exists, says `cdp-screencast->x264`, and matches the file. | `verify-video.py` |
 | **2** | **Whole flow, no skip** | Drives **every** step from the start, on the **real UI** (clicks, not an API shortcut) — no jump-cut, no starting mid-flow, no fast-forward past a step. | you, against the source |
 | **3** | **Reaches the stated target** | Where a step says "scroll to XX / open YY / find ZZ", the clip **visibly arrives** and acts on it. **Never end before arriving.** Unreachable ⇒ the item is **blocked with the reason**, not a short clip passed off as done. | `waitFor` in the play file, fail-closed |
 | **4** | **The result is on screen** | The exact state that decides each expected result is **visible in the video** — the resulting screen, toast, or value is shown, not implied by a click. One provable moment each. | `expect` in the play file |
@@ -19,19 +21,50 @@ gets filed as proof of something. Re-record; never wave it through.
 | **6c** | **The voice is the one that was approved** | Measured, not read off a setting: median speaking pitch inside the profile's band, the greeting closing on its Thai particle (`ค่ะ` / `ครับ`) with a real pause after it, no clipping. A clip can name the right voice in every log and still be 23 Hz off the timbre the user approved — that is what this catches. | `check-narration.py --profile male\|female` |
 | **7** | **Delivered + link verified** | Landed where it was meant to (folder / Drive / ticket / embedded in the document) and the reference **actually resolves and plays** from there — opened and confirmed, not assumed. | you, by opening it |
 
+## แนวป้องกัน 10 ชั้น — the picture may never flicker again
+
+Layers 1b and 1c exist because a clip that was 1920×1080, H.264, `yuv420p`, non-blank, faststart
+and correctly named **passed the whole gate while visibly flickering** (ELMS-2.4.1, 2026-08-27).
+Being the right size in the right codec says nothing about whether frames arrived on time or
+whether the encoder was starved. So this defect family — flicker, judder, pumping, blink — is held
+down by **ten** layers, each with a different owner, so that no single mistake can put it back.
+
+| # | Layer | What it stops | Owner / enforced by |
+|:--:|---|---|---|
+| **1** | Playwright's `recordVideo` is **banned** for deliverables, with the two measured mechanisms written down | Someone "simplifying" back to the built-in recorder | `video-spec.md` — authoring rule |
+| **2** | `record.js` has **no `recordVideo` path at all**; the capture is CDP screencast + one x264 encode | The bad pipeline being selected by accident or by a stale play file | code default |
+| **3** | **Nothing is thinned** — every delivered frame is kept, and the aliasing trap that made a rate filter *worse* is documented in place | A future rate filter re-introducing judder (measured: 31 fps → 15.4 fps) | code + comment |
+| **4** | **Honest timeline** — each frame is encoded at its measured timestamp, never on a fixed grid | Frames shown early/late, the padding defect returning | code |
+| **5** | **Still-hold** — capture pauses across each `expect` shutter | The pointer blinking out of the video (was 0.28 s per checkpoint) | code |
+| **6** | **Fail-closed at record time** — the run dies if the achieved rate is under `minUniqueFps`, if the scratch budget was hit, or if any frame failed to write | A starved or truncated capture being handed over as a finished clip | `record.js`, non-zero exit |
+| **7** | **Retained evidence** — `<name>.capture.json` records rate, gap distribution, encoder arguments and still-holds, every run | "It looked fine" with nothing to check afterwards | `record.js` |
+| **8** | **Mechanical steadiness gate** — stutter ratio ≤ 5% of *moving* frames, excluding the still-holds the manifest declares (capped at 25% of the clip) | A juddering clip reaching the user (the ELMS clip scores 21.2% and now fails) — while not failing the layer-5 still-hold, which repeats a frame on purpose | `verify-video.py`, exit 1 |
+| **9** | **Mechanical provenance gate** — manifest required, pipeline must be ours, and the manifest must match the file (name, resolution, fps) and not contradict itself | A clip from the old recorder, or a manifest that lies about the run | `verify-video.py`, exit 1 |
+| **10** | **Human row + re-review-all** — watch the clip at 100% before delivery; any fix re-runs **every** layer | The half a script cannot judge; a fix that quietly breaks another layer | you |
+
+**What the scripts still cannot decide.** Layer 8 proves no frame froze mid-motion; it does **not**
+prove the picture is sharp — the generalised "detail loss" metric that was tried for that did not
+separate good clips from bad ones and was therefore left out rather than shipped as decoration.
+Layer 9 proves *which recorder* made the clip, never that the clip *shows the right thing*.
+Softness, banding, a wrong scroll position and a mis-timed narration line are all layer-10 work.
+**ตรวจไม่ได้ = ไม่ผ่าน** applies in full: `--no-manifest` silences layer 9, and a deliverable
+checked that way has **not** passed it.
+
 ## What the script can and cannot decide
 
-`scripts/verify-video.py` measures layers **1 and 6** (add `--expect-audio` on a narrated run) — resolution, codec, pixel format,
-faststart, duration, truncation, blank frames, file naming. It is mechanical and it is honest:
+`scripts/verify-video.py` measures layers **1, 1b, 1c and 6** (add `--expect-audio` on a narrated
+run) — resolution, codec, pixel format, steadiness, capture provenance, faststart, duration,
+truncation, blank frames, file naming. It is mechanical and it is honest:
 
-- **Exit 0** = those two layers pass.
+- **Exit 0** = those layers pass.
 - **Exit 1** = at least one file failed; the message names which check.
 - **Exit 2** = the check could not run (no `ffprobe`, missing file). **This is not a pass.** A
   check that could not run has proven nothing — treat it exactly as a failure.
 
-Layers **2, 3, 4, 5, 7** are about *content and destination*. No probe can judge whether a clip
-followed the source, arrived where it claimed, or is now attached to the right place. Those are
-judged by watching the clip against the source list. **The script passing is necessary, never
+Layers **2, 3, 4, 5, 7** are about *content and destination*, and the human half of **1b** is
+about how the clip actually looks. No probe can judge whether a clip followed the source, arrived
+where it claimed, is sharp enough to read, or is now attached to the right place. Those are judged
+by watching the clip against the source list. **The script passing is necessary, never
 sufficient** — never report "verified" on the strength of the script alone.
 
 ## Running it
@@ -42,7 +75,8 @@ SR=$(ls -d ~/.claude/plugins/cache/*/manual-maker/*/skills/screen-record 2>/dev/
 ```
 
 Options: `--min-seconds N` (default 5), `--width` / `--height` (default 1920 × 1080) when the user
-approved a different frame size at intake.
+approved a different frame size at intake, `--no-manifest` **only** for inspecting a clip this
+skill did not record — a deliverable checked that way has not passed layer 1c.
 
 Narrated clips take a second, separate pass — the picture being to spec says nothing about the
 voice:
@@ -72,8 +106,8 @@ first place. **Exit 2 means the check could not run — that is a failure, not a
 Report per item, with the evidence, never as a bare total:
 
 ```
-TC_01  ✅ recorded  1920x1080 · 00:47 · 3.1 MB · 2 stills   layers 1-7 green
-TC_02  ✅ recorded  1920x1080 · 01:12 · 5.4 MB · 3 stills   layers 1-7 green
+TC_01  ✅ recorded  1920x1080 · 00:47 · 3.1 MB · 2 stills · 58.4 fps captured   layers 1-7 green
+TC_02  ✅ recorded  1920x1080 · 01:12 · 5.4 MB · 3 stills · 59.1 fps captured   layers 1-7 green
 TC_03  ⛔ blocked   the "รายงาน" menu does not appear for this role — layer 3
 ```
 

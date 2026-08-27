@@ -1028,7 +1028,7 @@ def main():
             print('FAIL  the muxed file has no audio stream', file=sys.stderr)
             return 1
 
-        os.replace(out, video)     # the deliverable keeps its name; the .webm remains the mute source
+        os.replace(out, video)     # the deliverable keeps its name, now with the narration muxed in
         print()
         print(f'RESULT: narrated  {len(line_files)} lines  in {voice}  →  {video}')
         print(f'        audio: {probe.stdout.strip()}')

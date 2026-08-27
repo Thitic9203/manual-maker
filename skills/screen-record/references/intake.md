@@ -60,7 +60,7 @@ This skill's block inside the shared profile:
     "sources": ["https://…/testcases", "handbook-v2.docx"],
     "naming": "<TC-id>.mp4 ตามเลขในแหล่ง",
     "out_dir": "~/Downloads/recordings",
-    "video": { "width": 1920, "height": 1080, "crf": 20, "cursor": true, "type_delay": 55 },
+    "video": { "width": 1920, "height": 1080, "crf": 18, "cursor": true, "type_delay": 55 },
     "stills": "1 ภาพต่อจุด expect",
     "narration": { "enabled": true, "lang": "th", "gender": "male", "voice": "th-TH-NiwatNeural" },
     "destination": "ไม่อัปโหลด — ส่งไฟล์ในเครื่อง",
@@ -163,7 +163,7 @@ role, and the user retypes nothing); the **password never is**.
 | ข้อ | คำถาม | Default |
 |---|---|---|
 | 11 | **ชื่อไฟล์** ต่อคลิป | ชื่อจากแหล่ง เช่น `TC_01` → `TC_01.mp4` (ASCII, ไม่มีช่องว่าง) |
-| 12 | **ความละเอียด / คุณภาพ** | 1920×1080 · deviceScaleFactor 2 · H.264 CRF 20 preset slow (ดู `video-spec.md`) |
+| 12 | **ความละเอียด / คุณภาพ** | 1920×1080 · deviceScaleFactor 2 · H.264 CRF 18 preset slow (ดู `video-spec.md`) |
 | 13 | **ภาพนิ่งประกอบ** | เก็บ 1 ภาพต่อจุดที่ต้องพิสูจน์ผลลัพธ์ (`expect`) — ภาพนิ่งไม่มีลูกศรเมาส์ |
 | 14 | **ลูกศรเมาส์ + พิมพ์ทีละตัว** | เปิด — คลิปดูเหมือนคนใช้เองแล้วอัดจอเอง (ปิดได้ถ้าต้องการคลิปนิ่ง ๆ) |
 
@@ -186,7 +186,7 @@ role, and the user retypes nothing); the **password never is**.
 | **ที่เก็บไฟล์** | path เต็ม *(สร้างให้ถ้ายังไม่มี)* |
 | อัปโหลดต่อหรือไม่ | … |
 | **เสียงบรรยาย** | ไม่มี / ไทย / อังกฤษ · **ชาย / หญิง** — ถ้ามี ระบุชื่อเสียงที่จะใช้ + **แนบบทบรรยายทุกบรรทัดให้ตรวจ** |
-| คุณภาพวิดีโอ | 1920×1080 · DSF 2 · H.264 CRF 20 · มีลูกศรเมาส์ + พิมพ์ทีละตัว · ไม่มีแถบ/ข้อความใดวาดทับ |
+| คุณภาพวิดีโอ | 1920×1080 · DSF 2 · H.264 CRF 18 · มีลูกศรเมาส์ + พิมพ์ทีละตัว · ไม่มีแถบ/ข้อความใดวาดทับ |
 | เครื่องมือที่ต้องใช้ | ผลจาก `scripts/preflight.sh --check` — พร้อม/จะติดตั้งให้ + ขนาดที่ต้องโหลด |
 
 แล้วถามด้วยข้อความนี้: **"ยืนยันข้อมูลทั้งหมดถูกต้อง และเริ่มอัดได้หรือไม่"**

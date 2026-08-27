@@ -1,6 +1,6 @@
 ---
 name: screen-record
-description: Use when recording a screen video (MP4) of a web system — a walkthrough clip for a manual, a demo of a feature, or video evidence of a test case. Runs a structured intake for environment, URL, account and the source that says what to record (manual file, test-case list, spec), remembers those answers so later runs only reconfirm, summarizes everything for explicit confirmation, then records headlessly with Playwright at 1920×1080 / H.264 CRF 20, captures a still at each expected result, and verifies every file against a 7-layer quality gate. Triggers on "อัดวิดีโอ", "อัดหน้าจอ", "อัดคลิป", "ทำวิดีโอสาธิต", "record a video", "screen recording", "record the flow", "screen-record".
+description: Use when recording a screen video (MP4) of a web system — a walkthrough clip for a manual, a demo of a feature, or video evidence of a test case. Runs a structured intake for environment, URL, account and the source that says what to record (manual file, test-case list, spec), remembers those answers so later runs only reconfirm, summarizes everything for explicit confirmation, then records headlessly at 1920×1080 / H.264 CRF 18, captures a still at each expected result, and verifies every file against a 7-layer quality gate. Triggers on "อัดวิดีโอ", "อัดหน้าจอ", "อัดคลิป", "ทำวิดีโอสาธิต", "record a video", "screen recording", "record the flow", "screen-record".
 ---
 
 # Screen Record
@@ -116,7 +116,7 @@ After the user's "go", run `--install`. It installs into `~/.manual-maker/runtim
 sandbox `manual-maker` uses, so a machine already set up downloads nothing.
 
 `ffmpeg` must be a real system install; without it there is no MP4. If it cannot be installed, that
-is a **blocked** run — say so. Never silently deliver a `.webm` instead.
+is a **blocked** run — say so. Never silently deliver a partial or unverified clip instead.
 
 ### Step 4 — Confirmation Gate (mandatory)
 

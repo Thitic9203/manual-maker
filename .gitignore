@@ -3,3 +3,4 @@
 # Python bytecode from importing the skill scripts directly
 __pycache__/
 *.pyc
+.serena/

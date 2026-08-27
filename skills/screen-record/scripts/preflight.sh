@@ -14,7 +14,8 @@
 #
 # ffmpeg is the one piece that must be a real system install: it is the encoder, and the encode
 # settings are what make a recording match the reference clips. Without it there is no MP4 —
-# only a .webm that most reviewers cannot open. That is a blocked run, never a silent downgrade.
+# no deliverable at all — the captured frames cannot be encoded. That is a blocked run, never a
+# silent downgrade.
 #
 # Safe to run repeatedly: every step is a no-op once satisfied.
 
@@ -103,7 +104,8 @@ else
 fi
 
 # ------------------------------------------------------- 4. ffmpeg (+ ffprobe)
-# ffmpeg encodes webm → mp4 at the spec settings; ffprobe is what verify-video.py measures with.
+# ffmpeg encodes the captured frames → mp4 at the spec settings; ffprobe is what verify-video.py
+# measures with.
 # They ship together, so one check covers both, but both are asserted — a Homebrew install with a
 # broken symlink has been seen to leave ffprobe missing while ffmpeg answers.
 if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then

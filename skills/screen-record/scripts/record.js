@@ -3,7 +3,7 @@
  *
  *   NODE_PATH="$HOME/.manual-maker/runtime/node_modules" node record.js play.json
  *
- * What it produces, per run: <out>/<name>.mp4 (+ .webm source) and one PNG per `expect`
+ * What it produces, per run: <out>/<name>.mp4, <out>/<name>.capture.json and one PNG per `expect`
  * checkpoint. The MP4 is the deliverable; the PNGs back up any wording/label that the video
  * cannot render legibly (quality gate layer 5).
  *
@@ -17,8 +17,8 @@
  *     a non-zero exit. A short clip that stopped before reaching its target must never be
  *     mistaken for a successful recording; the correct outcome is "blocked, with the reason".
  *  3. IT LOOKS LIKE A PERSON RECORDING THEIR OWN SCREEN. Exactly ONE thing is drawn into the
- *     page — a mouse pointer, because a real screen recording has one and Playwright's video
- *     does not. It is not an animation played over the top: it tracks the REAL pointer through
+ *     page — a mouse pointer, because a real screen recording has one and a screencast does
+ *     not. It is not an animation played over the top: it tracks the REAL pointer through
  *     the page's own mousemove/mousedown events, so it can only ever show where the browser
  *     actually clicked. Nothing else is injected: no banner, no URL strip, no watermark, no
  *     step counter. Anything diagnostic goes to the run log, which no viewer ever sees.
@@ -29,6 +29,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
@@ -68,8 +69,27 @@ const BASE = (play.baseUrl || '').replace(/\/$/, '');
 const OUT = path.resolve((play.out || 'recordings').replace(/^~(?=$|[/\\])/, process.env.HOME || ''));
 const VIEW = Object.assign({ width: 1920, height: 1080 }, play.viewport || {});
 const DSF = play.deviceScaleFactor == null ? 2 : play.deviceScaleFactor;
-const CRF = play.crf == null ? 20 : play.crf;
+const CRF = play.crf == null ? 18 : play.crf;
 const PRESET = play.preset || 'slow';
+// The capture pipeline. See the "capture" section below for why none of this goes through
+// Playwright's own `recordVideo` any more.
+//   OUT_FPS   — the frame rate of the delivered file.
+//   JPEG_Q    — screencast frame quality; the ONLY lossy step before the final encode.
+//   MIN_UNIQUE_FPS — fail-closed floor on the rate actually achieved.
+//   MAX_SCRATCH_MB — every frame is kept, so the scratch directory has to be bounded somewhere.
+//
+// There is deliberately NO capture-fps setting, and that is the second bug this rewrite had to
+// remove rather than a simplification. A first cut thinned the stream with `keep the frame only
+// if t - lastKept >= 1/30`. On a page delivering ~31 fps (median gap 22 ms) that dropped every
+// second frame — 22 ms is below the 31 ms minimum, so the keeper waits for the one after —
+// yielding 15.4 fps, measurably WORSE judder than the defect being fixed. Any decimator aliases
+// like that when the source rate is near the target; a phase accumulator does the same. The only
+// rule that cannot alias is to keep every frame the browser sends and let the encoder do the rate
+// conversion, so that is the rule. Bound the disk, never the frame rate.
+const OUT_FPS = play.fps == null ? 25 : play.fps;
+const JPEG_Q = play.jpegQuality == null ? 92 : play.jpegQuality;
+const MIN_UNIQUE_FPS = play.minUniqueFps == null ? OUT_FPS * 0.8 : play.minUniqueFps;
+const MAX_SCRATCH_MB = play.maxScratchMb == null ? 6144 : play.maxScratchMb;
 const SETTLE = play.settle == null ? 900 : play.settle;      // pause after each step
 const STEP_TIMEOUT = play.stepTimeout == null ? 30000 : play.stepTimeout;
 const CURSOR = play.cursor !== false;                        // the drawn pointer (see header note 3)
@@ -135,7 +155,7 @@ async function ctxOf(page, s) {
   }
   // fail(), not die(): every caller runs inside the live step loop, so throwing lets main() finalize
   // and encode the frames captured up to the abort — which are exactly the frames needed to see why
-  // the frame never appeared. process.exit() here left the raw page@*.webm orphaned instead.
+  // the frame never appeared. process.exit() here would throw away the captured frames instead.
   fail(`step "${s.label || s.do}" wants the frame matching "${s.frame}", and no frame on the page `
     + `has that in its URL. Frames present: ${page.frames().map((f) => f.url()).join(', ') || 'none'}`);
 }
@@ -209,6 +229,9 @@ function installCursor() {
 
 // Where the pointer is, kept on this side so it can be restored after a navigation.
 let mouseAt = { x: Math.round(1920 / 2), y: Math.round(1080 / 3) };
+
+// The live capture handle, so checkpoint() can hold the picture while a still is taken.
+let capture = null;
 
 // Travel to an element the way a hand does: a visible glide, then a beat before acting. The real
 // pointer moves, so genuine :hover states fire on the way in — which is also what a viewer expects.
@@ -437,21 +460,173 @@ async function checkpoint(page, s, i, shots) {
     const c = document.getElementById('__sr_cursor');
     if (c) c.style.visibility = v ? '' : 'hidden';
   }, vis).catch(() => {});
-  if (CURSOR) { await setCursor(false); await sleep(150); }
-  await page.screenshot({ path: file, fullPage: !!s.fullPage });
-  if (CURSOR) await setCursor(true);
+  // Hiding the pointer for the shutter used to blink it out of the VIDEO too — a ~750 ms
+  // disappearance of the one element that makes the clip read as a person's screen, once per
+  // checkpoint. The still still needs the pointer gone, so the fix is to hold the picture across
+  // the whole window instead: capture pauses, the last frame stays on screen, and the blink never
+  // reaches the file. Safe because a checkpoint is by definition a settled screen — `expect` has
+  // already gone visible and 600 ms has passed, so there is nothing moving to freeze.
+  if (capture) capture.pause();
+  try {
+    if (CURSOR) { await setCursor(false); await sleep(150); }
+    await page.screenshot({ path: file, fullPage: !!s.fullPage });
+    if (CURSOR) { await setCursor(true); await sleep(80); }
+  } finally {
+    if (capture) capture.resume();
+  }
   shots.push(file);
   console.log(`SHOT: ${file} ${fs.statSync(file).size} bytes`);
 }
 
+// -------------------------------------------------------------------- capture
+/* WHY THIS EXISTS — the flicker that shipped, and the two mechanisms behind it.
+ *
+ * Until v0.35.0 the clip came from Playwright's own `recordVideo`. Two defects are baked into
+ * that path and NEITHER is reachable from its API. Both were measured — on the delivered
+ * ELMS-2.4.1 clip and on a synthetic page — not inferred:
+ *
+ *  1. BITRATE CAP → the picture pumps. playwright-core spawns ffmpeg with a hardcoded
+ *       -c:v vp8 -qmin 0 -qmax 50 -crf 8 -deadline realtime -speed 8 -b:v 1M -threads 1
+ *     — 1 Mbps for 1920x1080. Whenever the page moves, rate control slams the quantiser and the
+ *     WHOLE frame goes soft for a frame or two, then snaps back. Measured on the delivered clip:
+ *     mean edge energy 1733 static vs 1529 moving (-11.8%), worst single frame -37%. A
+ *     sharp/soft/sharp alternation is exactly what a viewer calls "กระพริบ".
+ *
+ *  2. FIXED-RATE PADDING → the motion judders. Its writeFrame does
+ *       frameNumber = floor((t - t0) * 25);  push lastFrame (frameNumber - last.frameNumber)x
+ *     so every gap in delivery is filled by REPEATING the previous frame, quantised onto a 40 ms
+ *     grid. 46% of the delivered clip's frames were duplicates of their predecessor.
+ *
+ * The tempting reading is "this machine cannot capture 1080p fast enough". It is wrong, and it
+ * was tested rather than assumed: driving Page.screencastFrame directly, same machine, same
+ * 1920x1080 viewport, deviceScaleFactor 2, on a HEAVIER page — 59.8 fps, median inter-frame gap
+ * 17 ms. The browser was never the bottleneck; the single-threaded realtime VP8 encoder
+ * downstream of it was. Lowering deviceScaleFactor would therefore have fixed nothing (dsf 1
+ * measured 58.9 fps — inside the noise) while making every still blurrier.
+ *
+ * So this owns the capture: frames arrive over CDP as JPEG, are written to a scratch directory
+ * WITH THEIR REAL TIMESTAMPS, and are encoded once, after the run, with no realtime deadline and
+ * no bitrate ceiling. That deletes an entire lossy generation as well as both defects above:
+ * JPEG → x264, instead of JPEG → VP8@1Mbps → x264.
+ *
+ * Three properties are load-bearing. Do not "simplify" any of them away:
+ *   - ACK FIRST, WRITE AFTER. Chrome sends nothing further until a frame is acked. Acking before
+ *     touching the disk is what holds the browser at full rate however slow the disk is — the
+ *     exact coupling Playwright has, and the reason its capture starves.
+ *   - KEEP EVERY FRAME'S REAL TIME. The encode places each frame at the moment it happened rather
+ *     than on a 40 ms grid, so nothing is shown early or late.
+ *   - NOTHING IS THINNED. Every delivered frame is kept; no frame is invented, duplicated, moved
+ *     or dropped. See the MAX_SCRATCH_MB note above for why a rate filter is not an option.
+ */
+function startCapture(cdp, page) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-frames-'));
+  const frames = [];                     // { file, t } — t is the browser's own timestamp, seconds
+  // Windows where capture was paused for a still, in CAPTURE-CLOCK seconds. They have to be
+  // declared, not just counted: a hold deliberately repeats one frame, and on a page with a
+  // background animation that is indistinguishable from the stall verify-video.py exists to
+  // catch. The verifier excludes exactly these spans and fails if they cover most of the clip.
+  const holds = [];
+  let kept = 0, seen = 0, writeErrors = 0, bytes = 0, paused = false, overBudget = false;
+  let pendingHold = null;
+
+  cdp.on('Page.screencastFrame', (ev) => {
+    // Ack first, unconditionally — see the note above. Nothing below may block this.
+    cdp.send('Page.screencastFrameAck', { sessionId: ev.sessionId }).catch(() => {});
+    seen++;
+    if (paused || overBudget) return;    // a still is being taken; the video holds the last frame
+    const t = (ev.metadata && ev.metadata.timestamp) || 0;
+    const buf = Buffer.from(ev.data, 'base64');
+    if (bytes + buf.length > MAX_SCRATCH_MB * 1024 * 1024) {
+      // Stop growing rather than fill the disk — and remember it, so the run cannot report a
+      // truncated capture as a complete one.
+      overBudget = true;
+      return;
+    }
+    const file = path.join(dir, `f${String(kept + 1).padStart(6, '0')}.jpg`);
+    try { fs.writeFileSync(file, buf); }
+    catch (e) { writeErrors++; return; }
+    kept++; bytes += buf.length;
+    frames.push({ file, t });
+    if (pendingHold) { pendingHold.to = t; holds.push(pendingHold); pendingHold = null; }
+  });
+
+  const opts = {
+    format: 'jpeg', quality: JPEG_Q, everyNthFrame: 1,
+    maxWidth: VIEW.width, maxHeight: VIEW.height,
+  };
+  const start = () => cdp.send('Page.startScreencast', opts).catch(() => {});
+  // A cross-document navigation can tear the screencast down. Re-arming on every main-frame
+  // navigation is cheap and idempotent; missing one would silently lose a whole page of the flow.
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) start(); });
+
+  return {
+    dir, frames, holds,
+    started: start(),
+    // The span runs from the last frame that made it in to the first one after the shutter — the
+    // stretch the encoder will fill by repeating that last frame.
+    pause() {
+      paused = true;
+      pendingHold = { from: frames.length ? frames[frames.length - 1].t : 0 };
+    },
+    resume() { paused = false; },
+    async stop() { await cdp.send('Page.stopScreencast').catch(() => {}); },
+    stats() {
+      const t0 = frames.length ? frames[0].t : 0;
+      const span = frames.length > 1 ? frames[frames.length - 1].t - t0 : 0;
+      const gaps = frames.slice(1).map((f, i) => f.t - frames[i].t).sort((a, b) => a - b);
+      const at = (p) => (gaps.length ? gaps[Math.min(gaps.length - 1, Math.floor(gaps.length * p))] : 0);
+      return {
+        framesKept: frames.length, framesSeen: seen, writeErrors,
+        scratchMb: +(bytes / 1048576).toFixed(1), overBudget,
+        spanSeconds: +span.toFixed(3),
+        uniqueFps: span > 0 ? +(frames.length / span).toFixed(2) : 0,
+        medianGapMs: +(at(0.5) * 1000).toFixed(1),
+        p95GapMs: +(at(0.95) * 1000).toFixed(1),
+        maxGapMs: +(at(1) * 1000).toFixed(1),
+        holds: holds.length,
+        // Seconds from the first captured frame, i.e. straight onto the video's own timeline.
+        holdSpans: holds
+          .filter((h) => h.to != null && h.to > h.from)
+          .map((h) => ({ from: +(h.from - t0).toFixed(3), to: +(h.to - t0).toFixed(3) })),
+      };
+    },
+    cleanup() { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {} },
+  };
+}
+
 // ------------------------------------------------------------------- encoding
-function encode(webm, mp4) {
-  // CRF 20 + preset slow = visually near-lossless at a size that still uploads; yuv420p and
-  // +faststart keep it playable in browsers, Jira, Drive and QuickTime alike. Changing these
-  // changes what "same as the reference recordings" means — see references/video-spec.md.
-  execFileSync('ffmpeg', ['-y', '-i', webm,
-    '-c:v', 'libx264', '-crf', String(CRF), '-preset', PRESET,
-    '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4], { stdio: 'ignore' });
+// One encode, from the captured JPEGs straight to H.264. The concat demuxer carries each frame's
+// MEASURED duration, so `-fps_mode cfr` lays them onto the output grid at the times they actually
+// happened. CRF 18 + preset slow is visually lossless on UI content; yuv420p and +faststart keep
+// it playable in browsers, Jira, Drive and QuickTime alike. Changing these changes what "same as
+// the reference recordings" means — see references/video-spec.md.
+//
+// The range conversion is not decoration. Screencast frames are JPEG, which is FULL-range, so a
+// plain `-pix_fmt yuv420p` still comes out tagged `yuvj420p` — measured, and it fails
+// verify-video.py's layer-1 pix_fmt check as well as rendering with crushed blacks in players
+// that ignore the tag. `scale=in_range=full:out_range=limited` CONVERTS the levels (rather than
+// relabelling them, which would shift every tone) and `-color_range tv` records what was done.
+const ENCODER_ARGS = (list, mp4) => ['-y', '-f', 'concat', '-safe', '0', '-i', list,
+  '-fps_mode', 'cfr', '-r', String(OUT_FPS),
+  '-vf', 'scale=in_range=full:out_range=limited',
+  '-c:v', 'libx264', '-crf', String(CRF), '-preset', PRESET,
+  '-pix_fmt', 'yuv420p', '-color_range', 'tv',
+  '-movflags', '+faststart', mp4];
+
+function encode(cap, mp4) {
+  const fr = cap.frames;
+  if (fr.length < 2) die('capture produced no frames — nothing to encode. The screencast never '
+    + 'started; check that the browser stayed open and that CDP is reachable.');
+  const list = path.join(cap.dir, 'list.txt');
+  const out = [];
+  for (let i = 0; i < fr.length; i++) {
+    const d = i + 1 < fr.length ? fr[i + 1].t - fr[i].t : 1 / OUT_FPS;
+    out.push(`file '${fr[i].file}'`);
+    out.push(`duration ${Math.max(0.001, d).toFixed(6)}`);
+  }
+  out.push(`file '${fr[fr.length - 1].file}'`);   // concat needs the final entry repeated
+  fs.writeFileSync(list, out.join('\n') + '\n');
+  execFileSync('ffmpeg', ENCODER_ARGS(list, mp4), { stdio: 'ignore' });
 }
 
 // ----------------------------------------------------------------------- main
@@ -476,13 +651,17 @@ function encode(webm, mp4) {
       console.log('LOGIN: none (public flow)');
     }
 
+    // No `recordVideo` — the clip is captured by startCapture() instead. See the capture section
+    // for the two measured defects that choice removes.
     const ctx = await browser.newContext({
       viewport: VIEW,
       deviceScaleFactor: DSF,
       ...(state ? { storageState: state } : {}),
-      recordVideo: { dir: OUT, size: { width: VIEW.width, height: VIEW.height } },
     });
     const page = await ctx.newPage();
+    const cdp = await ctx.newCDPSession(page);
+    capture = startCapture(cdp, page);
+    await capture.started;
     recStart = Date.now();          // the video starts here, so narration offsets are measured from here
     if (CURSOR) {
       mouseAt = { x: Math.round(VIEW.width / 2), y: Math.round(VIEW.height / 3) };
@@ -502,21 +681,56 @@ function encode(webm, mp4) {
       failed = e;                                          // still finalize the video for diagnosis
     }
 
-    const video = page.video();
-    await page.close();                                    // finalizes the recording
+    await capture.stop();
+    await page.close();
     await ctx.close();
-    const src = await video.path();
-    const webm = path.join(OUT, `${NAME}.webm`);
-    fs.renameSync(src, webm);
+
     const mp4 = path.join(OUT, `${NAME}.mp4`);
+    const stats = capture.stats();
     try {
-      encode(webm, mp4);
+      encode(capture, mp4);
       console.log(`MP4: ${mp4} ${fs.statSync(mp4).size} bytes`);
     } catch (e) {
-      die(`ffmpeg failed — the .webm is at ${webm}. Install ffmpeg (preflight.sh --install) and re-encode.`);
+      capture.cleanup();
+      die('ffmpeg failed to encode the captured frames. Install ffmpeg (preflight.sh --install) '
+        + `and re-run. Underlying error: ${e && e.message ? e.message : e}`);
     }
-    console.log(`WEBM: ${webm} ${fs.statSync(webm).size} bytes`);
+
+    // The capture manifest — retained evidence, the same role `annotations.json` plays for the
+    // manual. It records what the pipeline ACTUALLY did (rate, gaps, encoder arguments), so
+    // verify-video.py can check the delivered file against it instead of taking the run's word.
+    // A missing manifest is itself a failure at the gate: ตรวจไม่ได้ = ไม่ผ่าน.
+    const capFile = path.join(OUT, `${NAME}.capture.json`);
+    fs.writeFileSync(capFile, JSON.stringify({
+      name: NAME, video: path.basename(mp4),
+      viewport: VIEW, deviceScaleFactor: DSF,
+      outFps: OUT_FPS, jpegQuality: JPEG_Q, maxScratchMb: MAX_SCRATCH_MB,
+      crf: CRF, preset: PRESET,
+      pipeline: 'cdp-screencast->x264',   // never 'playwright-recordVideo' — see the capture note
+      encoderArgs: ENCODER_ARGS('<list>', path.basename(mp4)).join(' '),
+      minUniqueFps: MIN_UNIQUE_FPS,
+      ...stats,
+    }, null, 2));
+    console.log(`CAPTURE: ${capFile} — ${stats.framesKept} frames, ${stats.uniqueFps} unique fps, `
+      + `median gap ${stats.medianGapMs} ms, p95 ${stats.p95GapMs} ms, ${stats.holds} still-holds`);
     console.log(`SHOTS: ${shots.length}`);
+
+    // Fail closed on a starved capture. A clip encoded from fewer real frames than it claims to
+    // show is the judder defect coming back by another route, and it must never be mistaken for a
+    // good recording. The file is left on disk so the failure can be diagnosed, not re-run blind.
+    if (stats.overBudget) {
+      capture.cleanup();
+      die(`capture hit the ${MAX_SCRATCH_MB} MB scratch budget and stopped early — the clip at `
+        + `${mp4} is cut short and must not be shipped. Record a shorter flow, or raise `
+        + '`maxScratchMb` in the play file if the disk genuinely has the room.');
+    }
+    if (stats.uniqueFps < MIN_UNIQUE_FPS) {
+      capture.cleanup();
+      die(`capture starved: ${stats.uniqueFps} unique fps against a ${MIN_UNIQUE_FPS} floor `
+        + `(p95 gap ${stats.p95GapMs} ms, max ${stats.maxGapMs} ms). The clip at ${mp4} would `
+        + 'judder. Do not ship it. Close other heavy work and re-run, or lower `fps` in the play '
+        + 'file to a rate the machine can actually hold — never raise `minUniqueFps` to go green.');
+    }
     if (narration.length) {
       const nfile = path.join(OUT, `${NAME}.narration.json`);
       // Carry the WHOLE narration config, not a subset. Dropping `gender` here is what made every
@@ -547,5 +761,6 @@ function encode(webm, mp4) {
     console.log('RESULT: recorded');
   } finally {
     await browser.close();
+    if (capture) capture.cleanup();      // the scratch frames are large; never leave them behind
   }
 })().catch((e) => { console.error('FATAL', e && e.message ? e.message : e); process.exit(1); });
