@@ -124,7 +124,12 @@ def motion_series(path):
              '-f', 'null', '-'])
     if not r.stderr:
         return None
-    vals = [float(v) for v in re.findall(r'lavfi\.signalstats\.YAVG=([0-9.]+)', r.stderr)]
+    # ffmpeg prints a very small YAVG in scientific notation (`1.73611e-05` — one changed
+    # pixel out of 320x180). A `[0-9.]+` class stops at the `e`, so that value parses as
+    # **1.736** — a hundred thousand times too big, above the 0.35 motion threshold. Every
+    # static frame then reads as "moving", and the identical frames beside it as frozen
+    # repeats, so a clip of still pages scores 60-85% stutter with nothing wrong in it.
+    vals = [float(v) for v in re.findall(r'lavfi\.signalstats\.YAVG=([0-9.]+(?:[eE][+-]?[0-9]+)?)', r.stderr)]
     return vals or None
 
 
