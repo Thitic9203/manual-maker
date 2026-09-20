@@ -1,0 +1,16 @@
+# Parallel Steps 4–6 + per-section review (v0.17.0+)
+
+Steps 4–6 fan out: **2–3 `manual-section-writer` agents** (`agents/*.md`) each own whole **หัวข้อย่อย** — capture → annotate → draft — plus **one** `manual-section-reviewer` that reviews each หัวข้อย่อย the moment it lands. Contract: `references/parallel.md`. Rationale and trade-offs: `RISK_REGISTER.md` MM-004.
+
+**Partition by หัวข้อย่อย, never by phase.** The tempting split ("one agent screenshots everything, another writes everything") is wrong: **"เลขในวงแดง = เลขขั้นตอน 1:1" is an invariant _inside_ a หัวข้อย่อย**, so splitting capture from drafting forces two agents to renegotiate step numbers across a boundary. Don't "optimize" it back.
+
+**No collisions come from ownership, not etiquette.** A writer may write only `manual-assets/<slug>/<section>-*.png` and `manual-drafts/<slug>/<section>.md`; section numbers are assigned by the main thread **before** dispatch; the `.docx` is assembled only in the main thread; the reviewer is **read-only** (it reports, the owning writer fixes — a reviewer that edits collides with a live writer). Login happens **once** in the main thread and writers get a read-only `storageState`: three concurrent logins risk account lockout and spread the credential further than needed.
+
+**Subagents cannot talk to the user — that is the whole design constraint.** Writers return `BLOCKED`; the reviewer splits findings into `FIX` (the confirmed table or locked-term list already dictates the one correct answer) and `ASK` (**everything else, and everything it is unsure about**). Only the main thread asks, in chat. A หัวข้อย่อย with an open `ASK` is not done and never reaches the file. **One** reviewer, always — several would judge terminology and tone inconsistently, which is precisely the defect they exist to catch.
+
+**`doc-coauthoring` stays in the main thread**, called once for the document-level voice/structure contract that all writers draft against. Calling it per-writer yields three different styles.
+
+**Per-section review is a pre-check, not the gate.** It covers layers 1–4 *at section level* only. Font fallback, คำพราก, TOC, cross-chapter numbering, and all of layer 5 are created by the conversion and provable only on the exported file — so **Step 8 is unchanged**. "Every section passed its review" is not evidence for any layer in `review.md`.
+
+**The ~10-minute progress table rides `PostToolUse`, because Claude Code has no time-based hook.** `hooks/progress-tick.sh` (matcher `Task|Bash`) throttles on wall clock and is inert unless `~/.manual-maker/state/run.active` exists — the skill creates that marker at the Step 2 gate and deletes it at Step 9. Two things checked against the docs/machine, not assumed: **`SubagentStop` supports only `decision`/`reason`, not `hookSpecificOutput.additionalContext`**, so it cannot inject a message and is not a substitute; and `read_epoch` needs its `[ -f "$1" ]` guard because `< "$1"` on a missing file is reported by the shell *before* a trailing `2>/dev/null` applies — without it, every run's first tick printed a redirect error on stderr. Subagent tool calls fire hooks too, so the message itself tells subagents to ignore it. Consequence to keep in mind: **no tool call → no tick**, so reporting on every section status change stays the primary mechanism; the hook is only a silence net.
+

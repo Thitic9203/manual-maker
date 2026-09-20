@@ -65,97 +65,19 @@ Runtime flow: `Intake (one question at a time) → Confirmation gate → Ingest 
 
 ## Preflight — the skill installs its own tooling (v0.15.0+)
 
-`skills/manual-maker/scripts/preflight.sh` exists because **the user does not know a capture run needs anything.** It runs `--check` during intake (read-only; its table becomes the *เครื่องมือที่ต้องใช้* row of the Step 2 summary, with download sizes) and `--install` immediately after the user's existing "go" — deliberately **no second gate**, since the confirmation gate already covers it. Skipped entirely when screenshots = no, so a text-only manual downloads nothing.
-
-Everything lands in the skill-owned sandbox **`~/.manual-maker/runtime/`** (sibling of `profiles/`), never the user's projects and never global npm. The script is idempotent — re-running on a satisfied machine is a no-op — and continues past failures rather than `set -e` aborting, so one broken tool still yields a full report.
-
-**Both scripts must be invoked through the path resolver in `SKILL.md` (*Running this skill's scripts*) — a bare `scripts/preflight.sh` silently resolves into the user's project.** This is the one failure that actually bit a live run (ELMS, 2026-07-19): the skill's paths were written repo-relative, the run's cwd was the user's project, `scripts/preflight.sh` wasn't there, and the step got hand-improvised — while a correct, executable `preflight.sh` sat in the install the whole time. Note the trap for anyone re-auditing this: `ls scripts/` at the repo root shows only `bump-version.sh`, because the skill's scripts live at **`skills/manual-maker/scripts/`**; the file being "missing" is a path artifact, not a gap. Neither obvious shortcut works, and both were measured, not assumed: **`CLAUDE_PLUGIN_ROOT` is unset inside Bash tool calls** (only `hooks/hooks.json` gets it substituted), and the plugin cache path is **version-stamped** (`~/.claude/plugins/cache/manual-maker-dev/manual-maker/<version>/…`), so it cannot be hardcoded either — hence `ls -d … | sort -V | tail -1` with a `~/.claude/skills/manual-maker` fallback for the personal-skill install. The resolver must be inlined into the **same** Bash call as the script, since shell state does not persist between tool calls.
-
-Two traps it closes, both **measured on a real machine, not assumed** — don't "simplify" them away:
-
-- **`npm i -g playwright` does not work.** Node won't resolve global packages from an arbitrary cwd, so `require('playwright')` throws even when the package is installed. Hence the sandbox + `NODE_PATH="$HOME/.manual-maker/runtime/node_modules" node capture.js`. Every capture invocation must carry that `NODE_PATH`.
-- **A populated `~/Library/Caches/ms-playwright/` is not proof Chromium works.** Those builds are Playwright-version-specific; the probe machine had five cached builds *and* an unusable `require`. The check asks Playwright for its own `chromium.executablePath()` and tests that path.
-
-Pillow is pinned to **`/usr/bin/python3`** (Homebrew's `python3` usually lacks PIL) — same constraint as the annotation step in `screenshots.md`. Report rows are pipe-delimited, not column-padded: `printf` pads by byte count and Thai + emoji make byte width ≠ display width.
+รายละเอียดทั้งหมดอยู่ใน [`docs/PREFLIGHT.md`](docs/PREFLIGHT.md) — การติดตั้ง tooling ของสกิล อ่านไฟล์นั้นก่อนแตะเรื่องนี้ทุกครั้ง
 
 ## The delivery gate — รีวิว 5 ชั้น (v0.16.0+)
 
-`references/review.md` is the hard stop before a manual reaches the user, and it replaced a flat self-assessed checklist that nothing enforced. Five layers, each needing **evidence**, each judged against the Step 2 confirmation table: **(1)** ตรงตามที่ยืนยัน · **(2)** ทุกอย่างมีที่มา · **(3)** ภาพ · **(4)** ตัวหนังสือและตัวเลข · **(5)** รูปเล่ม. Delivery requires **5/5**.
-
-Rules that are the whole point — do not soften them: **ตรวจไม่ได้ = ไม่ผ่าน** (there is no "น่าจะผ่าน"); one FAIL means fix and **re-review all five layers**, because fixing one breaks another (adding a figure shifts step numbers); review the **exported file**, never the draft in conversation; never deliver with caveats ("ส่งก่อน เดี๋ยวแก้").
-
-**Order matters and changed in 0.16.0: build (Step 7) → review (Step 8) → publish (Step 9).** Review used to run before export, which is backwards — the defects it most needs to catch (font fallback, dropped images, stale TOC, คำพราก) are *created* by the conversion. Confluence publishing is outward-facing, so it must never precede a passing verdict.
-
-`scripts/verify-doc.py` settles the mechanical half (placeholders, `w:cs`, `w:lang w:bidi`, split locked terms, invisible chars, image rels, cover/header/footer/`PAGE`/TOC, heading-number continuity, credential leaks; exit 1 blocks delivery). **Passing it is not passing the review** — it cannot judge whether content matches the real system, whether a circle points at the right button, or whether the layout matches the ต้นแบบ.
-
-**Layer 3's "เลขในวงตรงขั้นตอน 1:1" is enforced by `scripts/verify-annotations.py` (v0.20.0+) because prose did not enforce it.** A delivered manual shipped with circle ② on the control for step 3, ④ on an *alternative* path that was not a numbered step at all, and ⑤ drawn on two different figures — the circles had been placed against an earlier draft of the step list and were never re-derived when the steps were rewritten. Nothing caught it: `review.md` stated the 1:1 rule as a sentence for a human to eyeball, and `verify-doc.py` never looks at figures. The fix has two halves, and **both are required** — annotation now emits **`annotations.json`** (shape in `screenshots.md`) recording every circle's number, file, centre, and label as it is drawn, and the script checks that manifest **against the actual pixels**, so a manifest that lies about what was drawn fails. Writers each own `<section>.annotations.json` (never a shared file — that would collide exactly like a shared draft); the script takes a directory and merges, erroring if two writers claim one section.
-
-**The semantic half was closed in 0.20.1 by pairing `label` with `step_text`, and it rests on a convention the manual already had.** `template.md` requires a step to name its control in quotes (`คลิกปุ่ม “เข้าห้องเรียน”`), so the script extracts the quoted control and requires the circle's `label` to name the same one, comparing after stripping leading role words (ปุ่ม/เมนู/แท็บ/ช่อง/ไอคอน…) so `"ปุ่มเข้าห้องเรียน"` matches `“เข้าห้องเรียน”`. **Steps that quote no control are skipped, not failed** — measured on real ELMS content, 18 of 22 steps quote a control and 4 genuinely do not (`เปิดเบราว์เซอร์ แล้วเข้าที่ https://…`, `คลิกคาบเรียนที่ต้องการในตาราง`), and a check that cannot be satisfied is worse than none.
-
-**The one subtlety worth not re-deriving: the flagship defect lives on a step that quotes nothing, so a literal "skip when unquoted" rule would have skipped the very case the check exists for.** Circle ② carried step 2's text (`คลิกคาบเรียนที่ต้องการในตาราง` — no quoted control) but was labelled `ปุ่มเข้าห้องเรียน`, which step **3** quotes. The rule is therefore **fail on positive evidence, not on absence**: an unquoted step fails only when its label matches a control quoted by a *different step in the same section*, which is exactly the signature of circles placed against an earlier draft and never re-derived. That cross-step match needs similarity ≥ 0.60 of the label's length — without the ratio guard, a legitimate label like `คาบเรียนในตารางสอน` would collide with step 1's `“ตารางสอน”` (measured similarity 0.44, correctly below threshold).
-
-**Do not oversell the script, and do not let anyone "simplify" its detector.** After 0.20.1 it proves numbering, placement, *and* that the circle↔step pairing is textually consistent. **What it still cannot know is whether the control the step names is the right one to click at all** — a step reading `คลิกปุ่ม “ยกเลิก”` where it should read `“บันทึก”`, with the circle honestly on ยกเลิก, passes every check because everything is internally consistent; the defect is in the *step*, which is layer 2's problem. That plus the ~1-in-5 skipped steps is why `review.md` layer 3 still demands a human table and why ตรวจไม่ได้ = ไม่ผ่าน still applies. The detector requires a **near-solid disc of the expected size** (four conditions: bbox ~2r square, aspect 0.80–1.25, fill 0.58–0.86, area within the disc band) rather than "connected red pixels", because the app's own UI is full of red — measured on the 19 real ELMS screenshots, callouts are bbox 37×37 / area 931–1001 / fill 0.68–0.73 / aspect 1.00, while red UI chrome came in at 59×20 (aspect 2.95), 38×20 (fill 0.726 — so **fill alone does not discriminate**), and a roundish 26×24 delete icon at area 325. Every decoy fails at least two conditions; a single-condition filter would not have separated them. Geometry was stable across colour tolerance 20→80 (bbox unchanged, centroid drift < 0.2 px), which is why the 25 px match radius is generous rather than tuned.
-
-**A red disc must never cover text — enforced by a 5-stage defense, added in 0.23.0 because nothing checked it.** A delivered manual can pass every 0.22.0 check with circle ② drawn squarely on a button's own label: numbering, manifest-vs-pixels, and label↔step_text are all internally consistent, yet the disc hides the words the reader needs. The five stages split across the two owners the skill already has: stages 1–3 are what the writer does at annotate time (`screenshots.md` "วงห้ามทับตัวอักษร") — **nudge** the disc to the nearest flat spot rather than blind-centering it, a **fail-closed re-check** that aborts if no flat spot exists near the target, and **retaining the pristine pre-annotation PNG in `manual-assets/<slug>/clean/`**; stages 4–5 are the gate — `verify-annotations.py` check 10 and the `review.md` layer-3 human row. The enforceable half is check 10, and two things about it are load-bearing, not decoration. **First, it needs the clean copy and cannot be waived.** Once the disc is painted, the annotated PNG no longer knows what was underneath — overlap is provable *only* against the pre-annotation image, so a missing `clean/` folder is itself a FAIL (ตรวจไม่ได้ = ไม่ผ่าน), the same fail-closed stance as the name scrub, not "probably fine". **Second, the metric is "footprint must be a flat single colour", not "no dark pixels".** For each drawn disc it samples the clean image over the opaque marker radius plus a guard (`radius+ring+guard` = 18+3+8 = 29 px), takes the median as the background, and counts pixels beyond `ink-delta` as ink; `ink > ink-max` fails. That deliberately rejects a disc straddling a **border or icon** too, not only glyphs — a disc half-on a button edge is ambiguous and ugly — while a disc sitting entirely on a **solid button fill with no label under it passes**, which is the case that keeps the rule from being over-strict. **Do not present the thresholds as production-measured.** Unlike `find_circles`' bands (measured on the 19 real ELMS shots), `ring 3 / guard 8 / ink-delta 55 / ink-max 6` were set on a **synthetic PIL fixture** and proven only there (RED: disc on a "บันทึก" label → 567/2630 non-flat px, FAIL; GREEN: disc on a flat margin → pass; plus a missing-`clean/` → FAIL). They are all CLI flags (`--ring/--guard/--ink-delta/--ink-max/--clean`) precisely because the first real run may need a nudge — say so rather than implying they were tuned on real screenshots. What check 10 still cannot know is whether the disc points at the **right** control — that stays layer 2 / human, exactly like the "`คลิกปุ่ม “ยกเลิก”` where it should read `“บันทึก”`" case; flat-footprint proves only that *some* control's label isn't buried under the marker. The placement algorithm (stages 1–2) lives as prose + a reference snippet in `screenshots.md`, not a shipped script, because the repo has no `capture.js` — the drafting agent writes the PIL at runtime, and the snippet shares check 10's exact flatness metric so annotator and verifier never disagree on what "flat" means.
-
-Two things here were measured, not assumed: the **คำพราก check is scoped to the locked terms**, because a naive "Thai char + space + Thai char" rule flags legitimate phrase spacing (Thai separates phrases with spaces, not words) and was almost all false positives on a fixture; and **คำพราก is a build-time bug, not a review-time one** — its causes are a space/break inside a word and a Thai run missing `w:lang w:bidi`, so `docx-build.md` requires both `w:cs` and the language tag on every Thai run. There is no local docx renderer to fall back on: Word's AppleScript `save as` is rejected (`-1708`) and LibreOffice is not installed, which is *why* the check is source-level rather than visual.
+รายละเอียดทั้งหมดอยู่ใน [`docs/DELIVERY_GATE.md`](docs/DELIVERY_GATE.md) — รีวิว 5 ชั้นก่อนส่งมอบ อ่านไฟล์นั้นก่อนแตะเรื่องนี้ทุกครั้ง
 
 ## The feedback 5-layer guards (v0.25.0+) — the team's five defects can't recur
 
-`references/feedback-guards.md` exists because a real feedback round (Google Doc "Feedback update
-Skill") named **five** docx defects, and the team's standing rule is that none may recur — "ยังไม่ครบ
-5 ชั้นทุกข้อ = งานยังไม่เสร็จ". Each defect is guarded by the **same 5-layer shape** the repo already
-uses for วงห้ามทับตัวอักษร and white-only diagrams: authoring rule → writer self-check → retained
-evidence → **mechanical gate (`verify-doc.py`, exit 1)** → human review row, re-review-all-on-fail.
-
-The five, and their mechanical layer (all in `scripts/verify-doc.py`, all proven on **synthetic
-fixtures**, not real deliverables — say so):
-
-- **Figure captions (item 1a)** — check **11**, gated by `--captions required`: FAIL when inline images
-  (`<wp:inline`) outnumber figure-caption paragraphs (text starts `รูปที่/ภาพที่/แผนภาพที่/Figure`, or a
-  `SEQ Figure` field).
-- **Table captions (item 1b)** — check **14**, same flag: every *content* table needs `ตารางที่ N`. The
-  **step-layout table is excluded** by its header signature (`ภาพประกอบ` together with `ขั้นตอน`/`ลำดับ`),
-  so the check never fires on a step table — the one measured false-positive trap here.
-- **Thai Distribute (item 3)** — check **12**, gated by `--thai-distribute required`: a *floor* — FAIL only
-  when ≥3 long Thai paragraphs exist and `w:val="thaiDistribute"` is absent from **document AND styles**.
-  A compliant build always carries it, so it never fires on correct output; it cannot prove every
-  paragraph has it (that stays authoring + human).
-- **Auto-numbered headings (item 2)** — check **13**, unconditional: FAILs on **double-numbering** — a
-  heading with numbering **and** a hand-typed outline number. Numbering is read from the paragraph
-  `<w:numPr>` **or the Heading style** (styles.xml), because `docx-build.md` §3.2 recommends binding numPr
-  on the style; without the style read, the likeliest real double-number (style auto-number + typed "1.1")
-  slips through. Absence of numbering only SKIPs — a base template may dictate its own scheme (ต้นแบบชนะ).
-- **Step image in its row (item 4)** — check **15**, unconditional: FAILs only in the total-miss case — a
-  doc that has step tables and inline images but **zero images inside any `<w:tc>`** (images dumped outside
-  the rows). It cannot know an image is in the *correct* step's row (standalone UI-orientation figures are
-  legitimate), so "รูปอยู่แถวที่ถูก" stays writer (owns the whole หัวข้อย่อย) + human, exactly like
-  "วงชี้ปุ่มที่ถูกไหม".
-
-**What stays human — do not oversell the scripts.** Checks 11/14 prove captions are *present*, never that
-the caption text/number is *right*; 15 proves images are *in cells*, never in the *right* cell; `--terms`
-(check 4) catches a locked term split mid-word (คำพราก), never a wrong-synonym choice. Those, plus glossary
-correctness, are `review.md` layer-3/4 human rows, and **ตรวจไม่ได้ = ไม่ผ่าน** applies in full. The
-locked-term list itself is `references/glossary-ndlp.md` — the NDLP team's **live sheet** is source of
-truth (pull it each run; the dated snapshot is offline-only), and a suspected misspelling in it is
-**flagged for the user, never auto-fixed** (`template.md` §Terminology) — the same ห้ามมโน stance, and how
-the `เรียนรู้` vs `เรียนรู` spelling was resolved (user-confirmed, 2026-08-05).
+รายละเอียดทั้งหมดอยู่ใน [`docs/FEEDBACK_GUARDS.md`](docs/FEEDBACK_GUARDS.md) — feedback 5-layer guards อ่านไฟล์นั้นก่อนแตะเรื่องนี้ทุกครั้ง
 
 ## Parallel Steps 4–6 + per-section review (v0.17.0+)
 
-Steps 4–6 fan out: **2–3 `manual-section-writer` agents** (`agents/*.md`) each own whole **หัวข้อย่อย** — capture → annotate → draft — plus **one** `manual-section-reviewer` that reviews each หัวข้อย่อย the moment it lands. Contract: `references/parallel.md`. Rationale and trade-offs: `RISK_REGISTER.md` MM-004.
-
-**Partition by หัวข้อย่อย, never by phase.** The tempting split ("one agent screenshots everything, another writes everything") is wrong: **"เลขในวงแดง = เลขขั้นตอน 1:1" is an invariant _inside_ a หัวข้อย่อย**, so splitting capture from drafting forces two agents to renegotiate step numbers across a boundary. Don't "optimize" it back.
-
-**No collisions come from ownership, not etiquette.** A writer may write only `manual-assets/<slug>/<section>-*.png` and `manual-drafts/<slug>/<section>.md`; section numbers are assigned by the main thread **before** dispatch; the `.docx` is assembled only in the main thread; the reviewer is **read-only** (it reports, the owning writer fixes — a reviewer that edits collides with a live writer). Login happens **once** in the main thread and writers get a read-only `storageState`: three concurrent logins risk account lockout and spread the credential further than needed.
-
-**Subagents cannot talk to the user — that is the whole design constraint.** Writers return `BLOCKED`; the reviewer splits findings into `FIX` (the confirmed table or locked-term list already dictates the one correct answer) and `ASK` (**everything else, and everything it is unsure about**). Only the main thread asks, in chat. A หัวข้อย่อย with an open `ASK` is not done and never reaches the file. **One** reviewer, always — several would judge terminology and tone inconsistently, which is precisely the defect they exist to catch.
-
-**`doc-coauthoring` stays in the main thread**, called once for the document-level voice/structure contract that all writers draft against. Calling it per-writer yields three different styles.
-
-**Per-section review is a pre-check, not the gate.** It covers layers 1–4 *at section level* only. Font fallback, คำพราก, TOC, cross-chapter numbering, and all of layer 5 are created by the conversion and provable only on the exported file — so **Step 8 is unchanged**. "Every section passed its review" is not evidence for any layer in `review.md`.
-
-**The ~10-minute progress table rides `PostToolUse`, because Claude Code has no time-based hook.** `hooks/progress-tick.sh` (matcher `Task|Bash`) throttles on wall clock and is inert unless `~/.manual-maker/state/run.active` exists — the skill creates that marker at the Step 2 gate and deletes it at Step 9. Two things checked against the docs/machine, not assumed: **`SubagentStop` supports only `decision`/`reason`, not `hookSpecificOutput.additionalContext`**, so it cannot inject a message and is not a substitute; and `read_epoch` needs its `[ -f "$1" ]` guard because `< "$1"` on a missing file is reported by the shell *before* a trailing `2>/dev/null` applies — without it, every run's first tick printed a redirect error on stderr. Subagent tool calls fire hooks too, so the message itself tells subagents to ignore it. Consequence to keep in mind: **no tool call → no tick**, so reporting on every section status change stays the primary mechanism; the hook is only a silence net.
+รายละเอียดทั้งหมดอยู่ใน [`docs/PARALLEL_STEPS.md`](docs/PARALLEL_STEPS.md) — การรัน Step 4–6 ขนาน + per-section review อ่านไฟล์นั้นก่อนแตะเรื่องนี้ทุกครั้ง
 
 ## Document quality standards (load-bearing — the manual is judged on these)
 
@@ -173,173 +95,15 @@ These live in `template.md` and are enforced in the `SKILL.md` draft + review st
 
 ## Second skill — `confluence-docs` (v0.22.0+, this repo hosts two skills now)
 
-The plugin is no longer single-skill. `skills/confluence-docs/` is a **sibling** of `manual-maker`,
-auto-loaded the same way (Claude Code discovers every `skills/*/SKILL.md`) — **no manifest change was
-needed to register it**, only a version bump so auto-update ships it. Its job is the inverse shape of
-manual-maker: instead of producing one screenshot-heavy end-user handbook, it **fills a whole Confluence
-doc-space's mock/placeholder pages with the real system's data**, one doc-type per run. Target space/page
-are inputs; the default is NDLP's `PLUT` space (cloudId `dfc2cd04-b24b-48cf-81a1-4a3e0ed7569f`, scaffold
-root page `3693641732`, four subsystems OLS/ELMS/CBMS/EvMS).
-
-It reuses the parent's whole ethos — **ห้ามมโน · confirm-before-start · every value sourced · in-scope ·
-5-layer review before publish** — and the same wrapper-delegate rule (prose drafting → `doc-coauthoring`,
-no third-party skill content copied in). Design decisions that were **chosen, not defaulted**, and should
-not be "simplified" away:
-
-- **Sourcing is a per-doc-type map, and it blocks.** `references/source-map.md` pins each doc-type to a
-  mandatory authoritative source (PRD ← Jira filter, API Doc ← OpenAPI/repo, Data Dictionary ← DB schema,
-  Meeting notes ← real minutes…). No source → the run **stops** for that doc-type; a placeholder is never
-  guessed. The map's backbone is copied from the scaffold's own "ข้อมูลหลักที่ต้องกรอก" index column.
-- **Structure-preserving, not regenerating.** Pages are read and written in `contentFormat: html` (the
-  round-trip-safe HTML+ format — panels, macros, tables, local IDs survive). Only placeholder *values*
-  change; every column/panel/macro is kept. `verify-confluence.py --original` proves nothing structural
-  was dropped. The `Subsystem` column + labels (`ols/elms/cbms/evms`) are the one cross-space convention.
-- **Two deliberate exceptions to structure-preservation (v0.26.0+), each a mechanical gate.** Both were
-  team feedback, both proven on RED/GREEN fixtures (not real pages). **(a) Table column headers are always
-  English + bold.** A Thai scaffold header (`ฟีเจอร์`, `เนื้อหา`…) is *translated* to English and wrapped in
-  `<strong>`; column **count and order are still preserved**, only the header word changes. This is why
-  `check_structure`'s `--original` comparison had to move from **exact header-text-set equality to `<th>`
-  count** — a translated header would otherwise register as a "dropped column". The new
-  `check_table_headers` FAILs any header still containing a Thai codepoint (`[฀-๿]`) or lacking
-  `<strong>/<b>`; it fires whenever a `<table>` exists, warns (not fails) when a table has no `<th>` to
-  judge. What it *cannot* know — whether `ฟีเจอร์→Feature` is the *correct* translation — stays layer-3
-  human, exactly like "วงชี้ปุ่มที่ถูกไหม". **(b) The standalone page-level `SUBSYSTEM: <X>` badge is
-  removed** (redundant with the page title `[EvMS] …` + labels + the in-table `Subsystem` column).
-  `check_subsystem_badge` matches on the **colon+value shape** (`subsystem\s*:\s*(ols|elms|cbms|evms)`), so
-  it FAILs the badge but never the bare `<th>Subsystem</th>` column header — that distinction is the whole
-  reason the regex is false-positive-free. The in-table Subsystem convention is untouched.
-- **Write is capability-gated and this was measured.** The Atlassian connector observed in-session was
-  **read-only** — `getAccessibleAtlassianResources` listed only `read:page:confluence`, and no
-  `updateConfluencePage`/`createConfluencePage` tool existed. So Step 0 preflights both the tool presence
-  **and** the `write:page:confluence` scope, and **stops with instructions** if either is missing rather
-  than faking a write. Do not assume writing works because reading does.
-- **Diagrams: no file upload exists, so they are Confluence-rendered code.** Atlassian MCP cannot upload
-  attachments (same limit manual-maker hit). Diagram doc-types (EA/Sequence/ER/Data Dictionary) embed a
-  **Mermaid macro generated from the real source** (ER from the DB schema, sequence from the flow) and
-  layer 5 **screenshots the published page** to prove it renders as a diagram, not raw code. No renderable
-  macro in the space → ตรวจไม่ได้ = ไม่ผ่าน: stop and ask to install one / attach manually. See
-  `references/diagrams.md`. The diagram content is never invented.
-- **Diagrams must be white-background only — a 5-layer defense (v0.24.1/0.24.2), because nothing checked it.**
-  Mermaid's stock theme tints its own output — `note` blocks render **yellow**, actors/activation lavender —
-  and a delivered EvMS sequence diagram shipped with exactly that yellow. The fix is not "pick a nicer theme":
-  it is a white-only palette pinned per diagram plus five layers, split across the two owners the skill already
-  has. **(1)** authoring — every Mermaid source opens with a mandatory `%%{init:{'theme':'base',…white…}}%%`
-  directive (`diagrams.md` item 3), bans `style`/`classDef`/`fill:` backgrounds and the pre-baked
-  `forest`/`neutral`/`dark`/`default` themes; **(2)** drafting-agent self-check before write; **(3)** the
-  enforceable gate — `verify-confluence.py`'s `check_diagrams` (exit 1 blocks the write); **(4)** the layer-5
-  rendered-page screenshot; **(5)** the layer-5 human row + re-review-all-on-fix. The load-bearing idea in
-  check 3 is that the mandated palette is **white/black/grey only, i.e. every hex is greyscale (R==G==B)**, so
-  the mechanical rule is exact and false-positive-free: inside each Mermaid block (scoped to CDATA /
-  `<ac:plain-text-body>` / `<pre>` so unrelated Confluence panel colours aren't scanned) **every hex must be
-  greyscale and the white-init directive must be present**; a yellow `#fff5ad` or lavender `#ECECFF` is R≠G≠B
-  and fails. Proven on RED/GREEN fixtures, not real pages. **What it cannot know** (say so, don't oversell): it
-  proves the *source* is clean, never that the *rendered* pixels are white — a macro could ignore the
-  directive, and it only sees Mermaid stored in those three forms. That gap is exactly why layers 4–5
-  (screenshot + human) stay mandatory and ตรวจไม่ได้ = ไม่ผ่าน still applies.
-- **The 5-layer review is adapted, not the manual-maker file.** `references/review.md` keeps the
-  philosophy (ตรวจไม่ได้=ไม่ผ่าน, 5/5, re-review all after a fix) but layers map to Confluence: (1) ตรงตาม
-  ยืนยัน (2) ทุกค่ามีที่มา + **ไม่มี mock เหลือ** (3) โครง/ฟอแมตคงเดิม (4) ศัพท์/ตัวเลข/คำพราก (5) **render บนหน้าที่
-  publish จริง**. Layers 1–4 are proven on the prepared body **before** any write; layer 5 only after
-  publish — the one place publishing precedes a layer's verdict, and only that layer.
-- **`scripts/verify-confluence.py`** is the mechanical half of layers 2–4: no mock/placeholder token
-  survives (FEATnn, Module A, สมมติ, MOCK, `data-type="placeholder"`, the MOCK warning panel), locked
-  terms not split by whitespace/tag (the Confluence คำพราก analogue — no docx renderer here to check
-  visually), `Subsystem` column present, no credential/minor-identifier leak, and structure preserved vs
-  `--original`. **Exit 1 blocks the write. Passing it is not passing the review** — it cannot know whether
-  a filled value is the *correct* real value (layer 2 human) or whether the page renders (layer 5).
-
-**Bare `/confluence-docs` rides the same shim mechanism as `/manual-maker`** — measured, not assumed:
-plugin commands only ever resolve as `/manual-maker:confluence-docs`, so `shim/confluence-docs.md` (a
-pure pointer to the skill) is copied to the un-namespaced `~/.claude/commands/` by `check-version.sh`.
-That hook's `install_shim` was generalized to `install_one_shim` + a loop over **both** shims; keep it a
-loop, keep each shim a pure pointer (workflow prose copied in would drift from `SKILL.md`), and keep the
-install rails (managed-by marker, no-clobber, atomic, fail-silent, `MANUAL_MAKER_NO_SHIM=1` opt-out).
-`shim/` stays inert to the loader — never move it under `commands/`.
+รายละเอียดทั้งหมดอยู่ใน [`docs/SKILL_CONFLUENCE_DOCS.md`](docs/SKILL_CONFLUENCE_DOCS.md) — สกิล confluence-docs อ่านไฟล์นั้นก่อนแตะเรื่องนี้ทุกครั้ง
 
 ## Third skill — `screen-record`, and the one invariant that must never be undone (v0.35.0+)
 
-`skills/screen-record/` is the repo's third auto-loaded skill: it records a headless MP4 walkthrough
-of a web flow (intake → confirm → record → 7-layer gate), optionally narrated. Most of it reads the
-way you would expect. **One thing does not, and it will look like an obvious simplification to
-anyone who has not read this: the skill deliberately does NOT use Playwright's `recordVideo`.**
-
-A delivered clip (ELMS-2.4.1) visibly flickered while passing the entire gate. Both causes live
-inside `recordVideo`, were read out of `playwright-core` and then **measured**, and **neither is
-reachable from Playwright's API** — so "pass an option" is not an available fix:
-
-- **1 Mbps cap → the picture pumps.** It spawns ffmpeg with a hardcoded
-  `-c:v vp8 -qmin 0 -qmax 50 -crf 8 -deadline realtime -speed 8 -b:v 1M -threads 1` — 1 Mbps at
-  1920×1080. On motion, rate control softens the *whole* frame and then snaps back. Measured on a
-  region of the page that never changed: **6.6%** peak-to-trough swing in edge energy, **−5.3% in a
-  single frame**.
-- **Fixed-rate padding → the motion judders.** `writeFrame` computes
-  `frameNumber = floor((t − t₀) × 25)` and fills every delivery gap by **repeating the previous
-  frame** onto a 40 ms grid. **21.2%** of the delivered clip's *moving* frames were frozen repeats.
-
-**Do not "fix" this by lowering `deviceScaleFactor`** — that was tested and changes nothing: driving
-`Page.screencastFrame` directly gives **59.8 fps at dsf 2** and 58.9 fps at dsf 1 (inside the noise)
-on a heavier page. The browser was never the bottleneck; the single-threaded realtime VP8 encoder
-behind it was. So `record.js` owns the capture — CDP screencast, **ack first / write second**, every
-frame kept with its real timestamp, **one** encode afterwards (JPEG → x264 CRF 18, full→limited
-range). There is no `.webm` any more; the WebM *was* the damage.
-
-Three traps here are measured, not assumed, and must not be simplified away:
-
-1. **Never thin the frame stream.** The first cut kept a frame only if `t − lastKept ≥ 1/30`. On a
-   page delivering ~31 fps (median gap 22 ms) that dropped every second frame and produced
-   **15.4 fps — worse judder than the bug being fixed**. Every decimator aliases when the source
-   rate is near the target, and a phase accumulator does the same. Bound the disk
-   (`maxScratchMb`), never the frame rate.
-2. **`-pix_fmt yuv420p` alone is not enough.** Screencast frames are JPEG, i.e. full-range, so the
-   output still comes out tagged `yuvj420p` — which fails the gate's own layer-1 check and crushes
-   blacks. The levels must be **converted** (`scale=in_range=full:out_range=limited`), not
-   relabelled.
-3. **The checkpoint still must hold the picture.** Hiding the pointer for the `expect` screenshot
-   also hid it from the video — **0.28 s per checkpoint**, measured. Capture pauses across the
-   whole shutter window (`resume()` in a `finally`); a checkpoint is a settled screen, so holding
-   is invisible.
-4. **Those holds must be DECLARED, or layer 1b fails its own good clips.** A hold repeats one frame
-   on purpose, and on a page with a background animation that is indistinguishable from a stall —
-   found by regression, not reasoning: a clip captured at 51.9 fps with an 18 ms p95 gap scored
-   5.3% and failed purely on its three holds. So `capture.json` carries `holdSpans` (seconds on the
-   video timeline) and the verifier excludes exactly those, capped at 25% of the clip so
-   "it was all a hold" cannot become the loophole.
-
-**The gate half.** `quality-gate.md` now carries layers **1b** (steady picture) and **1c**
-(provenance) plus a **แนวป้องกัน 10 ชั้น** table. `verify-video.py` fails a clip whose *moving*
-frames are >5% frozen repeats — a threshold **measured** (flickering clip 21.2%; six good clips
-0.00–1.44%) and computed entirely inside ffmpeg (`tblend` + `signalstats`) so it needs neither
-numpy nor Pillow. Every run writes `<name>.capture.json` (pipeline, achieved fps, gap distribution,
-encoder args, still-holds); the script checks the file **against** it and **fails when it is
-missing** — same fail-closed stance as manual-maker's `clean/` folder. `--no-manifest` exists only
-for clips this skill did not record.
-
-**Do not oversell those scripts.** Layer 1b proves nothing froze mid-motion; it does **not** prove
-the picture is sharp. A generalised "detail-loss" metric was built for exactly that and **rejected**
-because it did not separate good from bad (real-OLD 4.13% vs real-NEW 5.04%) — shipping it would
-have been decoration. Sharpness, banding and "is this the right screen" stay layer-10 human rows,
-and **ตรวจไม่ได้ = ไม่ผ่าน** applies in full. Full record: `RISK_REGISTER.md` MM-006 and
-`POST-MORTEM.md` PM-1.
+รายละเอียดทั้งหมดอยู่ใน [`docs/SKILL_SCREEN_RECORD.md`](docs/SKILL_SCREEN_RECORD.md) — สกิล screen-record อ่านไฟล์นั้นก่อนแตะเรื่องนี้ทุกครั้ง
 
 ## Release workflow & gotchas
 
-There are no build/lint/test commands. The only "commands" are install and version bookkeeping.
-
-**Never hand-edit version strings — run `scripts/bump-version.sh`.** The version lives in FOUR places that must stay in sync: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (both `metadata.version` AND `plugins[0].version`), and the README (shields badge + the `**Version …**` line). A mismatch ships a broken marketplace entry. The script updates all of them at once and stamps a `CHANGELOG.md` entry. Release: `scripts/bump-version.sh minor` (or `patch`/`major`/explicit `0.3.0`) → edit the CHANGELOG stub → commit → push. Users with auto-update on get it automatically next session; everyone else runs `/plugin marketplace update manual-maker-dev`. If you must edit versions by hand, edit *all four* spots.
-
-**Updates are self-driven by the SessionStart hook (Path B) — a deliberate override of the old notify-only design.** The repo owner chose true zero-touch updates on the plugin path over the "correct" native route, accepting the trade-offs (see `RISK_REGISTER.md`, MM-001). Context on the native alternative, still valid and documented in the README "Update" section: Claude Code *can* auto-update third-party plugins natively, but it is **off by default** for third-party marketplaces (only Anthropic's official ones default on) and the author **cannot enable it from the repo** — it is a client-side opt-in, by security design. The native paths (per-user `/plugin` → Marketplaces → **Enable auto-update**, or team-wide `"autoUpdate": true` in `extraKnownMarketplaces`) remain the cleaner options and are offered as such. Either way, auto-update only fires when the `version` string changes — which `bump-version.sh` guarantees.
-
-**The SessionStart hook self-updates.** `hooks/hooks.json` registers `hooks/check-version.sh`, which on every session start compares the installed `plugin.json` version to `main` on GitHub (via `curl`, 3s cap) and, if GitHub is ahead, launches `claude plugin update` **in the background** (detached, non-blocking) and tells the user via `additionalContext`; the new version applies on the next session / `/reload-plugins`. Safety rails baked in and must be preserved: fail-silent when offline/up-to-date/curl-less; **opt-out** via `MANUAL_MAKER_NO_AUTOUPDATE=1` (degrades to notify-only); notify-only degrade if `claude` is not on PATH; an atomic `mkdir` lock (stale after 10 min) prevents overlapping updates; it uses the **supported `claude plugin update` CLI, never a raw git-pull into the plugin cache**. This intentionally bypasses Claude Code's per-marketplace auto-update opt-in — do not "restore" it to notify-only without the owner's say-so; the override is recorded, not accidental. The GitHub owner/repo URL is hardcoded in the script; update it if the repo moves. **Do NOT list `hooks/hooks.json` in `plugin.json`'s `hooks` key** — Claude Code auto-loads the standard `hooks/hooks.json`, so referencing it there causes a fatal "Duplicate hooks file detected" error and the hook silently fails to load (this bit us in 0.3.0–0.4.0, fixed in 0.4.1). `manifest.hooks` is only for *additional* hook files outside the standard path.
-
-**A disabled plugin silently freezes the self-update — check enabled status before version.** The hook only runs while the plugin is enabled, so `"manual-maker@manual-maker-dev": false` under `enabledPlugins` in `~/.claude/settings.json` breaks the loop: the hook never fires → `claude plugin update` never runs → the install stays pinned at whatever version it was disabled at, with no warning and no notification. Seen in the wild: an install sat on 0.11.0 well after 0.12.0 shipped. The tell is that the `manual-maker` skill is missing from the session's skill list entirely. Diagnose with `claude plugin list | grep -A3 'manual-maker@'`, which prints version *and* status together. Recovering takes both steps — `claude plugin enable manual-maker@manual-maker-dev` then `claude plugin update manual-maker@manual-maker-dev` — because enabling alone leaves the stale version in place until some later session's hook run catches it. Restart / `/reload-plugins` to load.
-
-**Bare `/manual-maker` cannot come from the plugin — the `shim/` file installed by the hook is the only mechanism, and this was measured, not assumed.** Claude Code reaches plugin commands and plugin skills *only* as `/plugin-name:command-name`; bare `/manual-maker` returns `Unknown command`. Do not re-derive this from the docs — `slash-commands.md` still claims the "plugin prefix is optional unless there are name collisions" and shows `/command-name` as a direct form, and **that is wrong** for Claude Code 2.1.210. The measurement: a throwaway probe plugin (`mmprobe`) was installed with three shapes — (a) a command with no name collision anywhere, (b) a command with a frontmatter `aliases:` key, (c) a command whose name equalled both the plugin name and a sibling skill (manual-maker's exact shape) — and run headless via `claude -p`. **Every bare form returned `Unknown command`; every `/mmprobe:…` form resolved.** So the failure is not a collision and not fixable by renaming. The bundle's matcher is `e.name===t || userFacingName()===t || aliases?.includes(t)`, and plugin-sourced commands only ever carry qualified names, so no frontmatter key, manifest field, or file rename can expose the short form. Don't retry those three "obvious" fixes (rename the command, add `aliases:`, delete `skills/manual-maker/`) — all three were tested or ruled out at the implementation level, and the last one deletes the actual product. What *does* work: `~/.claude/commands/` is **not** namespaced, so `hooks/check-version.sh` copies `shim/manual-maker.md` there on session start (v0.14.0+, see `RISK_REGISTER.md` MM-003). Keep the shim a **pure pointer** that only invokes the `manual-maker:manual-maker` skill — workflow prose copied into it would silently drift from `SKILL.md`. Keep the install rails too: never overwrite a file lacking the `managed-by: manual-maker-plugin` marker, no-op when content already matches, atomic temp+`mv`, fail-silent, announce only the first install, opt out with `MANUAL_MAKER_NO_SHIM=1`. `shim/` is inert to the plugin loader (only `commands/`, `skills/`, `agents/`, `hooks/hooks.json` are auto-loaded), so it must never move under `commands/` — that would register a duplicate `/manual-maker:manual-maker`. The shim is not removed by `/plugin uninstall`.
-
-**Marketplace name ≠ plugin name, on purpose.** The plugin is `manual-maker`; the marketplace is `manual-maker-dev`. So the install command is `/plugin install manual-maker@manual-maker-dev` and updates target `manual-maker-dev`. This intentional mismatch mirrors the team's other proven-working plugins (`helix-dev`, `retest-bug-dev`, `full-test-dev`). Don't "fix" it to match.
-
-**The repo is its own marketplace** — `source: "./"` in `marketplace.json`. Installs come straight from GitHub (`Thitic9203/manual-maker`); there is no separate registry.
-
-**Validate before every push.** Run `claude plugin validate <repo-path>` before pushing a manifest change. The validator (Claude Code ≥ 2.1.104) **rejects root-level `id` and `description` keys in `marketplace.json`** — keep the root to `name` / `owner` / `metadata` / `plugins` only, and nest description/version under `metadata`. The team's older manifests (`helix-dev` etc.) still carry root `id`/`description` and were grandfathered in, so don't copy them verbatim — a fresh `marketplace add` runs validation and will fail on those keys.
+รายละเอียดทั้งหมดอยู่ใน [`docs/RELEASE.md`](docs/RELEASE.md) — ขั้นตอน release และ gotchas อ่านไฟล์นั้นก่อนแตะเรื่องนี้ทุกครั้ง
 
 ## Two install/distribution paths
 
