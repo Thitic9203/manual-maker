@@ -13,9 +13,15 @@
  *   F2 irreversible step with no expectTarget anywhere before it -> rejected at load
  *   F3 expectTarget mismatch -> aborted before the irreversible click
  *   F4 a write request fired outside an irreversible step -> aborted, run fails
+ *   F5 a same-origin write outside the irreversible step still aborts while a third-party
+ *      beacon is firing on the same page (scoping writes to the app must not weaken this)
+ *   F6 a host listed in the play's "writeHosts" counts as an app write -> aborted outside the step
  * Must PASS:
  *   P1 expectTarget matches -> runs, exactly one write, on the expected item
  *   P2 a play with no irreversible step -> unchanged behaviour (its write goes through)
+ *   P3 a third-party POST (analytics-style beacon to a second local server on another port)
+ *      during a normal navigation step is not an app write -> not aborted, and the irreversible
+ *      step still runs
  *
  *   NODE_PATH="$HOME/.manual-maker/runtime/node_modules" node --test tests/record-guard-test.js
  */
@@ -45,6 +51,9 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>fixture</t
   <button id="confirm">Confirm</button></div>
 <span id="done" hidden>vote sent</span>
 <script>
+// "?beacon=<port>" makes the page fire an analytics-style POST to another origin on load.
+const bp=new URLSearchParams(location.search).get('beacon');
+if(bp)fetch('http://127.0.0.1:'+bp+'/collect',{method:'POST',mode:'no-cors',body:'pageview'});
 const items=[{id:'a1',title:'Alpha'},{id:'b2',title:'Beta'}];
 let current=null;
 function render(f){const tb=document.getElementById('rows');tb.innerHTML='';
@@ -68,8 +77,9 @@ function startServer() {
     req.on('data', (c) => { body += c; });
     req.on('end', () => {
       if (req.method !== 'GET' && req.method !== 'HEAD') log.writes.push({ method: req.method, url: req.url, body });
-      res.writeHead(200, { 'content-type': req.url === '/' ? 'text/html; charset=utf-8' : 'text/plain' });
-      res.end(req.url === '/' ? PAGE : 'ok');
+      const isPage = req.url.split('?')[0] === '/';
+      res.writeHead(200, { 'content-type': isPage ? 'text/html; charset=utf-8' : 'text/plain' });
+      res.end(isPage ? PAGE : 'ok');
     });
   });
   return new Promise((r) => srv.listen(0, '127.0.0.1', () => r({ srv, log, port: srv.address().port })));
@@ -99,10 +109,13 @@ const openFirst = { do: 'click', selector: 'tbody tr:nth-child(1) button.review'
 const reason = { do: 'select', selector: '#reason', value: 'spam' };
 const confirm = { do: 'click', selector: '#confirm', irreversible: true, waitFor: 'text=vote sent' };
 
-let S;
-test.before(async () => { S = await startServer(); });
-test.after(() => S.srv.close());
-test.beforeEach(() => { S.log.all = 0; S.log.writes = []; });
+// S is the app; T is a separate origin (another port) standing in for a third-party analytics host.
+let S, T;
+test.before(async () => { S = await startServer(); T = await startServer(); });
+test.after(() => { S.srv.close(); T.srv.close(); });
+test.beforeEach(() => { S.log.all = 0; S.log.writes = []; T.log.all = 0; T.log.writes = []; });
+const thirdParty = () => `127.0.0.1:${T.port}`;
+const waitFor = async (cond, ms = 5000) => { const end = Date.now() + ms; while (!cond() && Date.now() < end) await new Promise((r) => setTimeout(r, 50)); };
 const base = () => `http://127.0.0.1:${S.port}`;
 
 test('F1 positional click before an irreversible step without expectTarget is rejected at load', async () => {
@@ -151,4 +164,34 @@ test('P2 a play with no irreversible step behaves as before', async () => {
     { do: 'click', selector: '#draft', waitFor: 'text=draft saved' }] });
   assert.strictEqual(r.code, 0, r.out);
   assert.deepStrictEqual(S.log.writes.map((w) => [w.method, w.url]), [['POST', '/draft']]);
+});
+
+test('F5 a same-origin write outside the irreversible step still aborts beside a third-party beacon', async () => {
+  const r = await run({ baseUrl: base(), steps: [{ do: 'goto', url: `/?beacon=${T.port}` },
+    { do: 'click', selector: '#draft' },
+    Object.assign({}, confirm, { expectTarget: { selector: '#dlg-title', text: 'Beta' } })] });
+  assert.notStrictEqual(r.code, 0, r.out);
+  assert.match(r.out, new RegExp(`POST http://127\\.0\\.0\\.1:${S.port}/draft fired outside an irreversible step`));
+  assert.deepStrictEqual(S.log.writes, [], 'no app write may reach the app server');
+});
+
+test('F6 a host listed in writeHosts is an app write and aborts outside the irreversible step', async () => {
+  const r = await run({ baseUrl: base(), writeHosts: [thirdParty()], steps: [{ do: 'goto', url: `/?beacon=${T.port}` },
+    { do: 'waitFor', selector: '#q' },
+    Object.assign({}, confirm, { expectTarget: { selector: '#dlg-title', text: 'Beta' } })] });
+  assert.notStrictEqual(r.code, 0, r.out);
+  assert.match(r.out, new RegExp(`POST http://${thirdParty().replace(/\./g, '\\.')}/collect fired outside an irreversible step`));
+  assert.deepStrictEqual(T.log.writes, []);
+  assert.deepStrictEqual(S.log.writes, []);
+});
+
+test('P3 a third-party POST during navigation is not an app write, and the irreversible step still runs', async () => {
+  const r = await run({ baseUrl: base(), steps: [{ do: 'goto', url: `/?beacon=${T.port}` }, search,
+    { do: 'waitFor', selector: 'tbody tr:nth-child(1) >> text=Beta' }, openFirst, reason,
+    Object.assign({}, confirm, { expectTarget: { selector: '#dlg-title', id: 'b2' } })] });
+  assert.strictEqual(r.code, 0, r.out);
+  await waitFor(() => T.log.writes.length > 0);
+  assert.deepStrictEqual(T.log.writes.map((w) => [w.method, w.url]), [['POST', '/collect']],
+    'the third-party beacon must not be aborted');
+  assert.deepStrictEqual(S.log.writes.map((w) => [w.method, w.url, w.body]), [['POST', '/vote', 'b2']]);
 });

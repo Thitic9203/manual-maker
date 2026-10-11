@@ -334,6 +334,13 @@ where it writes, and prove what it is writing to:
   from the recorded page is **aborted** unless an irreversible step (its action, `waitFor`, settle
   and checkpoint) is running, and the run fails. Allowed writes are logged as `WRITE: …`. Service
   workers are blocked in such a run so their requests cannot bypass the check.
+- **Only app writes count.** A write is the app's when it goes to the origin of `baseUrl`, to the
+  origin of the page on screen, or to a host listed in the play's optional `"writeHosts": [...]`
+  (a bare host such as `"api.example.test"` matches any port on it; `"https://api.example.test:8443"`
+  matches that exact origin). A page's third-party scripts — analytics, ads, error reporting — POST
+  to other hosts on ordinary navigation; those are logged as `THIRD-PARTY WRITE (not guarded): …`
+  and let through. If the app writes to a separate API host, list it in `writeHosts`, or its
+  writes go unguarded.
 - A play with no irreversible step behaves exactly as before.
 
 ```json

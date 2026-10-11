@@ -149,6 +149,11 @@ if (!steps.length) die('play.steps is empty — there is no flow to record');
  *   3. THE REQUEST ITSELF: while armed, every POST/PUT/PATCH/DELETE from the recorded page is
  *      aborted unless an irreversible step is running, and the run fails. A write the play did not
  *      declare cannot slip through on a step nobody marked.
+ *      Only APP writes count: requests to the origin of `baseUrl`, to the origin of the page
+ *      currently on screen, or to a host listed in the play's optional `"writeHosts": [...]`.
+ *      A page's third-party scripts (analytics, ads, error reporting) POST to other hosts on
+ *      every navigation; those are not the app's one-way writes and are let through. Treating
+ *      them as writes aborted a real run on its first navigation, before any click.
  */
 const POSITIONAL = /:nth-(?:last-)?(?:child|of-type)\(|:nth\(|\bnth\s*=|\.(?:first|last)\b(?!-)|:(?:first|last)(?:-child|-of-type)?\b|\.nth\(|\[\s*\d+\s*\]|\[\s*last\(\)/i;
 const isPositional = (sel) => POSITIONAL.test(String(sel || ''));
@@ -374,11 +379,44 @@ const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 // the step that triggered it.
 const writeGuard = { open: null, violation: null, writes: [] };
 
+// "writeHosts": ["api.example.test", "https://other.example.test:8443"] — a bare host matches any
+// port/scheme on that host; an entry with a scheme matches that exact origin.
+const WRITE_HOSTS = (() => {
+  if (play.writeHosts === undefined) return [];
+  if (!Array.isArray(play.writeHosts) || play.writeHosts.some((h) => typeof h !== 'string' || !h.trim())) {
+    die('"writeHosts" must be an array of non-empty host or origin strings');
+  }
+  return play.writeHosts.map((h) => {
+    const v = h.trim().toLowerCase();
+    if (/^https?:\/\//.test(v)) return { origin: new URL(v).origin };
+    try { return { hostname: new URL('http://' + v).hostname, port: new URL('http://' + v).port }; }
+    catch (e) { return die(`"writeHosts" entry "${h}" is not a host`); }
+  });
+})();
+const originOf = (u) => { try { return new URL(u).origin; } catch (e) { return null; } };
+const BASE_ORIGIN = originOf(BASE);
+
+// Is this request a write to the app itself? Unparseable URLs count as app writes (fail closed).
+function isAppWrite(req) {
+  let u;
+  try { u = new URL(req.url()); } catch (e) { return true; }
+  if (u.origin === BASE_ORIGIN) return true;
+  let pageOrigin = null;
+  try { pageOrigin = originOf(req.frame().page().mainFrame().url()); } catch (e) { /* worker / detached */ }
+  if (pageOrigin && pageOrigin !== 'null' && u.origin === pageOrigin) return true;
+  return WRITE_HOSTS.some((h) => (h.origin ? u.origin === h.origin
+    : u.hostname === h.hostname && (!h.port || u.port === h.port)));
+}
+
 async function installWriteGuard(context) {
   await context.route('**/*', (route) => {
     const req = route.request();
     const method = req.method().toUpperCase();
     if (!WRITE_METHODS.has(method)) return route.continue();
+    if (!isAppWrite(req)) {
+      console.log(`THIRD-PARTY WRITE (not guarded): ${method} ${req.url()}`);
+      return route.continue();
+    }
     if (writeGuard.open) {
       writeGuard.writes.push({ step: writeGuard.open, method, url: req.url() });
       console.log(`WRITE: ${method} ${req.url()} (${writeGuard.open})`);
