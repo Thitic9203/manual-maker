@@ -130,6 +130,59 @@ const SAYDUR = (() => {
 const steps = Array.isArray(play.steps) ? play.steps : die('play.steps must be an array');
 if (!steps.length) die('play.steps is empty — there is no flow to record');
 
+// ------------------------------------------------------------ one-way steps
+/* WHY THIS EXISTS — a recorder that confirmed a vote on the wrong item, four times.
+ *
+ * A play typed into a search box, clicked `tbody tr:nth-child(1) button`, picked a reason and
+ * pressed confirm. The search was still in flight, so "row 1" was the UNFILTERED first row — and
+ * every gate passed, because `waitFor`/`expect` only ask "is something visible", never "is it the
+ * right thing". A one-way write landed on someone else's item.
+ *
+ * Three rules, each closing a different hole. They only arm for a play that marks a step
+ * `"irreversible": true` — the play says which step writes; it is never guessed from a label.
+ *   1. LOAD TIME, before any browser action: every irreversible step needs an `expectTarget`
+ *      checked after the last positional click (nth-child / :nth / nth= / .first …) that precedes
+ *      it. A positional click with no identity check in between is rejected outright.
+ *   2. RUN TIME, before the irreversible action: `expectTarget` must resolve to exactly one
+ *      element whose text (or `attr`, default `data-id`) equals the expected value. A mismatch
+ *      fails the run before the click.
+ *   3. THE REQUEST ITSELF: while armed, every POST/PUT/PATCH/DELETE from the recorded page is
+ *      aborted unless an irreversible step is running, and the run fails. A write the play did not
+ *      declare cannot slip through on a step nobody marked.
+ */
+const POSITIONAL = /:nth-(?:last-)?(?:child|of-type)\(|:nth\(|\bnth\s*=|\.(?:first|last)\b(?!-)|:(?:first|last)(?:-child|-of-type)?\b|\.nth\(|\[\s*\d+\s*\]|\[\s*last\(\)/i;
+const isPositional = (sel) => POSITIONAL.test(String(sel || ''));
+const ARMED = steps.some((s) => s && s.irreversible === true);
+
+(function validateOneWay() {
+  let positionalAt = -1;        // index of the last positional click not yet followed by an identity check
+  let checked = false;          // an expectTarget has run since the start / since that click
+  steps.forEach((s, i) => {
+    const tag = `step ${i + 1}${s.label ? ' — ' + s.label : ''}`;
+    if (s.expectTarget != null) {
+      const t = s.expectTarget;
+      if (!t || typeof t !== 'object' || !t.selector || (t.text == null && t.id == null)) {
+        die(`${tag}: expectTarget needs { "selector": ..., "text": ... } or { "selector": ..., "id": ... }`);
+      }
+      // Checked before this step's action, i.e. after every earlier click has landed.
+      positionalAt = -1; checked = true;
+    }
+    if (s.irreversible === true) {
+      if (positionalAt >= 0) {
+        die(`${tag} is irreversible, and step ${positionalAt + 1} clicked a positional selector `
+          + `("${steps[positionalAt].selector}") with no expectTarget in between. A position can name `
+          + 'a different item than intended (an unfiltered list, a late re-render). Add an expectTarget '
+          + 'that checks the opened item\'s title or id before this step.');
+      }
+      if (!checked) {
+        die(`${tag} is irreversible and nothing before it asserts the target. Add "expectTarget": `
+          + '{ "selector": ..., "text"|"id": ... } so the run proves it is acting on the intended item.');
+      }
+    }
+    if ((s.do || 'goto') === 'click' && isPositional(s.selector)) { positionalAt = i; checked = false; }
+  });
+}());
+
 fs.mkdirSync(OUT, { recursive: true });
 
 // Absolute URL from a play-file path: "/courses" → BASE + "/courses"; full URLs pass through.
@@ -314,6 +367,54 @@ async function login(context, cfg) {
   console.log('LOGIN: ok');
 }
 
+// ------------------------------------------------------------ one-way: run time
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+// `open` names the irreversible step currently running (null otherwise); `violation` is the first
+// write that was blocked, kept so the step loop can fail on it — a route handler cannot throw into
+// the step that triggered it.
+const writeGuard = { open: null, violation: null, writes: [] };
+
+async function installWriteGuard(context) {
+  await context.route('**/*', (route) => {
+    const req = route.request();
+    const method = req.method().toUpperCase();
+    if (!WRITE_METHODS.has(method)) return route.continue();
+    if (writeGuard.open) {
+      writeGuard.writes.push({ step: writeGuard.open, method, url: req.url() });
+      console.log(`WRITE: ${method} ${req.url()} (${writeGuard.open})`);
+      return route.continue();
+    }
+    if (!writeGuard.violation) {
+      writeGuard.violation = `${method} ${req.url()} fired outside an irreversible step and was aborted. `
+        + 'Mark the step that is meant to write with "irreversible": true (and an expectTarget), '
+        + 'or remove the action that triggers it.';
+    }
+    console.error(`BLOCKED WRITE: ${method} ${req.url()}`);
+    return route.abort('blockedbyclient');
+  });
+}
+
+// The opened item must BE the intended one. One element, exact text (whitespace-normalised) or
+// exact attribute — "contains" would let "Beta 2" pass for "Beta".
+async function assertTarget(page, s, tag, to) {
+  const t = s.expectTarget;
+  const tctx = await ctxOf(page, { frame: 'frame' in t ? t.frame : s.frame, label: s.label, frameTimeout: s.frameTimeout });
+  const l = loc(tctx, t.selector);
+  await l.first().waitFor({ state: 'visible', timeout: to })
+    .catch(() => fail(`${tag}: expectTarget "${t.selector}" never became visible — not acting on an unproven target.`));
+  const n = await l.count();
+  if (n !== 1) fail(`${tag}: expectTarget "${t.selector}" matched ${n} elements; it must name exactly one.`);
+  const norm = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  const [field, want, got] = t.text != null
+    ? ['text', norm(t.text), norm(await l.innerText())]
+    : [t.attr || 'data-id', norm(t.id), norm(await l.getAttribute(t.attr || 'data-id'))];
+  if (got !== want) {
+    fail(`${tag}: expectTarget mismatch on "${t.selector}" — ${field} is "${got}", expected "${want}". `
+      + 'Aborted before the action; nothing was written.');
+  }
+  console.log(`TARGET: ${tag} — ${field} "${got}" confirmed`);
+}
+
 // ------------------------------------------------------------------- one step
 async function runStep(page, s, i) {
   const tag = `step ${i + 1}${s.label ? ' — ' + s.label : ''}`;
@@ -326,13 +427,20 @@ async function runStep(page, s, i) {
   // Selectors resolve inside `s.frame` when the step names one; otherwise in the top document.
   const ctx = await ctxOf(page, s);
 
+  // Identity before action (see "one-way steps"). Runs before the click, so a mismatch fails the
+  // run with nothing written.
+  if (s.expectTarget) await assertTarget(page, s, tag, to);
+  // A one-way click must name exactly one element: `.first()` silently picking among several is
+  // the same wrong-item failure by another route, so the strict locator is used here.
+  const pick = (l) => (s.irreversible === true ? l : l.first());
+
   switch (act) {
     case 'goto':
       await page.goto(abs(s.url), { waitUntil: 'domcontentloaded', timeout: 60000 });
       await restoreCursor(page);          // a fresh document has no pointer until something moves it
       break;
     case 'click': {
-      const el = loc(ctx, s.selector).first();
+      const el = pick(loc(ctx, s.selector));
       await glideTo(page, el);
       await el.click({ timeout: to });
       break;
@@ -657,7 +765,10 @@ function encode(cap, mp4) {
       viewport: VIEW,
       deviceScaleFactor: DSF,
       ...(state ? { storageState: state } : {}),
+      // A service worker's own fetches bypass context.route, so a guarded run blocks workers.
+      ...(ARMED ? { serviceWorkers: 'block' } : {}),
     });
+    if (ARMED) await installWriteGuard(ctx);
     const page = await ctx.newPage();
     const cdp = await ctx.newCDPSession(page);
     capture = startCapture(cdp, page);
@@ -673,10 +784,20 @@ function encode(cap, mp4) {
       for (let i = 0; i < steps.length; i++) {
         const s = steps[i];
         console.log(`STEP ${i + 1}/${steps.length}: ${s.do || 'goto'}${s.label ? ' — ' + s.label : ''}`);
-        await runStep(page, s, i);
-        await checkpoint(page, s, i, shots);
+        if (writeGuard.violation) fail(writeGuard.violation);
+        // The irreversible window covers the action, its waitFor, settle and checkpoint — a write
+        // usually leaves a beat after the click that caused it.
+        writeGuard.open = s.irreversible === true ? `step ${i + 1}${s.label ? ' — ' + s.label : ''}` : null;
+        try {
+          await runStep(page, s, i);
+          await checkpoint(page, s, i, shots);
+        } finally {
+          writeGuard.open = null;
+        }
+        if (writeGuard.violation) fail(writeGuard.violation);
       }
       await sleep(play.tail == null ? 1500 : play.tail);   // let the last frame land in the video
+      if (writeGuard.violation) fail(writeGuard.violation);   // a write that fired during the tail
     } catch (e) {
       failed = e;                                          // still finalize the video for diagnosis
     }

@@ -138,6 +138,11 @@ A play file is JSON: where to go, what to click, what must appear. Schema and ev
   The run **fails closed** if it never appears (layer 3). Never remove one to make a run go green.
 - **`expect`** wherever an outcome must be proven — asserted, then captured as a still (layers 4
   and 5).
+- **`irreversible` + `expectTarget`** on any step that performs a one-way write (vote, approve,
+  delete, submit). The play must mark that step itself — never inferred from a label — and assert
+  the opened item's title or id before it. A play that clicks a positional selector (`nth-child`,
+  `.first` …) before such a step with no `expectTarget` in between is rejected at load, and any
+  write request outside a marked step is aborted. Details: `references/video-spec.md` § One-way steps.
 
 The clip must look like **a person using the system and recording their own screen**. That is what
 the recorder already does by default: a mouse pointer glides to each control and flashes on click
