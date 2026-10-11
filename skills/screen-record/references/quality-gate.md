@@ -101,6 +101,29 @@ first place. **Exit 2 means the check could not run — that is a failure, not a
 4. **Cannot be made to pass** (the target genuinely does not exist, access is missing) → report the
    item as **blocked with the specific reason**. Never substitute a partial clip.
 
+### Exception — every step and expected result is on screen, only the picture freezes
+
+When layers 2–5 are green on review and the only red is frozen picture (layer 1b *"N% of the
+moving frames are frozen repeats"*, or a stretch that visibly hangs), **cut, don't re-record**:
+
+```bash
+"$SR/scripts/freeze-cut.py" <clip>.mp4 --dry-run     # what would go; nothing written
+"$SR/scripts/freeze-cut.py" <clip>.mp4               # writes <clip>_cut.mp4 + <clip>_cut.capture.json
+"$SR/scripts/verify-video.py" <clip>_cut.mp4
+```
+
+- It removes **only frames that repeat the frame before them** — short stalls inside motion whole,
+  freezes longer than `--max-still` (default 3 s) trimmed to that length, never removed whole — so
+  no step is skipped and no screen disappears (layer 2 stays honest).
+- The cut gets its **own** manifest with an `edit` record (source and manifest sha256, every removed
+  frame, remapped holds). `verify-video.py` re-proves that record against the original, so **keep the
+  original `.mp4` and `.capture.json` beside the cut, unchanged**.
+- Never cut with ad-hoc ffmpeg and never copy the original manifest beside a cut: layer 1c fails it
+  (*"manifest describes '<orig>.mp4', not this file"*) — correctly.
+- Refused, re-record instead: more than **60 %** of the clip would go, the clip has narration (cut
+  first, then narrate the cut), or the red is anything other than frozen picture.
+- The `_cut.mp4` is a new file: run the whole gate on it, layers 2–7 included.
+
 ## Reporting
 
 Report per item, with the evidence, never as a bare total:

@@ -2,6 +2,22 @@
 
 All notable changes to manual-maker are recorded here. Versions follow semver (major.minor.patch).
 
+## [0.36.0] - 2026-10-11
+### Added
+- **Sanctioned freeze-cut — a clip that shows every step and result but stutters or hangs is cut,
+  not re-recorded.** `scripts/freeze-cut.py` removes only frames that repeat the frame before them
+  (short stalls inside motion whole; freezes longer than `--max-still`, default 3 s, trimmed to
+  that length — never erased) using `verify-video.py`'s own detector and thresholds, and writes
+  `<clip>_cut.mp4` + `<clip>_cut.capture.json` with an `edit` record (source and manifest sha256,
+  output sha256, every removed frame, remapped holds). The original is never touched. Refused:
+  more than 60% removed, an audio track, a source whose manifest does not describe it, a cut of a cut.
+### Changed
+- `verify-video.py` accepts a cut **only** by re-proving its `edit` record against the original on
+  disk: hashes, every removed frame re-measured as a frozen repeat, frame count, fps, holds remapped
+  rather than newly declared, and the 60% cap. A `*_cut.mp4` without an edit record fails, and a cut
+  beside a copied original manifest still fails on *"manifest describes …, not this file"*.
+- `references/quality-gate.md` — "When a layer fails" gains the freeze-only exception.
+
 ## [0.35.0] - 2026-08-27
 ### Fixed
 - **The recording no longer flickers — the clip is captured by this skill, not by Playwright.**

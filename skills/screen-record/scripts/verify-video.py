@@ -155,23 +155,181 @@ def stutter_ratio(series, excluded=None):
     frame — and on a page with a background animation that is indistinguishable from a stall.
     Measured: a clip captured at 51.9 fps with an 18 ms p95 gap, i.e. objectively healthy, scored
     5.3% and failed purely on its three holds. The caller bounds how much may be excluded."""
-    move, dup, win = 0.35, 0.02, 6
+    flagged, moving = stutter_frames(series, excluded)
+    return (100.0 * len(flagged) / moving if moving else 0.0), moving
+
+
+# The detector's thresholds. freeze_cut.py imports these (and stutter_frames) rather than copying
+# them, so the tool that removes frozen frames and the check that judges the result cannot drift.
+MOTION_MOVE, MOTION_DUP, MOTION_WIN = 0.35, 0.02, 6
+
+
+def stutter_frames(series, excluded=None):
+    """The detector behind stutter_ratio(): (indices into `series` that are frozen repeats inside
+    motion, count of moving frames). series[i] is the difference between frame i+1 and frame i —
+    measured on a clip whose frames 9 and 10 were identical (PSNR 68 dB): series[9] was ~0 — so a
+    flagged index i means FRAME i+1 repeats frame i."""
     held = set()
     for lo, hi in (excluded or []):
         held.update(range(max(0, lo), hi + 1))
-    stut = moving = 0
+    flagged, moving = [], 0
     for i, v in enumerate(series):
         if i in held:
             continue
-        lo, hi = max(0, i - win), min(len(series), i + win + 1)
+        lo, hi = max(0, i - MOTION_WIN), min(len(series), i + MOTION_WIN + 1)
         nb = sorted(series[lo:i] + series[i + 1:hi])
         if not nb:
             continue
-        if nb[len(nb) // 2] > move:          # the neighbourhood is moving
+        if nb[len(nb) // 2] > MOTION_MOVE:   # the neighbourhood is moving
             moving += 1
-            if v < dup:                      # ...but this frame did not change at all
-                stut += 1
-    return (100.0 * stut / moving if moving else 0.0), moving
+            if v < MOTION_DUP:               # ...but this frame did not change at all
+                flagged.append(i)
+    return flagged, moving
+
+
+def hold_ranges(spans, fps):
+    """Declared still-hold spans (seconds) -> (first, last) series indices, the conversion check()
+    uses for exclusion. Malformed spans are skipped exactly as check() skips them."""
+    out = []
+    for span in (spans or []):
+        try:
+            lo = int(round(float(span['from']) * fps))
+            hi = int(round(float(span['to']) * fps))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if hi >= lo:
+            out.append((lo, hi))
+    return out
+
+
+# ---- sanctioned freeze-cut (freeze-cut.py) ---------------------------------------------------
+# Owner order 2026-10-11: a clip that shows the whole ER but stutters/freezes in places is fixed by
+# cutting the frozen frames out, never by re-recording. A cut file is only as trustworthy as the
+# proof that what was removed was frozen, so the proof is re-derived HERE from the untouched source
+# — the edit record is a claim, this is the check of it.
+MAX_CUT_PCT = 60.0      # a cut that removes more than 60% of a clip is a re-record case
+CUT_NAME_RE = re.compile(r'_cut\.mp4$')
+
+
+def sha256_of(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        for block in iter(lambda: fh.read(1 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def count_frames(path):
+    r = run(['ffprobe', '-v', 'error', '-count_frames', '-select_streams', 'v:0',
+             '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', path])
+    try:
+        return int(r.stdout.strip().split(',')[0])
+    except (ValueError, IndexError):
+        return None
+
+
+def remap_holds(spans, removed, fps, n_out):
+    """Where each declared hold lands once `removed` source frames are gone: a source time t maps
+    to (kept frames before frame round(t*fps)) / fps, clamped to the cut's length. A hold that
+    collapses to nothing is dropped."""
+    gone = sorted(set(removed))
+    dur = n_out / fps
+    out = []
+
+    def shift(t):
+        f = int(round(float(t) * fps))
+        import bisect
+        return max(0.0, min(dur, (f - bisect.bisect_left(gone, f)) / fps))
+
+    for span in (spans or []):
+        try:
+            a, b = shift(span['from']), shift(span['to'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if b > a:
+            out.append({'from': round(a, 3), 'to': round(b, 3)})
+    return out
+
+
+def check_edit(path, man, fps):
+    """Every way a cut can fail to prove itself, as a list of failure strings (empty = proven)."""
+    fails = []
+    e = man.get('edit')
+    if not isinstance(e, dict):
+        return ['edit record is not an object — the cut cannot be traced to a source']
+    here = os.path.dirname(os.path.abspath(path))
+    sname, mname = e.get('source_file'), e.get('source_manifest')
+    for label, n in (('source_file', sname), ('source_manifest', mname)):
+        if not isinstance(n, str) or not n or os.path.basename(n) != n:
+            return [f'edit record {label} {n!r} must be a bare file name beside the cut']
+    src, smanp = os.path.join(here, sname), os.path.join(here, mname)
+    if os.path.basename(path) == sname:
+        return ['edit record names the cut itself as its source']
+    if not os.path.isfile(src):
+        return [f'edit record source {sname!r} not found beside the cut — the removed frames '
+                'cannot be re-checked, so the cut proves nothing (keep the original)']
+    if not os.path.isfile(smanp):
+        return [f'edit record source manifest {mname!r} not found beside the cut']
+    if sha256_of(src) != e.get('source_sha256'):
+        fails.append(f'source {sname!r} sha256 does not match the edit record — the source '
+                     'changed after the cut, or the record was edited')
+    if sha256_of(smanp) != e.get('source_manifest_sha256'):
+        fails.append(f'source manifest {mname!r} sha256 does not match the edit record')
+    if sha256_of(path) != e.get('output_sha256'):
+        fails.append('cut file sha256 does not match the edit record output_sha256 — the cut '
+                     'file was replaced after it was made')
+    if fails:
+        return fails
+    try:
+        with open(smanp, encoding='utf-8') as fh:
+            sman = json.load(fh)
+    except (OSError, json.JSONDecodeError) as ex:
+        return [f'source manifest unreadable: {ex}']
+    if sman.get('video') != sname:
+        fails.append(f"source manifest describes {sman.get('video')!r}, not the source {sname!r}")
+    if sman.get('edit'):
+        fails.append('the source is itself a cut — cut the original recording, not a cut of it')
+
+    removed = e.get('removed_frames')
+    if not isinstance(removed, list) or not all(isinstance(k, int) for k in removed):
+        return fails + ['edit record removed_frames must be a list of source frame indices']
+    if len(set(removed)) != len(removed):
+        fails.append('edit record removed_frames lists a frame twice')
+    series = motion_series(src)
+    if series is None:
+        return fails + ['motion check on the source could not run — the cut cannot be proven']
+    n_src = len(series) + 1
+    pct = 100.0 * len(set(removed)) / n_src
+    if pct > MAX_CUT_PCT:
+        fails.append(f'the cut removed {pct:.0f}% of the source ({len(set(removed))}/{n_src} '
+                     f'frames), above the {MAX_CUT_PCT:.0f}% cap — this needs a re-record, not a cut')
+    bad = [k for k in removed if not (1 <= k < n_src) or series[k - 1] >= MOTION_DUP]
+    if bad:
+        fails.append(f'{len(bad)} removed frame(s) are not a frozen repeat of the frame before '
+                     f'them in the source (first: {bad[:5]}) — the cut took out real picture')
+    n_cut = count_frames(path)
+    if n_cut is None or n_cut != n_src - len(set(removed)):
+        fails.append(f'cut file has {n_cut} frames, expected {n_src - len(set(removed))} '
+                     f'({n_src} source - {len(set(removed))} removed) — it is not this cut of this source')
+    src_info, _ = probe(src)
+    sv = next((s for s in (src_info or {}).get('streams', []) if s.get('codec_type') == 'video'), {})
+    src_fps = eval_fps(sv.get('r_frame_rate'))
+    if src_fps is None or abs(src_fps - fps) > 0.01:
+        fails.append(f'cut is {fps:g} fps but the source is {src_fps} fps — a cut must not re-time')
+    if n_cut and not fails:
+        want = remap_holds(sman.get('holdSpans'), removed, fps, n_cut)
+        got = man.get('holdSpans') or []
+        try:
+            same = len(want) == len(got) and all(
+                abs(float(a['from']) - float(b['from'])) <= 1.0 / fps and
+                abs(float(a['to']) - float(b['to'])) <= 1.0 / fps for a, b in zip(want, got))
+        except (KeyError, TypeError, ValueError):
+            same = False
+        if not same:
+            fails.append('cut manifest holdSpans are not the source holds remapped through the '
+                         'cut — a cut may not declare new holds')
+    return fails
 
 
 def read_manifest(path):
@@ -288,6 +446,15 @@ def check(path, min_seconds, want_w, want_h, expect_audio=False, require_manifes
                 fails.append(f'manifest says {declared:g} fps, the file is {actual:g} fps')
         except (TypeError, ValueError):
             pass
+        # A cut is accepted only with an edit record that proves, from the source on disk, that
+        # every removed frame was a frozen repeat (freeze-cut.py writes it; check_edit re-derives it).
+        if 'edit' in man:
+            fps_cut = eval_fps(vs.get('r_frame_rate'))
+            fails.extend(check_edit(path, man, fps_cut) if fps_cut else
+                         ['cut file frame rate unreadable — the edit record cannot be checked'])
+        elif CUT_NAME_RE.search(os.path.basename(path)):
+            fails.append('this is a cut (*_cut.mp4) but its manifest carries no edit record — cut '
+                         'with freeze-cut.py so the removed frames can be proven frozen')
 
     # ---- layer 1b: the picture is STEADY, not merely large enough -------------------------
     # Added after a 1920x1080 / h264 / yuv420p clip passed every check above while visibly
