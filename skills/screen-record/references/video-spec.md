@@ -305,8 +305,46 @@ Every step also accepts:
 - **`expect`** — the state that proves an expected result. Asserted, then captured as
   `<name>-ER_NN.png`. This is quality-gate layers 4 and 5.
 - **`settle`**, **`timeout`**, **`fullPage`** (for `expect` stills).
+- **`irreversible`** — `true` on the step that performs a one-way write (vote, approve, delete,
+  submit). See below.
+- **`expectTarget`** — `{ "selector": …, "text": … }` or `{ "selector": …, "id": …, "attr"?: … }`.
+  Checked **before** the step's action: the selector must match exactly one element whose text
+  (whitespace-normalised, exact) or attribute (`attr`, default `data-id`) equals the value.
+  Optional `frame`, defaulting to the step's own.
 
 Selectors accept **CSS**, **`text=…`**, or an **XPath starting with `//`**.
+
+### One-way steps (`irreversible` + `expectTarget`)
+
+`waitFor` and `expect` prove that *something* is visible, never that it is the *right* thing. A play
+that filtered a list and then clicked `tbody tr:nth-child(1) button` opened the **unfiltered** first
+row and confirmed a write on the wrong item, with every gate green. So a play that writes must say
+where it writes, and prove what it is writing to:
+
+- **Mark it.** Put `"irreversible": true` on the step that performs the write. The recorder never
+  infers this from a button label.
+- **Load time, before any browser action:** every irreversible step needs an `expectTarget` that runs
+  after the last **positional click** before it (`:nth-child()`, `:nth-of-type()`, `:nth()`,
+  `nth=`, `.first`, `.last`, `:first-child`, `:last-child`, XPath `[n]` …) — on the irreversible step
+  itself or on a step in between. Otherwise the play is rejected with a non-zero exit.
+- **Run time:** an `expectTarget` mismatch fails the run **before** the action; nothing is clicked.
+  The irreversible click uses a strict locator — a selector that matches more than one element fails
+  instead of silently taking the first.
+- **The request itself:** once a play has any irreversible step, every `POST`/`PUT`/`PATCH`/`DELETE`
+  from the recorded page is **aborted** unless an irreversible step (its action, `waitFor`, settle
+  and checkpoint) is running, and the run fails. Allowed writes are logged as `WRITE: …`. Service
+  workers are blocked in such a run so their requests cannot bypass the check.
+- A play with no irreversible step behaves exactly as before.
+
+```json
+{ "do": "fill",  "selector": "#search", "value": "Item B" },
+{ "do": "waitFor", "selector": "tbody tr:nth-child(1) >> text=Item B" },
+{ "do": "click", "selector": "tbody tr:nth-child(1) button.review", "waitFor": "#dialog-title" },
+{ "do": "select", "selector": "#reason", "value": "spam" },
+{ "do": "click", "selector": "#confirm", "irreversible": true,
+  "expectTarget": { "selector": "#dialog-title", "text": "Item B" },
+  "waitFor": "text=Sent", "label": "Confirm" }
+```
 
 ### Steps that cross a frame boundary
 
